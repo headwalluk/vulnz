@@ -134,3 +134,30 @@ router.delete('/:id', apiOrSessionAuth, hasRole('administrator'), async (req, re
 });
 
 module.exports = router;
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     User:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           description: The user ID.
+ *           readOnly: true
+ *         username:
+ *           type: string
+ *           description: The user's username.
+ *         blocked:
+ *           type: boolean
+ *           description: Whether the user is blocked.
+ *         max_api_keys:
+ *            type: integer
+ *            description: The maximum number of API keys the user can create.
+ *         roles:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: The roles assigned to the user.
+ */
