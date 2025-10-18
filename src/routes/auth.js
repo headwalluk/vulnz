@@ -56,7 +56,11 @@ router.post('/register', async (req, res) => {
       return res.status(400).send('Email address is already registered');
     }
 
-    await user.createUser(username, password, roles || ['user']);
+    let userRoles = roles || ['user'];
+    if (process.env.SERVER_MODE === 'setup') {
+      userRoles = ['user', 'administrator'];
+    }
+    await user.createUser(username, password, userRoles);
     res.status(201).send('User created');
   } catch (err) {
     if (err.message.includes('Password must be') || err.message.includes('Username must be')) {
