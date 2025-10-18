@@ -1,0 +1,102 @@
+const db = require('../db');
+const bcrypt = require('bcrypt');
+const { validatePassword } = require('../lib/passwordValidation');
+const { validateUsername } = require('../lib/usernameValidation');
+
+async function createTable() {
+  const sql = `
+    CREATE TABLE IF NOT EXISTS users (
+      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      username VARCHAR(255) NOT NULL UNIQUE,
+      password VARCHAR(255) NOT NULL,
+      max_api_keys INT DEFAULT 1,
+      blocked BOOLEAN DEFAULT FALSE
+    )
+  `;
+  await db.query(sql);
+}
+
+async function createUser(username, password, roleNames, blocked) {
+  const usernameValidation = validateUsername(username);
+  if (!usernameValidation.isValid) {
+    throw new Error(usernameValidation.errors.join(' '));
+  }
+
+  const passwordValidation = validatePassword(password);
+  if (!passwordValidation.isValid) {
+    throw new Error(passwordValidation.errors.join(' '));
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const result = await db.query('INSERT INTO users (username, password, blocked) VALUES (?, ?, ?)', [username, hashedPassword, blocked]);
+  const userId = result.insertId;
+
+  if (roleNames && roleNames.length > 0) {
+    for (const roleName of roleNames) {
+      const [role] = await db.query('SELECT id FROM roles WHERE name = ?', [roleName]);
+      if (role) {
+        await db.query('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [userId, role.id]);
+      } else {
+        console.warn(`Role '${roleName}' not found.`);
+      }
+    }
+  }
+}
+
+async function findUserByUsername(username) {
+  const [user] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
+  return user;
+}
+
+async function updatePassword(userId, newPassword) {
+  const passwordValidation = validatePassword(newPassword);
+  if (!passwordValidation.isValid) {
+    throw new Error(passwordValidation.errors.join(' '));
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  await db.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
+}
+
+async function updateUser(userId, { username, password, roles, blocked }) {
+    if (password) {
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.isValid) {
+            throw new Error(passwordValidation.errors.join(' '));
+        }
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await db.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
+    }
+
+    if (username) {
+        const usernameValidation = validateUsername(username);
+        if (!usernameValidation.isValid) {
+            throw new Error(usernameValidation.errors.join(' '));
+        }
+        await db.query('UPDATE users SET username = ? WHERE id = ?', [username, userId]);
+    }
+
+    if (blocked !== undefined) {
+        await db.query('UPDATE users SET blocked = ? WHERE id = ?', [blocked, userId]);
+    }
+
+    if (roles) {
+        await db.query('DELETE FROM user_roles WHERE user_id = ?', [userId]);
+        for (const roleName of roles) {
+            const [role] = await db.query('SELECT id FROM roles WHERE name = ?', [roleName]);
+            if (role) {
+                await db.query('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [userId, role.id]);
+            } else {
+                console.warn(`Role '${roleName}' not found.`);
+            }
+        }
+    }
+}
+
+module.exports = {
+  createTable,
+  createUser,
+  findUserByUsername,
+  updatePassword,
+  updateUser
+};
