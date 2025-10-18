@@ -7,6 +7,9 @@ function apiOrSessionAuth(req, res, next) {
       return next(err);
     }
     if (user) {
+      if (user.blocked) {
+        return res.status(401).send('User account is blocked.');
+      }
       req.logIn(user, { session: false }, (err) => {
         if (err) {
           return next(err);

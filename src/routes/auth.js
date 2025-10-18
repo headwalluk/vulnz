@@ -7,6 +7,7 @@ const { isAuthenticated } = require('../middleware/auth');
 const crypto = require('crypto');
 const passwordResetToken = require('../models/passwordResetToken');
 const emailer = require('../lib/email');
+const { authLimiter } = require('../middleware/rateLimit');
 
 /**
  * @swagger
@@ -43,7 +44,10 @@ const emailer = require('../lib/email');
  *       201:
  *         description: User created
  */
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
+  if (process.env.REGISTRATION_ENABLED === 'false') {
+    return res.status(401).send('User registration is disabled.');
+  }
   try {
     const { username, password, roles } = req.body;
 
@@ -98,7 +102,7 @@ router.post('/register', async (req, res) => {
  *       401:
  *         description: Unauthorized
  */
-router.post('/login', (req, res, next) => {
+router.post('/login', authLimiter, (req, res, next) => {
   passport.authenticate('local', (err, user, info) => {
     if (err) {
       return next(err);
@@ -169,7 +173,7 @@ router.get('/me', async (req, res) => {
   }
 });
 
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', authLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     // The user model does not have an email field, so we will use the username field for lookup.
