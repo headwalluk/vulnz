@@ -14,6 +14,17 @@ $(document).ready(function() {
     });
 
     function loadDashboard(user) {
+        currentUser = user;
+        $.ajax({
+            url: '/api/config',
+            method: 'GET',
+            success: function(config) {
+                if (user.roles.includes('administrator') && config.serverMode === 'setup') {
+                    $('#setup-alert').show();
+                }
+            }
+        });
+
         if (user.roles.includes('administrator')) {
             $('#admin-section').show();
             loadAdminData(user);
@@ -150,6 +161,7 @@ $(document).ready(function() {
     let editUserId = null;
     let editComponentId = null;
     let totalPages = 1;
+    let currentUser = null;
 
     function loadAdminData(user) {
         loadUsers(user, 1);
@@ -335,7 +347,7 @@ $(document).ready(function() {
                 url: `/api/users/${userId}`,
                 method: 'DELETE',
                 success: function() {
-                    loadUsers(user);
+                    loadUsers(currentUser);
                 }
             });
         }
