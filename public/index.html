@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VULNZ - Open Source Vulnerability Database</title>
     <link rel="icon" href="/favicon.png" type="image/png">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         body {
@@ -51,6 +51,10 @@
         a {
             text-decoration: none;
         }
+
+        html {
+            scroll-behavior: auto !important;
+        }
     </style>
 </head>
 <body>
@@ -62,7 +66,7 @@
             </a>
             <div>
                 <a href="/doc" class="btn btn-sm btn-outline-secondary">API Docs</a>
-                <a href="/login" id="login-button" class="btn btn-sm btn-outline-primary" style="display: none;">Login / Register</a>
+                <a href="/login" id="login-button" class="btn btn-sm btn-outline-primary" style="display: none;">Login</a>
                 <a href="/dashboard" id="dashboard-button" class="btn btn-sm btn-outline-primary" style="display: none;">Dashboard</a>
                 <button id="logout-button" class="btn btn-sm btn-outline-danger" style="display: none;">Logout</button>
             </div>
@@ -85,7 +89,10 @@
     </div>
 
     <div id="search-results" class="container" style="display: none;">
-        <h2>Search Results</h2>
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>Search Results <span id="results-spinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span></h2>
+            <small id="page-indicator" class="text-light" style="display: none;"></small>
+        </div>
         <ul id="results-list" class="list-group"></ul>
         <nav id="pagination" class="mt-4"></nav>
     </div>
@@ -94,153 +101,8 @@
         <a href="https://github.com/headwalluk/vulnz" class="text-white"><i class="bi bi-github"></i> GitHub / vulnz</a>
     </footer>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            $.ajax({
-                url: '/api/auth/me',
-                method: 'GET',
-                success: function(user) {
-                    if (user) {
-                        $('#dashboard-button').show();
-                        $('#logout-button').show();
-                    } else {
-                        $('#login-button').show();
-                    }
-                },
-                error: function() {
-                    $('#login-button').show();
-                }
-            });
-
-            $('#logout-button').on('click', function() {
-                $.ajax({
-                    url: '/api/auth/logout',
-                    method: 'GET',
-                    success: function() {
-                        window.location.href = '/';
-                    }
-                });
-            });
-
-            let currentPage = 1;
-            const limit = 10;
-
-            function performSearch(query, page = 1) {
-                currentPage = page;
-                $('#spinner').show();
-                $.ajax({
-                    url: `/api/components/search?query=${query}&page=${page}&limit=${limit}`,
-                    method: 'GET',
-                    success: function(data) {
-                        const { components, total } = data;
-                        $('#spinner').hide();
-                        $('#main-content').css({ 'height': 'auto', 'padding-top': '5vh', 'padding-bottom': '5vh' });
-                        const resultsList = $('#results-list');
-                        resultsList.empty();
-                        if (components.length > 0) {
-                            components.forEach(function(component, index) {
-                                let releasesHtml = '<ul class="list-group mt-2">';
-                                component.releases.forEach(function(release) {
-                                    let vulnerabilitiesHtml = '';
-                                    if (release.has_vulnerabilities) {
-                                        vulnerabilitiesHtml = '<ul class="list-group mt-2">';
-                                        release.vulnerabilities.forEach(function(vulnerability) {
-                                            let hostname = new URL(vulnerability).hostname;
-                                            if (hostname.startsWith('www.')) {
-                                                hostname = hostname.substring(4);
-                                            }
-                                            vulnerabilitiesHtml += `<li class="list-group-item list-group-item-danger"><a href="${vulnerability}" target="_blank" class="text-danger fw-bold">Reported on ${hostname} <i class="bi bi-box-arrow-up-right"></i></a></li>`;
-                                        });
-                                        vulnerabilitiesHtml += '</ul>';
-                                    } else {
-                                        vulnerabilitiesHtml = '<p class="text-success">No known vulnerabilities</p>';
-                                    }
-                                    releasesHtml += `<li class="list-group-item"><strong>Version:</strong> ${release.version} ${vulnerabilitiesHtml}</li>`;
-                                });
-                                releasesHtml += '</ul>';
-                                let titleHtml = `<h4>${component.title}</h4>`;
-                                titleHtml += `<p class="text-muted font-monospace">${component.slug}</p>`;
-                                const listItem = $(`<li class="list-group-item text-dark pb-3">${titleHtml}${releasesHtml}</li>`);
-                                if (index > 0) {
-                                    listItem.addClass('pt-3');
-                                }
-                                resultsList.append(listItem);
-                            });
-                        } else {
-                            resultsList.append('<li class="list-group-item">No components found.</li>');
-                        }
-
-                        const pagination = $('#pagination');
-                        pagination.empty();
-                        const totalPages = Math.ceil(total / limit);
-                        if (totalPages > 1) {
-                            let paginationHtml = '<ul class="pagination justify-content-center">';
-                            let startPage = Math.max(1, currentPage - 2);
-                            let endPage = Math.min(totalPages, currentPage + 2);
-
-                            if (currentPage > 3) {
-                                paginationHtml += '<li class="page-item"><a class="page-link" href="#" data-page="1">1</a></li>';
-                                if (currentPage > 4) {
-                                    paginationHtml += '<li class="page-item disabled"><span class="page-link">...</span></li>';
-                                }
-                            }
-
-                            for (let i = startPage; i <= endPage; i++) {
-                                paginationHtml += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
-                            }
-
-                            if (currentPage < totalPages - 2) {
-                                if (currentPage < totalPages - 3) {
-                                    paginationHtml += '<li class="page-item disabled"><span class="page-link">...</span></li>';
-                                }
-                                paginationHtml += `<li class="page-item"><a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a></li>`;
-                            }
-                            
-                            paginationHtml += '</ul>';
-                            pagination.html(paginationHtml);
-                        }
-
-                        $('#search-results').fadeIn();
-                    },
-                    error: function() {
-                        $('#spinner').hide();
-                    }
-                });
-            }
-
-            $('#search-button').on('click', function() {
-                const query = $('#search-input').val();
-                if (query) {
-                    performSearch(query);
-                }
-            });
-
-            const urlParams = new URLSearchParams(window.location.search);
-            const queryParam = urlParams.get('q');
-            if (queryParam) {
-                $('#search-input').val(queryParam);
-                $('#search-button').trigger('click');
-            }
-
-            $('#search-input').on('keyup', function(e) {
-                if (e.key === 'Enter' || e.keyCode === 13) {
-                    $('#search-button').trigger('click');
-                }
-            });
-
-            $('#pagination').on('click', '.page-link', function(e) {
-                e.preventDefault();
-                const page = $(this).data('page');
-                const query = $('#search-input').val();
-                if (query) {
-                    performSearch(query, page);
-                    $('html, body').animate({
-                        scrollTop: $("#search-results").offset().top
-                    }, 500);
-                }
-            });
-        });
-    </script>
+    <script src="/vendor/jquery/jquery.min.js"></script>
+    <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/index.js"></script>
 </body>
 </html>

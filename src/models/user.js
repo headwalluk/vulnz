@@ -16,7 +16,7 @@ async function createTable() {
   await db.query(sql);
 }
 
-async function createUser(username, password, roleNames, blocked) {
+async function createUser(username, password, roleNames, blocked, max_api_keys) {
   const usernameValidation = validateUsername(username);
   if (!usernameValidation.isValid) {
     throw new Error(usernameValidation.errors.join(' '));
@@ -28,7 +28,11 @@ async function createUser(username, password, roleNames, blocked) {
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  const result = await db.query('INSERT INTO users (username, password, blocked) VALUES (?, ?, ?)', [username, hashedPassword, blocked]);
+  let finalMaxApiKeys = max_api_keys !== undefined ? parseInt(max_api_keys, 10) : 1;
+  if (process.env.MAX_API_KEYS_PER_USER) {
+    finalMaxApiKeys = Math.min(finalMaxApiKeys, parseInt(process.env.MAX_API_KEYS_PER_USER, 10));
+  }
+  const result = await db.query('INSERT INTO users (username, password, blocked, max_api_keys) VALUES (?, ?, ?, ?)', [username, hashedPassword, blocked, finalMaxApiKeys]);
   const userId = result.insertId;
 
   if (roleNames && roleNames.length > 0) {
@@ -58,7 +62,7 @@ async function updatePassword(userId, newPassword) {
   await db.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
 }
 
-async function updateUser(userId, { username, password, roles, blocked }) {
+async function updateUser(userId, { username, password, roles, blocked, max_api_keys }) {
     if (password) {
         const passwordValidation = validatePassword(password);
         if (!passwordValidation.isValid) {
@@ -78,6 +82,14 @@ async function updateUser(userId, { username, password, roles, blocked }) {
 
     if (blocked !== undefined) {
         await db.query('UPDATE users SET blocked = ? WHERE id = ?', [blocked, userId]);
+    }
+
+    if (max_api_keys !== undefined) {
+        let maxApiKeys = parseInt(max_api_keys, 10);
+        if (process.env.MAX_API_KEYS_PER_USER) {
+            maxApiKeys = Math.min(maxApiKeys, parseInt(process.env.MAX_API_KEYS_PER_USER, 10));
+        }
+        await db.query('UPDATE users SET max_api_keys = ? WHERE id = ?', [maxApiKeys, userId]);
     }
 
     if (roles) {

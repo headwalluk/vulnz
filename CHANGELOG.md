@@ -1,7 +1,5 @@
+# Changelog
 
-# Change Log
+## 1.0.0 - 2025-10-18
 
-All notable changes to this project will be documented in this file.
- 
-## Pre-release
-
+- Initial release

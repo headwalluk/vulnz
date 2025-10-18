@@ -1,6 +1,4 @@
-# vulnz
-
-** Pre-release DO NOT USE yet **
+# VULNZ
 
 Self-hosted vulnerability database for WP plugins and themes. The database is primarlly accessed through an API, and there is a UI for basic admin tasks.
 
@@ -8,23 +6,31 @@ The application pulls from wordpress.org for plugin & theme meta data. We don't 
 
 This can best be thought of as a vulnerability metabase.
 
+The app is designed to help WordPress hosting providers collate and manage WP plugin vulnerabilities across their clients' sites. If you want to make VULNZ publically accessible, you can host it behind a reverse-proxy and manage your SSL in Apache/Nginx/whatever.
+
 ## Requirements
 
 * MySQL/MariaDB: Any recent version should be fine.
 * BASH: Required if you want to use the tools to backup, restore and pull from wordfence.com.
-* Node: Any recent LTS should be fine.
+* Node: Any recent LTS should be fine. Tested with Node v22.14.0
 
 ```bash
 # Clone the repo
-git clone Github **REPO URL IN HERE**
+git clone Github https://github.com/headwalluk/vulnz
 
 ```
 
 ## Getting started
 
-Copy `env.sample` to `.env`
-Set up a MySQL/MariaDB database and add the credentials to `.env`
-Add other details to `.env` like your SMTP server details, a session secret (random string), etc.
+Copy `env.sample` to `.env` and configure it for your environment. Pay special attention to the following:
+
+*   **Database Credentials:** Set up a MySQL/MariaDB database and add the credentials.
+*   **`SERVER_MODE`:** Initially, run in `setup` mode to create the first administrator account. Once that's done, switch to `production`.
+*   **`REGISTRATION_ENABLED`:** Set to `false` to prevent new user registrations.
+*   **Rate Limiting:** Configure `UNAUTH_SEARCH_LIMIT_PER_SECOND` to control unauthenticated search requests.
+*   **API Key Limits:** Set `MAX_API_KEYS_PER_USER` to define the maximum number of API keys a user can create.
+*   **SMTP Details:** Add your SMTP server details for password reset emails.
+*   **`SESSION_SECRET`:** Generate a long, random string for session security.
 
 ```bash
 # Install Node packages.
@@ -53,4 +59,3 @@ BODY='{"urls": [ "https://a-security-website/news/security-hole-found-in-woo-1-2
 echo "${BODY}" | http://localhost:3000/api/components/wordpress-plugin/woocommerce/1.2.3 \
    "X-API-Key: YOURAPIKEYINHERE"
 ```
-

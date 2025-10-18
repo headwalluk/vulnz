@@ -17,7 +17,9 @@ $(document).ready(function() {
             contentType: 'application/json',
             data: JSON.stringify({ username, password }),
             success: function() {
-                window.location.href = '/login';
+                $('#register-form').hide();
+                $('#error-message').hide();
+                $('#success-message').html('Registration successful. Please <a href="/login">login</a>.').show();
             },
             error: function(err) {
                 $('#error-message').text(err.responseText).show();

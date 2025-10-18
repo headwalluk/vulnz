@@ -5,61 +5,60 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - vulnz</title>
     <link rel="icon" href="/favicon.png" type="image/png">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <style>
         html, body {
             height: 100%;
         }
     </style>
 </head>
-<body class="d-flex align-items-center">
+<body class="d-flex align-items-center justify-content-center">
     <div class="container">
-        <div class="row justify-content-center">
+        <div id="loading-spinner" class="d-flex justify-content-center">
+            <div class="spinner-border text-light" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+        <div id="main-card" class="row justify-content-center" style="display: none;">
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header">
                         <h1>Register</h1>
                     </div>
                     <div class="card-body">
-                        <form id="register-form">
-                            <div class="mb-3">
-                                <label for="username" class="form-label">Username</label>
-                                <input type="text" class="form-control" id="username" name="username" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="password" class="form-label">Password</label>
-                                <input type="password" class="form-control" id="password" name="password" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="confirm-password" class="form-label">Confirm Password</label>
-                                <input type="password" class="form-control" id="confirm-password" name="confirm-password" required>
-                            </div>
-                            <button type="submit" class="btn btn-primary">Register</button>
-                        </form>
-                        <div id="error-message" class="alert alert-danger mt-3" style="display: none;"></div>
-                        <div class="mt-3">
-                            <a href="/login">Already have an account? Login</a>
+                        <div id="registration-container">
+                            <form id="register-form">
+                                <div class="mb-3">
+                                    <label for="username" class="form-label">Username</label>
+                                    <input type="text" class="form-control" id="username" name="username" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="password" class="form-label">Password</label>
+                                    <input type="password" class="form-control" id="password" name="password" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="confirm-password" class="form-label">Confirm Password</label>
+                                    <input type="password" class="form-control" id="confirm-password" name="confirm-password" required>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <button type="submit" class="btn btn-primary">Register</button>
+                                    <a href="/login">Already have an account? Login</a>
+                                </div>
+                            </form>
+                            <div id="success-message" class="alert alert-success mt-3" style="display: none;"></div>
+                            <div id="error-message" class="alert alert-danger mt-3" style="display: none;"></div>
+                        </div>
+                        <div id="registration-disabled-message" class="alert alert-info" style="display: none;">
+                            This site is not currently accepting new account registrations.
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/vendor/jquery/jquery.min.js"></script>
+    <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script src="js/register.js"></script>
-    <script>
-        $(document).ready(function() {
-            $.ajax({
-                url: '/api/auth/me',
-                method: 'GET',
-                success: function(user) {
-                    if (user) {
-                        window.location.href = '/dashboard';
-                    }
-                }
-            });
-        });
-    </script>
+    <script src="js/register-page.js"></script>
 </body>
 </html>

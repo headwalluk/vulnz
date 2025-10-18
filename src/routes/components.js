@@ -5,6 +5,7 @@ const { hasRole, apiOrSessionAuth } = require('../middleware/auth');
 const {
  stripAll, isUrl, sanitizeVersion, stripNonAlphaNumeric, 
 } = require('../lib/sanitizer');
+const { unauthenticatedSearchLimiter } = require('../middleware/rateLimit');
 const component = require('../models/component');
 
 /**
@@ -46,7 +47,7 @@ const component = require('../models/component');
  *               items:
  *                 $ref: '#/components/schemas/Component'
  */
-router.get('/search', async (req, res) => {
+router.get('/search', unauthenticatedSearchLimiter, async (req, res) => {
   try {
     const query = stripNonAlphaNumeric(req.query.query || '');
     const page = parseInt(req.query.page, 10) || 1;
@@ -438,7 +439,7 @@ router.get('/:id', apiOrSessionAuth, async (req, res) => {
 router.put('/:id', apiOrSessionAuth, hasRole('administrator'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description } = req.body;
+    const { title, description, url } = req.body;
 
     const fields = {};
     if (title) {
@@ -446,6 +447,9 @@ router.put('/:id', apiOrSessionAuth, hasRole('administrator'), async (req, res) 
     }
     if (description) {
       fields.description = description;
+    }
+    if (url) {
+      fields.url = url;
     }
 
     if (Object.keys(fields).length === 0) {
@@ -531,6 +535,9 @@ module.exports = router;
  *         description:
  *           type: string
  *           description: A description of the component.
+ *         url:
+ *           type: string
+ *           description: A URL related to the component.
  *       example:
  *         id: 1
  *         slug: "example-plugin"

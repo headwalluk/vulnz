@@ -26,7 +26,7 @@ router.put('/password', isAuthenticated, async (req, res) => {
 router.get('/:id', apiOrSessionAuth, hasRole('administrator'), async (req, res) => {
   try {
     const { id } = req.params;
-    const [user] = await db.query('SELECT id, username, blocked FROM users WHERE id = ?', [id]);
+    const [user] = await db.query('SELECT id, username, blocked, max_api_keys FROM users WHERE id = ?', [id]);
     if (!user) {
       return res.status(404).send('User not found');
     }
@@ -98,8 +98,8 @@ router.get('/', apiOrSessionAuth, hasRole('administrator'), async (req, res) => 
 
 router.post('/', apiOrSessionAuth, hasRole('administrator'), async (req, res) => {
   try {
-    const { username, password, roles, blocked } = req.body;
-    await user.createUser(username, password, roles, blocked);
+    const { username, password, roles, blocked, max_api_keys } = req.body;
+    await user.createUser(username, password, roles, blocked, max_api_keys);
     res.status(201).send('User created');
   } catch (err) {
     if (err.message.includes('Password must be') || err.message.includes('Username must be')) {

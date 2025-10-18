@@ -26,6 +26,9 @@ $(document).ready(function() {
                 if (user.roles.includes('administrator') && config.serverMode === 'setup') {
                     $('#setup-alert').show();
                 }
+                if (config.maxApiKeysPerUser) {
+                    $('#max-api-keys').attr('max', config.maxApiKeysPerUser);
+                }
             }
         });
 
@@ -113,11 +116,7 @@ $(document).ready(function() {
             $('#api-keys-list [title]').tooltip();
 
             if (keys.length > 0) {
-                const firstKey = keys[0].api_key;
-                const curlCommand = `curl \\
-  -H "X-API-Key: ${firstKey}" \\
-  ${baseUrl}/api/components/wordpress-plugin/${slug}`;
-                $('#curl-example').text(curlCommand);
+                updateCodeExamples();
                 $('#api-key-usage-section').fadeIn();
             } else {
                 $('#api-key-usage-section').hide();
@@ -148,8 +147,44 @@ $(document).ready(function() {
         });
     });
 
+    $('input[name="tool-switcher"]').on('change', function() {
+        updateCodeExamples();
+    });
+
+    function updateCodeExamples() {
+        const selectedTool = $('input[name="tool-switcher"]:checked').attr('id');
+        const firstKey = $('#api-keys-list .api-key-text').first().data('key');
+        if (!firstKey) return;
+
+        $.ajax({
+            url: '/api/config',
+            method: 'GET',
+            success: function(config) {
+                const baseUrl = config.baseUrl;
+                const slug = config.exampleWpComponentSlug;
+
+                if (selectedTool === 'curl-btn') {
+                    const curlCommand = `curl \\\n  -H "X-API-Key: ${firstKey}" \\\n  ${baseUrl}/api/components/wordpress-plugin/${slug} | jq .`;
+                    $('#curl-example').text(curlCommand);
+
+                    const curlSearchCommand = `curl \\\n  -H "X-API-Key: ${firstKey}" \\\n  '${baseUrl}/api/components/search?query=slider%20revolution' | jq .`;
+                    $('#curl-search-example').text(curlSearchCommand);
+                } else if (selectedTool === 'httpie-btn') {
+                    const httpieCommand = `http ${baseUrl}/api/components/wordpress-plugin/${slug} \\
+  X-API-Key:${firstKey} | jq .`;
+                    $('#curl-example').text(httpieCommand);
+
+                    const httpieSearchCommand = `http ${baseUrl}/api/components/search \\
+  query=='slider revolution' \\
+  X-API-Key:${firstKey} | jq .`;
+                    $('#curl-search-example').text(httpieSearchCommand);
+                }
+            }
+        });
+    }
+
     $('.code-container').on('click', '.copy-code-btn', function() {
-        const textToCopy = $('#curl-example').text();
+        const textToCopy = $(this).siblings('pre').find('code').text();
         navigator.clipboard.writeText(textToCopy).then(() => {
             const icon = $(this);
             const originalTitle = icon.attr('data-bs-original-title');
@@ -182,30 +217,11 @@ $(document).ready(function() {
             }, 500);
         });
 
-        $('#first-page').on('click', function() {
-            if (currentPage !== 1) {
-                currentPage = 1;
-                loadComponents(currentPage);
-            }
-        });
-
-        $('#prev-page').on('click', function() {
-            if (currentPage > 1) {
-                currentPage--;
-                loadComponents(currentPage);
-            }
-        });
-
-        $('#next-page').on('click', function() {
-            if (currentPage < totalPages) {
-                currentPage++;
-                loadComponents(currentPage);
-            }
-        });
-
-        $('#last-page').on('click', function() {
-            if (currentPage !== totalPages) {
-                currentPage = totalPages;
+        $('#component-pagination').on('click', '.page-link', function(e) {
+            e.preventDefault();
+            const page = $(this).data('page');
+            if (page !== currentPage) {
+                currentPage = page;
                 loadComponents(currentPage);
             }
         });
@@ -219,6 +235,7 @@ $(document).ready(function() {
                 roles.push($(this).val());
             });
             const blocked = $('#new-user-blocked').is(':checked');
+            const max_api_keys = $('#max-api-keys').val();
 
             const url = editUserId ? `/api/users/${editUserId}` : '/api/users';
             const method = editUserId ? 'PUT' : 'POST';
@@ -227,7 +244,7 @@ $(document).ready(function() {
                 url,
                 method,
                 contentType: 'application/json',
-                data: JSON.stringify({ username, password, roles, blocked }),
+                data: JSON.stringify({ username, password, roles, blocked, max_api_keys }),
                 success: function() {
                     resetUserForm();
                     loadUsers(user);
@@ -310,6 +327,7 @@ $(document).ready(function() {
             method: 'GET',
             success: function(user) {
                 $('#new-username').val(user.username);
+                $('#max-api-keys').val(user.max_api_keys);
                 $('#create-user-form h4').text('Edit User');
                 $('#create-user-form button[type="submit"]').text('Save Changes');
                 $('#cancel-edit-user').show();
@@ -404,10 +422,23 @@ $(document).ready(function() {
                 const componentsList = $('#components-list');
                 componentsList.empty();
 
-                if (totalPages <= 1) {
-                    $('#first-page, #prev-page, #page-indicator, #next-page, #last-page').hide();
-                } else {
-                    $('#first-page, #prev-page, #page-indicator, #next-page, #last-page').show();
+                const pagination = $('#component-pagination');
+                pagination.empty();
+
+                if (totalPages > 1) {
+                    const firstDisabled = currentPage === 1 ? 'disabled' : '';
+                    pagination.append(`<li class="page-item ${firstDisabled}"><a class="page-link" href="#" data-page="1"><i class="bi bi-chevron-bar-left"></i></a></li>`);
+
+                    const prevDisabled = currentPage === 1 ? 'disabled' : '';
+                    pagination.append(`<li class="page-item ${prevDisabled}"><a class="page-link" href="#" data-page="${currentPage - 1}"><i class="bi bi-chevron-left"></i></a></li>`);
+
+                    pagination.append(`<li class="page-item disabled"><span class="page-link">Page ${currentPage} of ${totalPages}</span></li>`);
+
+                    const nextDisabled = currentPage === totalPages ? 'disabled' : '';
+                    pagination.append(`<li class="page-item ${nextDisabled}"><a class="page-link" href="#" data-page="${currentPage + 1}"><i class="bi bi-chevron-right"></i></a></li>`);
+
+                    const lastDisabled = currentPage === totalPages ? 'disabled' : '';
+                    pagination.append(`<li class="page-item ${lastDisabled}"><a class="page-link" href="#" data-page="${totalPages}"><i class="bi bi-chevron-bar-right"></i></a></li>`);
                 }
 
                 if (components.length === 0) {
@@ -434,12 +465,6 @@ $(document).ready(function() {
                         </li>
                     `);
                 });
-
-                $('#page-indicator').text(`Page ${currentPage} of ${totalPages}`);
-                $('#first-page').prop('disabled', currentPage === 1);
-                $('#prev-page').prop('disabled', currentPage === 1);
-                $('#next-page').prop('disabled', currentPage === totalPages);
-                $('#last-page').prop('disabled', currentPage === totalPages);
             }
         });
     }

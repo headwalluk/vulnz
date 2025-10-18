@@ -56,7 +56,7 @@ async function search(query, page = 1, limit = 10) {
 
   const dataSql = `
     SELECT
-      c.id AS component_id, c.slug, c.component_type_slug, c.title, c.description,
+      c.id AS component_id, c.slug, c.component_type_slug, c.title, c.url,
       r.id AS release_id, r.version,
       v.url AS vulnerability_url
     FROM components c
@@ -74,7 +74,7 @@ async function search(query, page = 1, limit = 10) {
         slug: row.slug,
         component_type_slug: row.component_type_slug,
         title: row.title,
-        description: row.description,
+        url: row.url,
         releases: new Map(),
       });
     }

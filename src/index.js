@@ -12,6 +12,7 @@ BigInt.prototype.toJSON = function() {
 
 const express = require('express');
 const path = require('path');
+const helmet = require('helmet');
 const app = express();
 const port = process.env.HTTP_LISTEN_PORT || 3000;
 const apiKey = require('./models/apiKey');
@@ -64,7 +65,9 @@ const swaggerOptions = {
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
+app.set('trust proxy', 1);
 app.use('/doc', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use(helmet());
 app.use(express.static(path.join(__dirname, '../public')));
 app.use(express.json());
 
@@ -104,7 +107,7 @@ app.get('/register', (req, res) => {
 });
 
 app.get('/reset-password', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/forgot-password.html'));
+  res.sendFile(path.join(__dirname, '../public/reset-password.html'));
 });
 
 app.get('/dashboard', (req, res) => {
