@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VULNZ - Open Source Vulnerability Database</title>
+    <link rel="icon" href="/favicon.png" type="image/png">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(-45deg, #1a237e, #311b92, #4a148c, #880e4f);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+            color: white;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        @keyframes gradient {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .container {
+            max-width: 800px;
+        }
+
+        h1 {
+            font-size: 5rem;
+            font-weight: 700;
+            letter-spacing: 0.1rem;
+            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        p {
+            font-weight: 500;
+            margin-bottom: 2rem;
+        }
+
+        @media( min-width: 768px ) {
+            p {
+                font-size: 1.75rem;
+            }
+        }
+
+        .btn {
+            font-size: 1.2rem;
+            padding: 0.8rem 2rem;
+            border-radius: 50px;
+            margin: 0 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-light {
+            background-color: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+
+        .btn-outline-light {
+            border-color: rgba(255, 255, 255, 0.8);
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 1rem;
+            text-align: center;
+        }
+
+        footer a {
+            color: white;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>VULNZ</h1>
+        <p>An open source vulnerability database for WordPress users</p>
+        <div>
+            <a href="/login" id="login-button" class="btn btn-light" style="opacity: 0;">Login</a>
+            <a href="/register" id="register-button" class="btn btn-outline-light" style="opacity: 0;">Register</a>
+            <a href="/dashboard" id="dashboard-button" class="btn btn-light" style="opacity: 0;">Dashboard</a>
+        </div>
+    </div>
+    <footer>
+        <a href="/doc">API Docs</a>
+    </footer>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $.ajax({
+                url: '/api/auth/me',
+                method: 'GET',
+                success: function() {
+                    $('#login-button').remove();
+                    $('#register-button').remove();
+                    $('#dashboard-button').animate({opacity: 1}, 500);
+                },
+                error: function() {
+                    $('#dashboard-button').remove();
+                    $('#login-button').animate({opacity: 1}, 500);
+                    $('#register-button').animate({opacity: 1}, 500);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
