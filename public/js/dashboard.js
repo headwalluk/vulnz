@@ -4,6 +4,10 @@ $(document).ready(function() {
         url: '/api/auth/me',
         method: 'GET',
         success: function(user) {
+            if (!user) {
+                window.location.href = '/login';
+                return;
+            }
             // User is authenticated, proceed with loading dashboard
             loadDashboard(user);
         },

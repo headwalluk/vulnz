@@ -6,17 +6,14 @@
     <title>VULNZ - Open Source Vulnerability Database</title>
     <link rel="icon" href="/favicon.png" type="image/png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         body {
             background: linear-gradient(-45deg, #1a237e, #311b92, #4a148c, #880e4f);
             background-size: 400% 400%;
             animation: gradient 15s ease infinite;
             color: white;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
+            padding-top: 70px;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
 
@@ -32,10 +29,7 @@
             }
         }
 
-        .container {
-            max-width: 800px;
-        }
-
+     
         h1 {
             font-size: 5rem;
             font-weight: 700;
@@ -43,83 +37,207 @@
             text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
         }
 
-        p {
+        p.strapline {
             font-weight: 500;
             margin-bottom: 2rem;
         }
 
         @media( min-width: 768px ) {
-            p {
-                font-size: 1.75rem;
+        p.strapline {
+            font-size: 1.75rem;
             }
         }
 
-        .btn {
-            font-size: 1.2rem;
-            padding: 0.8rem 2rem;
-            border-radius: 50px;
-            margin: 0 0.5rem;
-            transition: all 0.3s ease;
-        }
-
-        .btn-light {
-            background-color: rgba(255, 255, 255, 0.9);
-            color: #333;
-        }
-
-        .btn-outline-light {
-            border-color: rgba(255, 255, 255, 0.8);
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        footer {
-            position: fixed;
-            bottom: 0;
-            width: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            padding: 1rem;
-            text-align: center;
-        }
-
-        footer a {
-            color: white;
+        a {
             text-decoration: none;
         }
     </style>
 </head>
 <body>
-    <div class="container">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom fixed-top">
+        <div class="container">
+            <a class="navbar-brand text-uppercase font-weight-bold" href="/">
+                <img src="/favicon.png" alt="Favicon" style="height: 24px; margin-right: 8px;">
+                vulnz
+            </a>
+            <div>
+                <a href="/doc" class="btn btn-sm btn-outline-secondary">API Docs</a>
+                <a href="/login" id="login-button" class="btn btn-sm btn-outline-primary" style="display: none;">Login / Register</a>
+                <a href="/dashboard" id="dashboard-button" class="btn btn-sm btn-outline-primary" style="display: none;">Dashboard</a>
+                <button id="logout-button" class="btn btn-sm btn-outline-danger" style="display: none;">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div id="main-content" class="container d-flex flex-column justify-content-center align-items-center text-center" style="height: 80vh; transition: all 0.5s ease;">
         <h1>VULNZ</h1>
-        <p>An open source vulnerability database for WordPress users</p>
-        <div>
-            <a href="/login" id="login-button" class="btn btn-light" style="opacity: 0;">Login</a>
-            <a href="/register" id="register-button" class="btn btn-outline-light" style="opacity: 0;">Register</a>
-            <a href="/dashboard" id="dashboard-button" class="btn btn-light" style="opacity: 0;">Dashboard</a>
+        <p class="strapline">An open source vulnerability database for WordPress users</p>
+        <div class="col-md-6">
+            <div class="input-group mb-3">
+                <input type="text" id="search-input" class="form-control" placeholder="Search for a WordPress plugin..." aria-label="Search for a WordPress plugin" aria-describedby="search-button">
+                <button class="btn btn-light" type="button" id="search-button">
+                    Search
+                    <span id="spinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
+                </button>
+            </div>
+            <small class="form-text text-light">Search plugins by slug or by name.</small>
         </div>
     </div>
-    <footer>
-        <a href="/doc">API Docs</a>
+
+    <div id="search-results" class="container" style="display: none;">
+        <h2>Search Results</h2>
+        <ul id="results-list" class="list-group"></ul>
+        <nav id="pagination" class="mt-4"></nav>
+    </div>
+
+    <footer class="text-center text-white mt-5 mb-5">
+        <a href="https://github.com/headwalluk/vulnz" class="text-white"><i class="bi bi-github"></i> GitHub / vulnz</a>
     </footer>
+
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         $(document).ready(function() {
             $.ajax({
                 url: '/api/auth/me',
                 method: 'GET',
-                success: function() {
-                    $('#login-button').remove();
-                    $('#register-button').remove();
-                    $('#dashboard-button').animate({opacity: 1}, 500);
+                success: function(user) {
+                    if (user) {
+                        $('#dashboard-button').show();
+                        $('#logout-button').show();
+                    } else {
+                        $('#login-button').show();
+                    }
                 },
                 error: function() {
-                    $('#dashboard-button').remove();
-                    $('#login-button').animate({opacity: 1}, 500);
-                    $('#register-button').animate({opacity: 1}, 500);
+                    $('#login-button').show();
+                }
+            });
+
+            $('#logout-button').on('click', function() {
+                $.ajax({
+                    url: '/api/auth/logout',
+                    method: 'GET',
+                    success: function() {
+                        window.location.href = '/';
+                    }
+                });
+            });
+
+            let currentPage = 1;
+            const limit = 10;
+
+            function performSearch(query, page = 1) {
+                currentPage = page;
+                $('#spinner').show();
+                $.ajax({
+                    url: `/api/components/search?query=${query}&page=${page}&limit=${limit}`,
+                    method: 'GET',
+                    success: function(data) {
+                        const { components, total } = data;
+                        $('#spinner').hide();
+                        $('#main-content').css({ 'height': 'auto', 'padding-top': '5vh', 'padding-bottom': '5vh' });
+                        const resultsList = $('#results-list');
+                        resultsList.empty();
+                        if (components.length > 0) {
+                            components.forEach(function(component, index) {
+                                let releasesHtml = '<ul class="list-group mt-2">';
+                                component.releases.forEach(function(release) {
+                                    let vulnerabilitiesHtml = '';
+                                    if (release.has_vulnerabilities) {
+                                        vulnerabilitiesHtml = '<ul class="list-group mt-2">';
+                                        release.vulnerabilities.forEach(function(vulnerability) {
+                                            let hostname = new URL(vulnerability).hostname;
+                                            if (hostname.startsWith('www.')) {
+                                                hostname = hostname.substring(4);
+                                            }
+                                            vulnerabilitiesHtml += `<li class="list-group-item list-group-item-danger"><a href="${vulnerability}" target="_blank" class="text-danger fw-bold">Reported on ${hostname} <i class="bi bi-box-arrow-up-right"></i></a></li>`;
+                                        });
+                                        vulnerabilitiesHtml += '</ul>';
+                                    } else {
+                                        vulnerabilitiesHtml = '<p class="text-success">No known vulnerabilities</p>';
+                                    }
+                                    releasesHtml += `<li class="list-group-item"><strong>Version:</strong> ${release.version} ${vulnerabilitiesHtml}</li>`;
+                                });
+                                releasesHtml += '</ul>';
+                                let titleHtml = `<h4>${component.title}</h4>`;
+                                titleHtml += `<p class="text-muted font-monospace">${component.slug}</p>`;
+                                const listItem = $(`<li class="list-group-item text-dark pb-3">${titleHtml}${releasesHtml}</li>`);
+                                if (index > 0) {
+                                    listItem.addClass('pt-3');
+                                }
+                                resultsList.append(listItem);
+                            });
+                        } else {
+                            resultsList.append('<li class="list-group-item">No components found.</li>');
+                        }
+
+                        const pagination = $('#pagination');
+                        pagination.empty();
+                        const totalPages = Math.ceil(total / limit);
+                        if (totalPages > 1) {
+                            let paginationHtml = '<ul class="pagination justify-content-center">';
+                            let startPage = Math.max(1, currentPage - 2);
+                            let endPage = Math.min(totalPages, currentPage + 2);
+
+                            if (currentPage > 3) {
+                                paginationHtml += '<li class="page-item"><a class="page-link" href="#" data-page="1">1</a></li>';
+                                if (currentPage > 4) {
+                                    paginationHtml += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                                }
+                            }
+
+                            for (let i = startPage; i <= endPage; i++) {
+                                paginationHtml += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+                            }
+
+                            if (currentPage < totalPages - 2) {
+                                if (currentPage < totalPages - 3) {
+                                    paginationHtml += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                                }
+                                paginationHtml += `<li class="page-item"><a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a></li>`;
+                            }
+                            
+                            paginationHtml += '</ul>';
+                            pagination.html(paginationHtml);
+                        }
+
+                        $('#search-results').fadeIn();
+                    },
+                    error: function() {
+                        $('#spinner').hide();
+                    }
+                });
+            }
+
+            $('#search-button').on('click', function() {
+                const query = $('#search-input').val();
+                if (query) {
+                    performSearch(query);
+                }
+            });
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const queryParam = urlParams.get('q');
+            if (queryParam) {
+                $('#search-input').val(queryParam);
+                $('#search-button').trigger('click');
+            }
+
+            $('#search-input').on('keyup', function(e) {
+                if (e.key === 'Enter' || e.keyCode === 13) {
+                    $('#search-button').trigger('click');
+                }
+            });
+
+            $('#pagination').on('click', '.page-link', function(e) {
+                e.preventDefault();
+                const page = $(this).data('page');
+                const query = $('#search-input').val();
+                if (query) {
+                    performSearch(query, page);
+                    $('html, body').animate({
+                        scrollTop: $("#search-results").offset().top
+                    }, 500);
                 }
             });
         });

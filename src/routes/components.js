@@ -3,8 +3,9 @@ const router = express.Router();
 const db = require('../db');
 const { hasRole, apiOrSessionAuth } = require('../middleware/auth');
 const {
- stripAll, isUrl, sanitizeVersion, 
+ stripAll, isUrl, sanitizeVersion, stripNonAlphaNumeric, 
 } = require('../lib/sanitizer');
+const component = require('../models/component');
 
 /**
  * @swagger
@@ -12,6 +13,56 @@ const {
  *   name: Components
  *   description: API for managing components
  */
+
+/**
+ * @swagger
+ * /api/components/search:
+ *   get:
+ *     summary: Search for components
+ *     tags: [Components]
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         schema:
+ *           type: string
+ *         description: The search query.
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: The page number to retrieve.
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: The number of components to retrieve per page.
+ *     responses:
+ *       200:
+ *         description: A list of components that match the search query.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Component'
+ */
+router.get('/search', async (req, res) => {
+  try {
+    const query = stripNonAlphaNumeric(req.query.query || '');
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+
+    if (!query) {
+      return res.status(400).send('Search query is required.');
+    }
+
+    const components = await component.search(query, page, limit);
+    res.json(components);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
 
 /**
  * @swagger
@@ -388,11 +439,33 @@ router.put('/:id', apiOrSessionAuth, hasRole('administrator'), async (req, res) 
   try {
     const { id } = req.params;
     const { title, description } = req.body;
+
+    const fields = {};
+    if (title) {
+      fields.title = title;
+    }
+    if (description) {
+      fields.description = description;
+    }
+
+    if (Object.keys(fields).length === 0) {
+      return res.status(400).send('No fields to update.');
+    }
+
+    const queryParts = [];
+    const queryParams = [];
+    for (const [key, value] of Object.entries(fields)) {
+      queryParts.push(`${key} = ?`);
+      queryParams.push(value);
+    }
+    queryParams.push(id);
+
     await db.query(
-      'UPDATE components SET title = ?, description = ? WHERE id = ?',
-      [title, description, id]
+      `UPDATE components SET ${queryParts.join(', ')} WHERE id = ?`,
+      queryParams
     );
-    res.json({ id: parseInt(id, 10), title, description });
+
+    res.json({ id: parseInt(id, 10), ...fields });
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');

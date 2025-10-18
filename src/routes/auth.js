@@ -147,7 +147,11 @@ router.get('/logout', (req, res) => {
  *       401:
  *         description: Unauthorized
  */
-router.get('/me', isAuthenticated, async (req, res) => {
+router.get('/me', async (req, res) => {
+  if (!req.user) {
+    return res.json(null);
+  }
+
   try {
     const rows = await db.query(
       'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
