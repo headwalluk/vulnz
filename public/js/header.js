@@ -8,7 +8,7 @@ $(document).ready(function() {
             headerButtons.empty();
             flyInMenuItems.empty();
 
-            if (data.sitemap) {
+            if (data.sitemap && data.sitemap.length > 0) {
                 data.sitemap.forEach(function(item) {
                     const button = $(`<a href="${item.url}" class="btn btn-sm ${item.type}">${item.text}</a>`);
                     if (item.url === '/logout') {
@@ -26,6 +26,7 @@ $(document).ready(function() {
                     headerButtons.append(button.clone(true));
                     flyInMenuItems.append(button);
                 });
+                headerButtons.addClass('d-lg-flex');
             }
         },
         error: function() {
@@ -34,6 +35,7 @@ $(document).ready(function() {
             headerButtons.empty();
             flyInMenuItems.empty();
             headerButtons.append('<a href="/login" class="btn btn-sm btn-primary">Login</a>');
+            headerButtons.addClass('d-lg-flex');
             flyInMenuItems.append('<a href="/login" class="btn btn-sm btn-primary">Login</a>');
         }
     });
