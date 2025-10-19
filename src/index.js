@@ -1,5 +1,9 @@
 require('dotenv').config();
 
+if (typeof process.env.INSTANCE_ID === 'undefined') {
+  process.env.INSTANCE_ID = '0';
+}
+
 process.on('uncaughtException', (err) => {
   console.error('There was an uncaught error', err);
   process.exit(1); //mandatory (as per the Node.js docs)
@@ -134,10 +138,12 @@ app.use('/api/config', configRoutes);
 async function startServer() {
   try {
     if (process.env.CRON_ENABLE === 'true') {
-      if (process.env.NODE_ENV === 'production' && process.env.INSTANCE_ID && process.env.INSTANCE_ID !== '0') {
+      if (process.env.NODE_ENV === 'production' && process.env.INSTANCE_ID !== '0') {
         console.log(`Not scheduling cron jobs on this instance (${process.env.INSTANCE_ID})`);
         return;
       }
+
+      console.log(`Scheduling cron jobs for instance ${process.env.INSTANCE_ID}`);
 
       cron.schedule('0 0 * * *', () => {
         console.log('Running cron job to purge expired sessions...');
