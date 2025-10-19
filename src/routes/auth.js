@@ -170,13 +170,13 @@ router.get('/me', logApiCall, async (req, res) => {
     );
     const roles = rows.map(row => row.name);
 
-    sitemap.push({ url: '/dashboard', text: 'Dashboard', type: 'btn-primary' });
     if (roles.includes('administrator')) {
       sitemap.push({ url: '/admin', text: 'Admin', type: 'btn-danger' });
       sitemap.push({ url: '/admin/users', text: 'Users', type: 'btn-danger' });
       sitemap.push({ url: '/admin/components', text: 'Components', type: 'btn-danger' });
       sitemap.push({ url: '/admin/api-logs', text: 'API Logs', type: 'btn-danger' });
     }
+    sitemap.push({ url: '/dashboard', text: 'Dashboard', type: 'btn-primary' });
     sitemap.push({ url: '/logout', text: 'Logout', type: 'btn-secondary' });
 
     res.json({

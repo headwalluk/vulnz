@@ -48,9 +48,9 @@
             <strong>ALERT:</strong> When you've configured the amdinistrator account, change <code>SERVER_MODE</code> in your <code>.env</code> file to "production" and restart the application.
         </div>
         <h1>Dashboard</h1>
-        <div class="card mb-4">
+        <div class="card mt-4 mb-4">
             <div class="card-header">
-                <h3>Your API Keys</h3>
+                <h2>Your API Keys</h2>
             </div>
             <div class="card-body">
                 <ul id="api-keys-list" class="list-group mb-3"></ul>
@@ -58,7 +58,8 @@
                     <button type="submit" class="btn btn-primary">Create New API Key</button>
                 </form>
                 <div id="api-key-usage-section" style="display: none;" class="mt-4">
-                    <h4>Using your API key</h4>
+                <hr />
+                    <h3>Using your API key</h3>
                     <div class="d-flex justify-content-between align-items-end mb-3">
                         <p class="mb-0">Here's an example of how to use your API key to fetch components:</p>
                         <div class="btn-group btn-group-sm" role="group" aria-label="Tool switcher">
@@ -82,36 +83,18 @@
         </div>
         <div class="card mb-4">
             <div class="card-header">
-                <h3>Your Websites</h3>
+                <h2>Your Websites</h2>
             </div>
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <button id="new-website-btn" class="btn btn-primary"><i class="bi bi-plus-circle me-2"></i>Add</button>
-                    <nav id="website-pagination-nav">
-                        <ul class="pagination mb-0" id="website-pagination"></ul>
-                    </nav>
-                </div>
                 <ul id="websites-list" class="list-group mb-3"></ul>
-                <div id="website-form-container" style="display: none;">
-                    <form id="create-website-form" class="mt-4">
-                        <h4>Create Website</h4>
-                        <div class="mb-3">
-                            <label for="new-website-url" class="form-label">URL</label>
-                            <input type="text" class="form-control" id="new-website-url" name="new-website-url" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="new-website-title" class="form-label">Title</label>
-                            <input type="text" class="form-control" id="new-website-title" name="new-website-title" required>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Create Website</button>
-                        <button type="button" id="cancel-edit-website" class="btn btn-secondary" style="display: none;">Cancel</button>
-                    </form>
-                </div>
+                <nav id="website-pagination-nav">
+                    <ul class="pagination mb-0" id="website-pagination"></ul>
+                </nav>
             </div>
         </div>
         <div class="card mb-4">
             <div class="card-header">
-                <h3>Change Password</h3>
+                <h2>Change Password</h2>
             </div>
             <div class="card-body">
                 <form id="change-password-form">
@@ -138,7 +121,6 @@
     <script src="/vendor/jquery/jquery.min.js"></script>
     <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script src="/js/app.js"></script>
-    <script src="/js/header.js"></script>
     <script src="js/dashboard.js"></script>
     <!-- endbuild -->
 </body>

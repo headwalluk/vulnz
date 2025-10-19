@@ -173,10 +173,10 @@ $(document).ready(function() {
                     const curlSearchCommand = `curl \\\n  -H "X-API-Key: ${firstKey}" \\\n  '${baseUrl}/api/components/search?query=slider%20revolution' | jq .`;
                     $('#curl-search-example').text(curlSearchCommand);
                 } else if (selectedTool === 'httpie-btn') {
-                    const httpieCommand = `http ${baseUrl}/api/components/wordpress-plugin/${slug} X-API-Key:${firstKey} | jq .`;
+                    const httpieCommand = `http \\\n  ${baseUrl}/api/components/wordpress-plugin/${slug} \\\n  X-API-Key:${firstKey} | jq .`;
                     $('#curl-example').text(httpieCommand);
 
-                    const httpieSearchCommand = `http ${baseUrl}/api/components/search query=='slider revolution' X-API-Key:${firstKey} | jq .`;
+                    const httpieSearchCommand = `http \\\n  ${baseUrl}/api/components/search \\\n  query=='slider revolution' \\\n  X-API-Key:${firstKey} | jq .`;
                     $('#curl-search-example').text(httpieSearchCommand);
                 }
             }
@@ -197,9 +197,6 @@ $(document).ready(function() {
 
     let currentPage = 1;
     const limit = 10;
-    let editUserId = null;
-    let editComponentId = null;
-    let totalPages = 1;
 
     function loadWebsites(page = 1) {
         $.ajax({
@@ -214,33 +211,15 @@ $(document).ready(function() {
                             <div class="d-flex justify-content-between align-items-center">
                                 <span>${website.title} (${website.url})</span>
                                 <div>
-                                    <button class="btn btn-sm btn-primary add-component-btn">Add Component</button>
-                                    <button class="btn btn-sm btn-warning edit-website-btn">Edit</button>
                                     <button class="btn btn-sm btn-danger delete-website-btn">Delete</button>
                                 </div>
                             </div>
-                            <ul class="list-group mt-2" id="website-${website.id}-components"></ul>
                         </li>
                     `);
                     websitesList.append(websiteItem);
-                    loadWebsiteComponents(website.id, website.wordpressPlugins, website.wordpressThemes);
                 });
                 renderWebsitePagination(data.total, data.page, data.limit);
             }
-        });
-    }
-
-    function loadWebsiteComponents(websiteId, plugins, themes) {
-        const componentsList = $(`#website-${websiteId}-components`);
-        componentsList.empty();
-        const components = [...(plugins || []), ...(themes || [])];
-        components.forEach(function(component) {
-            componentsList.append(`
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <span>${component.name} (${component.type}) - ${component.version}</span>
-                    <button class="btn btn-sm btn-danger remove-component-btn" data-release-id="${component.id}">Remove</button>
-                </li>
-            `);
         });
     }
 
@@ -263,98 +242,12 @@ $(document).ready(function() {
         }
     }
 
-    $('#new-website-btn').on('click', function() {
-        $('#create-website-form')[0].reset();
-        $('#website-form-container').show();
-        $('#cancel-edit-website').hide();
-    });
-
-    $('#cancel-edit-website').on('click', function() {
-        $('#website-form-container').hide();
-    });
-
-    $('#create-website-form').on('submit', function(e) {
-        e.preventDefault();
-        const url = $('#new-website-url').val();
-        const title = $('#new-website-title').val();
-        const method = editComponentId ? 'PUT' : 'POST';
-        const apiUrl = editComponentId ? `/api/websites/${editComponentId}` : '/api/websites';
-
-        $.ajax({
-            url: apiUrl,
-            method: method,
-            contentType: 'application/json',
-            data: JSON.stringify({ url, title }),
-            success: function() {
-                loadWebsites();
-                $('#website-form-container').hide();
-            },
-            error: function(err) {
-                if (err.status === 409) {
-                    alert(err.responseText);
-                }
-            }
-        });
-    });
-
-    $('#websites-list').on('click', '.edit-website-btn', function() {
-        const listItem = $(this).closest('li');
-        editComponentId = listItem.data('id');
-
-        const websiteText = listItem.find('span').text();
-        const [title, url] = websiteText.match(/(.*) \((.*)\)/).slice(1);
-
-        $('#new-website-url').val(url);
-        $('#new-website-title').val(title);
-
-        $('#create-website-form h4').text('Edit Website');
-        $('#create-website-form button[type="submit"]').text('Update Website');
-        $('#website-form-container').show();
-        $('#cancel-edit-website').show();
-    });
-
     $('#websites-list').on('click', '.delete-website-btn', function() {
         const websiteId = $(this).closest('li').data('id');
         if (confirm('Are you sure you want to delete this website?')) {
             $.ajax({
                 url: `/api/websites/${websiteId}`,
                 method: 'DELETE',
-                success: function() {
-                    loadWebsites();
-                }
-            });
-        }
-    });
-
-    $('#websites-list').on('click', '.add-component-btn', function() {
-        const websiteId = $(this).closest('li').data('id');
-        const releaseId = prompt('Enter the release ID of the component to add:');
-        if (releaseId) {
-            $.ajax({
-                url: `/api/websites/${websiteId}`,
-                method: 'PUT',
-                contentType: 'application/json',
-                data: JSON.stringify({
-                    wordpressPlugins: [releaseId]
-                }),
-                success: function() {
-                    loadWebsites();
-                }
-            });
-        }
-    });
-
-    $('#websites-list').on('click', '.remove-component-btn', function() {
-        const websiteId = $(this).closest('li.list-group-item[data-id]').data('id');
-        const releaseId = $(this).data('release-id');
-        if (confirm('Are you sure you want to remove this component?')) {
-            $.ajax({
-                url: `/api/websites/${websiteId}`,
-                method: 'PUT',
-                contentType: 'application/json',
-                data: JSON.stringify({
-                    wordpressPlugins: []
-                }),
                 success: function() {
                     loadWebsites();
                 }
