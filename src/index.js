@@ -109,7 +109,10 @@ app.get('/api/ping', (req, res) => {
   res.send('pong');
 });
 
-const root = process.env.NODE_ENV === 'production' ? '../dist' : '../public';
+// IMPORTANT: Leave this set to "../public2 (not "../dist") until we fix the
+// static asset paths in the production build.
+// const root = process.env.NODE_ENV === 'production' ? '../dist' : '../public';
+const root = process.env.NODE_ENV === 'production' ? '../public' : '../public';
 
 app.get('/login', redirectIfAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, root, 'login.html'));
@@ -153,7 +156,9 @@ app.use('/api/logs', logRoutes);
 app.use('/api/config', configRoutes);
 
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../dist')));
+  // IMPORTANT: Leave this set to /public (not /dist) until we fix the
+  // static asset paths in the production build.
+  app.use(express.static(path.join(__dirname, '../public'))); 
 } else {
   app.use(express.static(path.join(__dirname, '../public')));
 }
