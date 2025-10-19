@@ -19,7 +19,7 @@ $(document).ready(function() {
                                     <td>${new Date(log.timestamp).toLocaleString()}</td>
                                     <td>${log.username}</td>
                                     <td>${log.method}</td>
-                                    <td>${log.route}</td>
+                                    <td class="truncate-text" title="${log.route}">${log.route}</td>
                                     <td>${log.ip_address}</td>
                                     <td>${log.status_code}</td>
                                 </tr>

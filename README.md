@@ -1,5 +1,7 @@
 # VULNZ
 
+** PRE-RELEASE :: In Development **
+
 Self-hosted vulnerability database for WP plugins and themes. The database is primarlly accessed through an API, and there is a UI for basic admin tasks.
 
 The application pulls from wordpress.org for plugin & theme meta data. We don't store details about each vulnerability - only link(s) to the original disclosure URL(s).

@@ -23,12 +23,25 @@ const { isAuthenticated, hasRole } = require('../middleware/auth');
  */
 router.get('/', hasRole('administrator'), async (req, res) => {
     try {
-        const [users] = await db.query('SELECT id, username, blocked, max_api_keys FROM users');
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+        const offset = (page - 1) * limit;
+
+        const users = await db.query('SELECT id, username, blocked, max_api_keys FROM users LIMIT ? OFFSET ?', [limit, offset]);
         for (let u of users) {
-            const [roles] = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [u.id]);
+            const roles = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [u.id]);
             u.roles = roles.map(r => r.name);
         }
-        res.json(users);
+
+        const totalUsers = await db.query('SELECT COUNT(*) as count FROM users');
+        const total = totalUsers[0].count;
+
+        res.json({
+            users,
+            total,
+            page,
+            limit
+        });
     } catch (err) {
         console.error(err);
         res.status(500).send('Server error');

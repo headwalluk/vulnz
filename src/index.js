@@ -150,9 +150,6 @@ app.get('/admin/api-logs', isAdminPage, (req, res, next) => {
   versionAssets(req, res, next, path.join(__dirname, root, 'admin/api-logs.html'));
 });
 
-app.get('/admin/websites', isAdminPage, (req, res, next) => {
-  versionAssets(req, res, next, path.join(__dirname, root, 'admin/websites.html'));
-});
 
 app.get('/', (req, res, next) => {
   versionAssets(req, res, next, path.join(__dirname, root, 'index.html'));
