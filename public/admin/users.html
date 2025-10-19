@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Users - vulnz</title>
+    <link rel="icon" href="/favicon.png" type="image/png">
+    <!-- build:css -->
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/app.css">
+    <!-- endbuild -->
+</head>
+<body class="authenticated">
+    <header id="header-placeholder"></header>
+    <main class="container mt-5">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2>Users</h2>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <button id="new-user-btn" class="btn btn-primary"><i class="bi bi-plus-circle me-2"></i>Add</button>
+                </div>
+                <ul id="users-list" class="list-group mb-3"></ul>
+                <div id="user-form-container" style="display: none;">
+                    <form id="create-user-form" class="mb-4">
+                        <h4>Create User</h4>
+                        <div class="mb-3">
+                        <label for="new-username" class="form-label">Username (Email)</label>
+                        <input type="email" class="form-control" id="new-username" name="new-username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new-user-password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="new-user-password" name="new-user-password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Roles</label>
+                        <div id="new-user-roles"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="max-api-keys" class="form-label">Max API Keys</label>
+                        <input type="number" class="form-control" id="max-api-keys" name="max-api-keys" min="0" value="1" required>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="new-user-blocked">
+                        <label class="form-check-label" for="new-user-blocked">Blocked</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create User</button>
+                    <button type="button" id="cancel-edit-user" class="btn btn-secondary" style="display: none;">Cancel</button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <footer id="footer-placeholder"></footer>
+
+    <!-- build:js -->
+    <script src="/vendor/jquery/jquery.min.js"></script>
+    <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/header.js"></script>
+    <script src="/js/admin.js"></script>
+    <!-- endbuild -->
+</body>
+</html>

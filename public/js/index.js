@@ -1,39 +1,4 @@
 $(document).ready(function() {
-    $.ajax({
-        url: '/api/config',
-        method: 'GET',
-        success: function(config) {
-            if (config.registrationEnabled !== 'false') {
-                $('#login-button').text('Login / Register');
-            }
-        }
-    });
-    $.ajax({
-        url: '/api/auth/me',
-        method: 'GET',
-        success: function(user) {
-            if (user) {
-                $('#dashboard-button').show();
-                $('#logout-button').show();
-            } else {
-                $('#login-button').show();
-            }
-        },
-        error: function() {
-            $('#login-button').show();
-        }
-    });
-
-    $('#logout-button').on('click', function() {
-        $.ajax({
-            url: '/api/auth/logout',
-            method: 'GET',
-            success: function() {
-                window.location.href = '/';
-            }
-        });
-    });
-
     let currentPage = 1;
     const limit = 10;
 

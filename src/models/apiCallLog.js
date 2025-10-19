@@ -8,17 +8,19 @@ async function createTable() {
       route VARCHAR(255) NOT NULL,
       method VARCHAR(10) NOT NULL,
       ip_address VARCHAR(45) NOT NULL,
+      status_code INT,
       timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      INDEX(timestamp)
+      INDEX(timestamp),
+      INDEX(username)
     )
   `;
   await db.query(sql);
 }
 
-async function logCall(username, route, method, ipAddress) {
+async function logCall(username, route, method, ipAddress, statusCode) {
   await db.query(
-    'INSERT INTO api_call_logs (username, route, method, ip_address) VALUES (?, ?, ?, ?)',
-    [username, route, method, ipAddress]
+    'INSERT INTO api_call_logs (username, route, method, ip_address, status_code) VALUES (?, ?, ?, ?, ?)',
+    [username, route, method, ipAddress, statusCode]
   );
 }
 
