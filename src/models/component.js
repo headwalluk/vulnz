@@ -92,14 +92,19 @@ async function search(query, page = 1, limit = 10) {
     }
   }
 
+  // The componentIds are already paginated, so we can just iterate over them
+  // to build the result in the correct order.
   const result = [];
-  for (const component of componentsMap.values()) {
-    component.releases = Array.from(component.releases.values());
-    component.releases.sort((a, b) => versionCompare(b.version, a.version));
-    for (const release of component.releases) {
-      release.has_vulnerabilities = release.vulnerabilities.length > 0;
+  for (const componentId of componentIds) {
+    const component = componentsMap.get(componentId);
+    if (component) {
+      component.releases = Array.from(component.releases.values());
+      component.releases.sort((a, b) => versionCompare(b.version, a.version));
+      for (const release of component.releases) {
+        release.has_vulnerabilities = release.vulnerabilities.length > 0;
+      }
+      result.push(component);
     }
-    result.push(component);
   }
 
   return { components: result, total };
