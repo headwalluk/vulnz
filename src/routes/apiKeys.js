@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const apiKey = require('../models/apiKey');
 const { apiOrSessionAuth } = require('../middleware/auth');
+const { logApiCall } = require('../middleware/logApiCall');
 
 /**
  * @swagger
@@ -30,7 +31,7 @@ const { apiOrSessionAuth } = require('../middleware/auth');
  *       401:
  *         description: Unauthorized
  */
-router.get('/', apiOrSessionAuth, async (req, res) => {
+router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
   try {
     const rows = await db.query('SELECT api_key FROM api_keys WHERE user_id = ?', [req.user.id]);
     res.json(rows);
@@ -40,7 +41,7 @@ router.get('/', apiOrSessionAuth, async (req, res) => {
   }
 });
 
-router.post('/', apiOrSessionAuth, async (req, res) => {
+router.post('/', apiOrSessionAuth, logApiCall, async (req, res) => {
   try {
     const [user] = await db.query('SELECT max_api_keys FROM users WHERE id = ?', [req.user.id]);
     const [keys] = await db.query('SELECT COUNT(*) as count FROM api_keys WHERE user_id = ?', [req.user.id]);
@@ -58,7 +59,7 @@ router.post('/', apiOrSessionAuth, async (req, res) => {
   }
 });
 
-router.delete('/:key', apiOrSessionAuth, async (req, res) => {
+router.delete('/:key', apiOrSessionAuth, logApiCall, async (req, res) => {
   try {
     const { key } = req.params;
     await db.query('DELETE FROM api_keys WHERE api_key = ? AND user_id = ?', [key, req.user.id]);

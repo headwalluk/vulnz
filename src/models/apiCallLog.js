@@ -4,26 +4,46 @@ async function createTable() {
   const sql = `
     CREATE TABLE IF NOT EXISTS api_call_logs (
       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      user_id BIGINT UNSIGNED NOT NULL,
-      api_key_id BIGINT UNSIGNED NOT NULL,
+      username VARCHAR(255) NOT NULL,
       route VARCHAR(255) NOT NULL,
       method VARCHAR(10) NOT NULL,
+      ip_address VARCHAR(45) NOT NULL,
       timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE
+      INDEX(timestamp)
     )
   `;
   await db.query(sql);
 }
 
-async function logCall(userId, apiKeyId, route, method) {
+async function logCall(username, route, method, ipAddress) {
   await db.query(
-    'INSERT INTO api_call_logs (user_id, api_key_id, route, method) VALUES (?, ?, ?, ?)',
-    [userId, apiKeyId, route, method]
+    'INSERT INTO api_call_logs (username, route, method, ip_address) VALUES (?, ?, ?, ?)',
+    [username, route, method, ipAddress]
   );
+}
+
+async function purgeOldLogs() {
+  const retentionDays = parseInt(process.env.API_LOG_RETENTION_DAYS, 10);
+  if (isNaN(retentionDays) || retentionDays <= 0) {
+    console.log('API_LOG_RETENTION_DAYS is not set or is invalid. Skipping log purge.');
+    return;
+  }
+
+  const sql = `
+    DELETE FROM api_call_logs
+    WHERE timestamp < NOW() - INTERVAL ? DAY
+  `;
+  
+  try {
+    const [result] = await db.query(sql, [retentionDays]);
+    console.log(`Purged ${result.affectedRows} old API call logs.`);
+  } catch (err) {
+    console.error('Failed to purge old API call logs:', err);
+  }
 }
 
 module.exports = {
   createTable,
-  logCall
+  logCall,
+  purgeOldLogs,
 };

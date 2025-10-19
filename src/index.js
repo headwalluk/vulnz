@@ -94,6 +94,14 @@ app.use(expressSession({
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Diagnostic middleware to confirm if the /api path is being hit
+if (process.env.LOG_LEVEL === 'debug') {
+  app.use('/api', (req, res, next) => {
+    console.log('Generic /api middleware triggered for route:', req.originalUrl);
+    next();
+  });
+}
+
 app.get('/api/ping', (req, res) => {
   res.send('pong');
 });
@@ -129,6 +137,11 @@ async function startServer() {
       cron.schedule('0 0 * * *', () => {
         console.log('Running cron job to purge expired sessions...');
         sessionStore.clearExpiredSessions();
+      });
+
+      cron.schedule('0 0 * * *', () => {
+        console.log('Running cron job to purge old API call logs...');
+        apiCallLog.purgeOldLogs();
       });
 
       cron.schedule('* * * * *', () => {

@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { apiOrSessionAuth } = require('../middleware/auth');
+const { logApiCall } = require('../middleware/logApiCall');
 
 // Get all API call logs
-router.get('/', apiOrSessionAuth, async (req, res) => {
+router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
   try {
     const logs = await db.query('SELECT * FROM api_call_logs WHERE user_id = ?', [req.user.id]);
     res.json(logs);

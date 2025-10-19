@@ -20,6 +20,9 @@ async function syncNextPlugin() {
     }
 
     for (const component of components) {
+      if (process.env.LOG_LEVEL === 'info') {
+        console.log(`Syncing plugin: ${component.slug}`);
+      }
       try {
         const url = `${baseUrl}${endpoint}${component.slug}.json`;
         const options = {

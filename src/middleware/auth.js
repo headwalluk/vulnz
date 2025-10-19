@@ -10,6 +10,7 @@ function apiOrSessionAuth(req, res, next) {
       if (user.blocked) {
         return res.status(401).send('User account is blocked.');
       }
+      req.user = user;
       req.logIn(user, { session: false }, (err) => {
         if (err) {
           return next(err);
@@ -58,9 +59,34 @@ function redirectIfAuthenticated(req, res, next) {
   next();
 }
 
+function optionalApiOrSessionAuth(req, res, next) {
+  passport.authenticate('headerapikey', { session: false }, (err, user, info) => {
+    if (err) {
+      return next(err);
+    }
+    if (user) {
+      if (user.blocked) {
+        // Treat as unauthenticated if blocked
+        return next();
+      }
+      req.user = user;
+      req.logIn(user, { session: false }, (err) => {
+        if (err) {
+          return next(err);
+        }
+        return next();
+      });
+    } else {
+      // No valid API key, just continue. Session auth will be checked by req.isAuthenticated() in the route.
+      next();
+    }
+  })(req, res, next);
+}
+
 module.exports = {
   isAuthenticated,
   hasRole,
   redirectIfAuthenticated,
   apiOrSessionAuth,
+  optionalApiOrSessionAuth,
 };

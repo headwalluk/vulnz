@@ -5,8 +5,9 @@ const bcrypt = require('bcrypt');
 const { validatePassword } = require('../lib/passwordValidation');
 const user = require('../models/user');
 const { isAuthenticated, hasRole, apiOrSessionAuth } = require('../middleware/auth');
+const { logApiCall } = require('../middleware/logApiCall');
 
-router.put('/password', isAuthenticated, async (req, res) => {
+router.put('/password', isAuthenticated, logApiCall, async (req, res) => {
   try {
     const { newPassword } = req.body;
     const passwordValidation = validatePassword(newPassword);
@@ -23,7 +24,7 @@ router.put('/password', isAuthenticated, async (req, res) => {
   }
 });
 
-router.get('/:id', apiOrSessionAuth, hasRole('administrator'), async (req, res) => {
+router.get('/:id', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (req, res) => {
   try {
     const { id } = req.params;
     const [user] = await db.query('SELECT id, username, blocked, max_api_keys FROM users WHERE id = ?', [id]);
@@ -75,7 +76,7 @@ router.get('/:id', apiOrSessionAuth, hasRole('administrator'), async (req, res) 
  *                 limit:
  *                   type: integer
  */
-router.get('/', apiOrSessionAuth, hasRole('administrator'), async (req, res) => {
+router.get('/', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || parseInt(process.env.LIST_PAGE_SIZE, 10);
@@ -96,7 +97,7 @@ router.get('/', apiOrSessionAuth, hasRole('administrator'), async (req, res) => 
   }
 });
 
-router.post('/', apiOrSessionAuth, hasRole('administrator'), async (req, res) => {
+router.post('/', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (req, res) => {
   try {
     const { username, password, roles, blocked, max_api_keys } = req.body;
     await user.createUser(username, password, roles, blocked, max_api_keys);
@@ -111,7 +112,7 @@ router.post('/', apiOrSessionAuth, hasRole('administrator'), async (req, res) =>
   }
 });
 
-router.put('/:id', apiOrSessionAuth, hasRole('administrator'), async (req, res) => {
+router.put('/:id', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (req, res) => {
   try {
     const { id } = req.params;
     await user.updateUser(id, req.body);
@@ -122,7 +123,7 @@ router.put('/:id', apiOrSessionAuth, hasRole('administrator'), async (req, res) 
   }
 });
 
-router.delete('/:id', apiOrSessionAuth, hasRole('administrator'), async (req, res) => {
+router.delete('/:id', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (req, res) => {
   try {
     const { id } = req.params;
     await db.query('DELETE FROM users WHERE id = ?', [id]);
