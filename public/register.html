@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - vulnz</title>
     <link rel="icon" href="/favicon.png" type="image/png">
-    <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <!-- build:css -->
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/app.css">
+    <!-- endbuild -->
     <style>
         html, body {
             height: 100%;
@@ -13,7 +17,7 @@
     </style>
 </head>
 <body class="d-flex align-items-center justify-content-center">
-    <div class="container">
+    <main class="container">
         <div id="loading-spinner" class="d-flex justify-content-center">
             <div class="spinner-border text-light" role="status">
                 <span class="visually-hidden">Loading...</span>
@@ -55,10 +59,12 @@
                 </div>
             </div>
         </div>
-    </div>
+    </main>
+    <!-- build:js -->
     <script src="/vendor/jquery/jquery.min.js"></script>
     <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script src="js/register.js"></script>
     <script src="js/register-page.js"></script>
+    <!-- endbuild -->
 </body>
 </html>

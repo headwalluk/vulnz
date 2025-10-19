@@ -1,11 +1,11 @@
 {
   "name": "vulnz",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Vulnerability database for WordPress plugins and themes",
   "main": "src/index.js",
   "scripts": {
-    "start": "nodemon src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon src/index.js"
   },
   "repository": {
     "type": "git",

@@ -43,7 +43,7 @@ const roleRoutes = require('./routes/roles');
 const logRoutes = require('./routes/logs');
 const configRoutes = require('./routes/config');
 const { logApiCall } = require('./middleware/logApiCall');
-const { redirectIfAuthenticated } = require('./middleware/auth');
+const { redirectIfAuthenticated, isAuthenticatedPage, hasRole, hasRolePage, isAdminPage } = require('./middleware/auth');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const cron = require('node-cron');
@@ -72,7 +72,6 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.set('trust proxy', 1);
 app.use('/doc', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use(helmet());
-app.use(express.static(path.join(__dirname, '../public')));
 app.use(express.json());
 
 const sessionStore = new MySQLStore({
@@ -110,20 +109,38 @@ app.get('/api/ping', (req, res) => {
   res.send('pong');
 });
 
+const root = process.env.NODE_ENV === 'production' ? '../dist' : '../public';
+
 app.get('/login', redirectIfAuthenticated, (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/login.html'));
+  res.sendFile(path.join(__dirname, root, 'login.html'));
 });
 
 app.get('/register', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/register.html'));
+  res.sendFile(path.join(__dirname, root, 'register.html'));
 });
 
 app.get('/reset-password', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/reset-password.html'));
+  res.sendFile(path.join(__dirname, root, 'reset-password.html'));
 });
 
-app.get('/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/dashboard.html'));
+app.get('/dashboard', isAuthenticatedPage, (req, res) => {
+  res.sendFile(path.join(__dirname, root, 'dashboard.html'));
+});
+
+app.get('/admin', isAdminPage, (req, res) => {
+  res.sendFile(path.join(__dirname, root, 'admin/index.html'));
+});
+
+app.get('/admin/users', isAdminPage, (req, res) => {
+  res.sendFile(path.join(__dirname, root, 'admin/users.html'));
+});
+
+app.get('/admin/components', isAdminPage, (req, res) => {
+  res.sendFile(path.join(__dirname, root, 'admin/components.html'));
+});
+
+app.get('/admin/api-logs', isAdminPage, (req, res) => {
+  res.sendFile(path.join(__dirname, root, 'admin/api-logs.html'));
 });
 
 app.use('/api/components', componentRoutes);
@@ -134,6 +151,17 @@ app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/logs', logRoutes);
 app.use('/api/config', configRoutes);
+
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../dist')));
+} else {
+  app.use(express.static(path.join(__dirname, '../public')));
+}
+
+// 404 handler
+app.use((req, res, next) => {
+  res.status(404).sendFile(path.join(__dirname, '../public', '404.html'));
+});
 
 async function startServer() {
   try {

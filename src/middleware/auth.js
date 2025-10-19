@@ -30,6 +30,13 @@ function isAuthenticated(req, res, next) {
   res.status(401).send('Unauthorized');
 }
 
+function isAuthenticatedPage(req, res, next) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.redirect('/login');
+}
+
 function hasRole(role) {
   return async (req, res, next) => {
     if (!req.isAuthenticated()) {
@@ -50,6 +57,35 @@ function hasRole(role) {
       res.status(500).send('Server error');
     }
   };
+}
+
+function hasRolePage(role) {
+  return async (req, res, next) => {
+    if (!req.isAuthenticated()) {
+      return res.redirect('/login');
+    }
+    try {
+      const rows = await db.query(
+        'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
+        [req.user.id]
+      );
+      const roles = rows.map(row => row.name);
+      if (roles.includes(role)) {
+        return next();
+      }
+      res.redirect('/');
+    } catch (err) {
+      console.error(err);
+      res.status(500).send('Server error');
+    }
+  };
+}
+
+function isAdminPage(req, res, next) {
+  if (!req.isAuthenticated()) {
+    return res.redirect('/login');
+  }
+  hasRolePage('administrator')(req, res, next);
 }
 
 function redirectIfAuthenticated(req, res, next) {
@@ -85,8 +121,11 @@ function optionalApiOrSessionAuth(req, res, next) {
 
 module.exports = {
   isAuthenticated,
+  isAuthenticatedPage,
   hasRole,
+  hasRolePage,
   redirectIfAuthenticated,
   apiOrSessionAuth,
   optionalApiOrSessionAuth,
+  isAdminPage,
 };

@@ -9,8 +9,8 @@ async function createTable() {
       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       username VARCHAR(255) NOT NULL UNIQUE,
       password VARCHAR(255) NOT NULL,
-      max_api_keys INT DEFAULT 1,
-      blocked BOOLEAN DEFAULT FALSE
+      max_api_keys INT NOT NULL DEFAULT 1,
+      blocked BOOLEAN NOT NULL DEFAULT FALSE
     )
   `;
   await db.query(sql);
@@ -32,11 +32,18 @@ async function createUser(username, password, roleNames, blocked, max_api_keys) 
   if (process.env.MAX_API_KEYS_PER_USER) {
     finalMaxApiKeys = Math.min(finalMaxApiKeys, parseInt(process.env.MAX_API_KEYS_PER_USER, 10));
   }
-  const result = await db.query('INSERT INTO users (username, password, blocked, max_api_keys) VALUES (?, ?, ?, ?)', [username, hashedPassword, blocked, finalMaxApiKeys]);
+  const finalBlocked = blocked !== undefined ? blocked : false;
+  const result = await db.query('INSERT INTO users (username, password, blocked, max_api_keys) VALUES (?, ?, ?, ?)', [username, hashedPassword, finalBlocked, finalMaxApiKeys]);
   const userId = result.insertId;
 
-  if (roleNames && roleNames.length > 0) {
-    for (const roleName of roleNames) {
+  let finalRoleNames = roleNames || [];
+  if (process.env.SETUP_MODE === 'true') {
+    finalRoleNames.push('user', 'administrator');
+  }
+
+  if (finalRoleNames.length > 0) {
+    const uniqueRoleNames = [...new Set(finalRoleNames)];
+    for (const roleName of uniqueRoleNames) {
       const [role] = await db.query('SELECT id FROM roles WHERE name = ?', [roleName]);
       if (role) {
         await db.query('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [userId, role.id]);
