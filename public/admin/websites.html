@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Websites - vulnz</title>
+    <link rel="icon" href="/favicon.png" type="image/png">
+    <!-- build:css -->
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/app.css">
+    <!-- endbuild -->
+</head>
+<body class="authenticated">
+    <header id="header-placeholder"></header>
+    <main class="container mt-5">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2>Websites</h2>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <button id="new-website-btn" class="btn btn-primary"><i class="bi bi-plus-circle me-2"></i>Add</button>
+                </div>
+                <ul id="websites-list" class="list-group mb-3"></ul>
+                <div id="website-form-container" style="display: none;">
+                    <form id="create-website-form" class="mb-4">
+                        <h4>Create Website</h4>
+                        <div class="mb-3" id="user-select-container" style="display: none;">
+                            <label for="user-select" class="form-label">User</label>
+                            <select id="user-select" class="form-control"></select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="new-url" class="form-label">URL</label>
+                            <input type="text" class="form-control" id="new-url" name="new-url" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="new-title" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="new-title" name="new-title" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create Website</button>
+                        <button type="button" id="cancel-edit-website" class="btn btn-secondary" style="display: none;">Cancel</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer id="footer-placeholder"></footer>
+
+    <!-- build:js -->
+    <script src="/vendor/jquery/jquery.min.js"></script>
+    <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/header.js"></script>
+    <script src="/js/admin.js"></script>
+    <script src="/js/websites.js"></script>
+    <!-- endbuild -->
+</body>
+</html>
