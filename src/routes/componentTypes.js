@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { apiOrSessionAuth } = require('../middleware/auth');
+const { logApiCall } = require('../middleware/logApiCall');
 
 /**
  * @swagger
@@ -26,7 +27,7 @@ const { apiOrSessionAuth } = require('../middleware/auth');
  *               items:
  *                 $ref: '#/components/schemas/ComponentType'
  */
-router.get('/', apiOrSessionAuth, async (req, res) => {
+router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
   try {
     const componentTypes = await db.query('SELECT * FROM component_types');
     res.json(componentTypes);

@@ -4,6 +4,7 @@ const passport = require('passport');
 const user = require('../models/user');
 const db = require('../db');
 const { isAuthenticated } = require('../middleware/auth');
+const { logApiCall } = require('../middleware/logApiCall');
 const crypto = require('crypto');
 const passwordResetToken = require('../models/passwordResetToken');
 const emailer = require('../lib/email');
@@ -44,7 +45,7 @@ const { authLimiter } = require('../middleware/rateLimit');
  *       201:
  *         description: User created
  */
-router.post('/register', authLimiter, async (req, res) => {
+router.post('/register', authLimiter, logApiCall, async (req, res) => {
   if (process.env.REGISTRATION_ENABLED === 'false') {
     return res.status(401).send('User registration is disabled.');
   }
@@ -102,7 +103,7 @@ router.post('/register', authLimiter, async (req, res) => {
  *       401:
  *         description: Unauthorized
  */
-router.post('/login', authLimiter, (req, res, next) => {
+router.post('/login', authLimiter, logApiCall, (req, res, next) => {
   passport.authenticate('local', (err, user, info) => {
     if (err) {
       return next(err);
@@ -132,7 +133,7 @@ router.post('/login', authLimiter, (req, res, next) => {
  *       200:
  *         description: Logged out
  */
-router.get('/logout', (req, res) => {
+router.get('/logout', logApiCall, (req, res, next) => {
   req.logout(function(err) {
     if (err) { return next(err); }
     res.send('Logged out');
@@ -151,7 +152,7 @@ router.get('/logout', (req, res) => {
  *       401:
  *         description: Unauthorized
  */
-router.get('/me', async (req, res) => {
+router.get('/me', logApiCall, async (req, res) => {
   if (!req.user) {
     return res.json(null);
   }
@@ -173,7 +174,7 @@ router.get('/me', async (req, res) => {
   }
 });
 
-router.post('/reset-password', authLimiter, async (req, res) => {
+router.post('/reset-password', authLimiter, logApiCall, async (req, res) => {
   try {
     const { email } = req.body;
     // The user model does not have an email field, so we will use the username field for lookup.
@@ -198,7 +199,7 @@ router.post('/reset-password', authLimiter, async (req, res) => {
   }
 });
 
-router.post('/update-password', async (req, res) => {
+router.post('/update-password', logApiCall, async (req, res) => {
   try {
     const { token, newPassword } = req.body;
 
@@ -228,7 +229,7 @@ router.post('/update-password', async (req, res) => {
   }
 });
 
-router.get('/validate-token/:token', async (req, res) => {
+router.get('/validate-token/:token', logApiCall, async (req, res) => {
   try {
     const { token } = req.params;
     const tokenRecord = await passwordResetToken.findToken(token);

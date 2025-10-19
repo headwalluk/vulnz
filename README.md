@@ -6,7 +6,9 @@ The application pulls from wordpress.org for plugin & theme meta data. We don't 
 
 This can best be thought of as a vulnerability metabase.
 
-The app is designed to help WordPress hosting providers collate and manage WP plugin vulnerabilities across their clients' sites. If you want to make VULNZ publically accessible, you can host it behind a reverse-proxy and manage your SSL in Apache/Nginx/whatever.
+## Who is this for?
+
+The app is designed to help WordPress hosting providers collate and manage WP plugin vulnerabilities across their clients' sites. If your VULNZ installation to be publically accessible, you can host it behind a reverse-proxy and manage your SSL in Apache/Nginx.
 
 ## Requirements
 
