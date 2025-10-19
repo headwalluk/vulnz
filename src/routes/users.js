@@ -1,164 +1,117 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
-const bcrypt = require('bcrypt');
-const { validatePassword } = require('../lib/passwordValidation');
 const user = require('../models/user');
-const { isAuthenticated, hasRole, apiOrSessionAuth } = require('../middleware/auth');
-const { logApiCall } = require('../middleware/logApiCall');
+const db = require('../db');
+const { isAuthenticated, hasRole } = require('../middleware/auth');
 
-router.put('/password', isAuthenticated, logApiCall, async (req, res) => {
-  try {
-    const { newPassword } = req.body;
-    const passwordValidation = validatePassword(newPassword);
-    if (!passwordValidation.isValid) {
-      return res.status(400).send(passwordValidation.errors.join(' '));
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await db.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, req.user.id]);
-    res.status(200).send('Password updated successfully.');
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Server error');
-  }
-});
-
-router.get('/:id', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const [user] = await db.query('SELECT id, username, blocked, max_api_keys FROM users WHERE id = ?', [id]);
-    if (!user) {
-      return res.status(404).send('User not found');
-    }
-    const rows = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [id]);
-    user.roles = rows.map(row => row.name);
-    res.json(user);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Server error');
-  }
-});
+/**
+ * @swagger
+ * tags:
+ *   name: Users
+ *   description: API for managing users
+ */
 
 /**
  * @swagger
  * /api/users:
  *   get:
- *     summary: Retrieve a list of users
+ *     summary: Get all users
  *     tags: [Users]
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *         description: The page number to retrieve.
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *         description: The number of users to retrieve per page.
  *     responses:
  *       200:
- *         description: A list of users.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 users:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/User'
- *                 total:
- *                   type: integer
- *                 page:
- *                   type: integer
- *                 limit:
- *                   type: integer
+ *         description: A list of users
  */
-router.get('/', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (req, res) => {
-  try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || parseInt(process.env.LIST_PAGE_SIZE, 10);
-    const offset = (page - 1) * limit;
-
-    const users = await db.query('SELECT id, username, blocked FROM users LIMIT ? OFFSET ?', [limit, offset]);
-    const [{ total }] = await db.query('SELECT COUNT(*) as total FROM users');
-
-    res.json({
-      users,
-      total,
-      page,
-      limit,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Server error');
-  }
-});
-
-router.post('/', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (req, res) => {
-  try {
-    const { username, password, roles, blocked, max_api_keys } = req.body;
-    await user.createUser(username, password, roles, blocked, max_api_keys);
-    res.status(201).send('User created');
-  } catch (err) {
-    if (err.message.includes('Password must be') || err.message.includes('Username must be')) {
-      res.status(400).send(err.message);
-    } else {
-      console.error(err);
-      res.status(500).send('Server error');
+router.get('/', hasRole('administrator'), async (req, res) => {
+    try {
+        const [users] = await db.query('SELECT id, username, blocked, max_api_keys FROM users');
+        for (let u of users) {
+            const [roles] = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [u.id]);
+            u.roles = roles.map(r => r.name);
+        }
+        res.json(users);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Server error');
     }
-  }
 });
-
-router.put('/:id', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    await user.updateUser(id, req.body);
-    res.status(200).send('User updated');
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Server error');
-  }
-});
-
-router.delete('/:id', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    await db.query('DELETE FROM users WHERE id = ?', [id]);
-    res.status(204).send();
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Server error');
-  }
-});
-
-module.exports = router;
 
 /**
  * @swagger
- * components:
- *   schemas:
- *     User:
- *       type: object
- *       properties:
- *         id:
+ * /api/users/{id}:
+ *   put:
+ *     summary: Update a user
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
  *           type: integer
- *           description: The user ID.
- *           readOnly: true
- *         username:
- *           type: string
- *           description: The user's username.
- *         blocked:
- *           type: boolean
- *           description: Whether the user is blocked.
- *         max_api_keys:
- *            type: integer
- *            description: The maximum number of API keys the user can create.
- *         roles:
- *           type: array
- *           items:
- *             type: string
- *           description: The roles assigned to the user.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               roles:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               blocked:
+ *                 type: boolean
+ *               max_api_keys:
+ *                  type: integer
+ *     responses:
+ *       200:
+ *         description: User updated
  */
+router.put('/:id', hasRole('administrator'), async (req, res) => {
+    try {
+        await user.updateUser(req.params.id, req.body);
+        res.send('User updated');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Server error');
+    }
+});
+
+/**
+ * @swagger
+ * /api/users/password:
+ *   put:
+ *     summary: Update the current user's password
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - newPassword
+ *             properties:
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password updated
+ */
+router.put('/password', isAuthenticated, async (req, res) => {
+    try {
+        await user.updatePassword(req.user.id, req.body.newPassword);
+        res.send('Password updated');
+    } catch (err) {
+        if (err.message.includes('Password must')) {
+            return res.status(400).send(err.message);
+        }
+        console.error(err);
+        res.status(500).send('Server error');
+    }
+});
+
+module.exports = router;

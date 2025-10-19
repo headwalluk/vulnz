@@ -22,6 +22,8 @@ const port = process.env.HTTP_LISTEN_PORT || 3000;
 const apiKey = require('./models/apiKey');
 const componentType = require('./models/componentType');
 const component = require('./models/component');
+const website = require('./models/website');
+const websiteComponent = require('./models/websiteComponent');
 const role = require('./models/role');
 const user = require('./models/user');
 const userRole = require('./models/userRole');
@@ -41,9 +43,11 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const roleRoutes = require('./routes/roles');
 const logRoutes = require('./routes/logs');
+const websiteRoutes = require('./routes/websites');
 const configRoutes = require('./routes/config');
 const { logApiCall } = require('./middleware/logApiCall');
 const { redirectIfAuthenticated, isAuthenticatedPage, hasRole, hasRolePage, isAdminPage } = require('./middleware/auth');
+const { versionAssets } = require('./middleware/versionAssets');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const cron = require('node-cron');
@@ -114,36 +118,44 @@ app.get('/api/ping', (req, res) => {
 // const root = process.env.NODE_ENV === 'production' ? '../dist' : '../public';
 const root = process.env.NODE_ENV === 'production' ? '../public' : '../public';
 
-app.get('/login', redirectIfAuthenticated, (req, res) => {
-  res.sendFile(path.join(__dirname, root, 'login.html'));
+app.get('/login', redirectIfAuthenticated, (req, res, next) => {
+  versionAssets(req, res, next, path.join(__dirname, root, 'login.html'));
 });
 
-app.get('/register', (req, res) => {
-  res.sendFile(path.join(__dirname, root, 'register.html'));
+app.get('/register', (req, res, next) => {
+  versionAssets(req, res, next, path.join(__dirname, root, 'register.html'));
 });
 
-app.get('/reset-password', (req, res) => {
-  res.sendFile(path.join(__dirname, root, 'reset-password.html'));
+app.get('/reset-password', (req, res, next) => {
+  versionAssets(req, res, next, path.join(__dirname, root, 'reset-password.html'));
 });
 
-app.get('/dashboard', isAuthenticatedPage, (req, res) => {
-  res.sendFile(path.join(__dirname, root, 'dashboard.html'));
+app.get('/dashboard', isAuthenticatedPage, (req, res, next) => {
+  versionAssets(req, res, next, path.join(__dirname, root, 'dashboard.html'));
 });
 
-app.get('/admin', isAdminPage, (req, res) => {
-  res.sendFile(path.join(__dirname, root, 'admin/index.html'));
+app.get('/admin', isAdminPage, (req, res, next) => {
+  versionAssets(req, res, next, path.join(__dirname, root, 'admin/index.html'));
 });
 
-app.get('/admin/users', isAdminPage, (req, res) => {
-  res.sendFile(path.join(__dirname, root, 'admin/users.html'));
+app.get('/admin/users', isAdminPage, (req, res, next) => {
+  versionAssets(req, res, next, path.join(__dirname, root, 'admin/users.html'));
 });
 
-app.get('/admin/components', isAdminPage, (req, res) => {
-  res.sendFile(path.join(__dirname, root, 'admin/components.html'));
+app.get('/admin/components', isAdminPage, (req, res, next) => {
+  versionAssets(req, res, next, path.join(__dirname, root, 'admin/components.html'));
 });
 
-app.get('/admin/api-logs', isAdminPage, (req, res) => {
-  res.sendFile(path.join(__dirname, root, 'admin/api-logs.html'));
+app.get('/admin/api-logs', isAdminPage, (req, res, next) => {
+  versionAssets(req, res, next, path.join(__dirname, root, 'admin/api-logs.html'));
+});
+
+app.get('/admin/websites', isAdminPage, (req, res, next) => {
+  versionAssets(req, res, next, path.join(__dirname, root, 'admin/websites.html'));
+});
+
+app.get('/', (req, res, next) => {
+  versionAssets(req, res, next, path.join(__dirname, root, 'index.html'));
 });
 
 app.use('/api/components', componentRoutes);
@@ -153,6 +165,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/logs', logRoutes);
+app.use('/api/websites', websiteRoutes);
 app.use('/api/config', configRoutes);
 
 if (process.env.NODE_ENV === 'production') {
@@ -165,7 +178,8 @@ if (process.env.NODE_ENV === 'production') {
 
 // 404 handler
 app.use((req, res, next) => {
-  res.status(404).sendFile(path.join(__dirname, '../public', '404.html'));
+  res.status(404);
+  versionAssets(req, res, next, path.join(__dirname, '../public', '404.html'));
 });
 
 async function startServer() {
@@ -207,6 +221,8 @@ async function startServer() {
     await passwordResetToken.createTable();
     await release.createTable();
     await vulnerability.createTable();
+    await website.createTable();
+    await websiteComponent.createTable();
     console.log('Database tables created or already exist.');
     app.listen(port, () => {
       console.log(`Server accessible at ${process.env.BASE_URL} in ${process.env.NODE_ENV || 'development'} mode`);
