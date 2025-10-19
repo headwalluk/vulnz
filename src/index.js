@@ -134,6 +134,11 @@ app.use('/api/config', configRoutes);
 async function startServer() {
   try {
     if (process.env.CRON_ENABLE === 'true') {
+      if (process.env.NODE_ENV === 'production' && process.env.INSTANCE_ID && process.env.INSTANCE_ID !== '0') {
+        console.log(`Not scheduling cron jobs on this instance (${process.env.INSTANCE_ID})`);
+        return;
+      }
+
       cron.schedule('0 0 * * *', () => {
         console.log('Running cron job to purge expired sessions...');
         sessionStore.clearExpiredSessions();
@@ -165,7 +170,7 @@ async function startServer() {
     await vulnerability.createTable();
     console.log('Database tables created or already exist.');
     app.listen(port, () => {
-      console.log(`Server accessible at ${process.env.BASE_URL}`);
+      console.log(`Server accessible at ${process.env.BASE_URL} in ${process.env.NODE_ENV || 'development'} mode`);
     });
   } catch (err) {
     console.error('Failed to initialize the database or start the server:', err);
