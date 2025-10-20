@@ -46,9 +46,17 @@ function stripNonAlphaNumeric(str) {
   return str.replace(/[^a-zA-Z0-9 ]/g, ' ').split(' ').filter(Boolean).join(' ');
 }
 
+function sanitizeSearchQuery(str) {
+  if (typeof str !== 'string') {
+    return '';
+  }
+  return str.replace(/[^a-zA-Z0-9\-_ ]/g, ' ').split(' ').filter(Boolean).join(' ');
+}
+
 module.exports = {
   stripAll,
   isUrl,
   sanitizeVersion,
   stripNonAlphaNumeric,
+  sanitizeSearchQuery,
 };
