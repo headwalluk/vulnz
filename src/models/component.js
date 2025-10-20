@@ -23,19 +23,7 @@ async function search(query, page = 1, limit = 10) {
   const offset = (page - 1) * limit;
   const searchQuery = `%${query}%`;
 
-  const countSql = `
-    SELECT COUNT(*) as total FROM (
-      (SELECT id FROM components WHERE slug = ?)
-      UNION
-      (SELECT id FROM components WHERE slug LIKE ?)
-      UNION
-      (SELECT id FROM components WHERE title LIKE ?)
-      UNION
-      (SELECT id FROM components WHERE MATCH(slug, title) AGAINST(? IN BOOLEAN MODE))
-    ) as total_components
-  `;
-  const [{ total }] = await db.query(countSql, [query, searchQuery, searchQuery, query]);
-
+  // We want all component ids, for all pages.
   const componentsSql = `
     (SELECT id, 1 as priority FROM components WHERE slug = ?)
     UNION
@@ -44,13 +32,25 @@ async function search(query, page = 1, limit = 10) {
     (SELECT id, 3 as priority FROM components WHERE title LIKE ?)
     UNION
     (SELECT id, 4 as priority FROM components WHERE MATCH(slug, title) AGAINST(? IN BOOLEAN MODE))
-    ORDER BY priority
-    LIMIT ? OFFSET ?
+    ORDER BY priority ASC
   `;
 
-  const componentIds = (await db.query(componentsSql, [query, searchQuery, searchQuery, query, limit, offset])).map(c => c.id);
+  if( process.env.LOG_LEVEL === 'debug' ) {
+    console.log('Executing componentsSql with params:', [query, searchQuery, searchQuery, query]);
+  }
 
-  if (componentIds.length === 0) {
+  const allComponentIds = (await db.query(componentsSql, [query, searchQuery, searchQuery, query])).map(c => c.id);
+
+  // Remove duplicates while preserving order.
+  const uniqueComponentIds = [...new Set(allComponentIds)];
+
+  // Total number of unique components found.
+  const total = uniqueComponentIds.length;
+  
+  // Grab only the component ids for the requested page.
+  const wantedComponentIds = uniqueComponentIds.slice(offset, offset + limit);
+
+  if (allComponentIds.length === 0) {
     return { components: [], total: 0 };
   }
 
@@ -65,7 +65,7 @@ async function search(query, page = 1, limit = 10) {
     WHERE c.id IN (?)
   `;
 
-  const rows = await db.query(dataSql, [componentIds]);
+  const rows = await db.query(dataSql, [wantedComponentIds]);
 
   const componentsMap = new Map();
   for (const row of rows) {
@@ -92,10 +92,10 @@ async function search(query, page = 1, limit = 10) {
     }
   }
 
-  // The componentIds are already paginated, so we can just iterate over them
+  // The wantedComponentIds are already paginated, so we can just iterate over them
   // to build the result in the correct order.
   const result = [];
-  for (const componentId of componentIds) {
+  for (const componentId of wantedComponentIds) {
     const component = componentsMap.get(componentId);
     if (component) {
       component.releases = Array.from(component.releases.values());

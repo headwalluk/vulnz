@@ -4,7 +4,7 @@ const db = require('../db');
 const { hasRole, apiOrSessionAuth, optionalApiOrSessionAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 const {
- stripAll, isUrl, sanitizeVersion, stripNonAlphaNumeric, 
+ stripAll, isUrl, sanitizeVersion, stripNonAlphaNumeric, sanitizeSearchQuery,
 } = require('../lib/sanitizer');
 const { unauthenticatedSearchLimiter } = require('../middleware/rateLimit');
 const component = require('../models/component');
@@ -50,7 +50,7 @@ const component = require('../models/component');
  */
 router.get('/search', unauthenticatedSearchLimiter, optionalApiOrSessionAuth, logApiCall, async (req, res) => {
   try {
-    const query = stripNonAlphaNumeric(req.query.query || '');
+    const query = sanitizeSearchQuery(req.query.query || '');
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
 
