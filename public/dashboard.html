@@ -1,127 +1,129 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dashboard - vulnz</title>
-    <link rel="icon" href="/favicon.png" type="image/png">
+    <link rel="icon" href="/favicon.png" type="image/png" />
     <!-- build:css -->
-    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap-icons.css">
-    <link rel="stylesheet" href="/css/app.css">
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap-icons.css" />
+    <link rel="stylesheet" href="/css/app.css" />
     <!-- endbuild -->
     <style>
-        .api-key-text {
-            font-family: monospace;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 40vw;
-            display: inline-block;
-            vertical-align: middle;
-            cursor: pointer;
-        }
-        .copy-icon {
-            cursor: pointer;
-        }
-        .curl-example {
-            font-size: 0.875em; /* Slightly smaller font */
-        }
-        .code-container {
-            position: relative;
-            background-color: #f8f9fa;
-            border-radius: 5px;
-            padding: 15px;
-        }
-        .copy-code-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            cursor: pointer;
-        }
+      .api-key-text {
+        font-family: monospace;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 40vw;
+        display: inline-block;
+        vertical-align: middle;
+        cursor: pointer;
+      }
+      .copy-icon {
+        cursor: pointer;
+      }
+      .curl-example {
+        font-size: 0.875em; /* Slightly smaller font */
+      }
+      .code-container {
+        position: relative;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        padding: 15px;
+      }
+      .copy-code-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        cursor: pointer;
+      }
     </style>
-<body class="authenticated">
-    <header id="header-placeholder"></header>
+    <body class="authenticated">
+      <header id="header-placeholder"></header>
 
-    <main class="container mt-5">
-        <div id="setup-alert" class="alert alert-warning" role="alert" style="display: none;">
-            <strong>ALERT:</strong> When you've configured the amdinistrator account, change <code>SERVER_MODE</code> in your <code>.env</code> file to "production" and restart the application.
+      <main class="container mt-5">
+        <div id="setup-alert" class="alert alert-warning" role="alert" style="display: none">
+          <strong>ALERT:</strong> When you've configured the amdinistrator account, change <code>SERVER_MODE</code> in your <code>.env</code> file to "production" and restart the
+          application.
         </div>
         <h1>Dashboard</h1>
         <div class="card mt-4 mb-4">
-            <div class="card-header">
-                <h2>Your API Keys</h2>
-            </div>
-            <div class="card-body">
-                <ul id="api-keys-list" class="list-group mb-3"></ul>
-                <form id="create-api-key-form" class="mb-4">
-                    <button type="submit" class="btn btn-primary">Create New API Key</button>
-                </form>
-                <div id="api-key-usage-section" style="display: none;" class="mt-4">
-                <hr />
-                    <h3>Using your API key</h3>
-                    <div class="d-flex justify-content-between align-items-end mb-3">
-                        <p class="mb-0">Here's an example of how to use your API key to fetch components:</p>
-                        <div class="btn-group btn-group-sm" role="group" aria-label="Tool switcher">
-                            <input type="radio" class="btn-check" name="tool-switcher" id="curl-btn" autocomplete="off" checked>
-                            <label class="btn btn-outline-primary" for="curl-btn">cURL</label>
+          <div class="card-header">
+            <h2>Your API Keys</h2>
+          </div>
+          <div class="card-body">
+            <ul id="api-keys-list" class="list-group mb-3"></ul>
+            <form id="create-api-key-form" class="mb-4">
+              <button type="submit" class="btn btn-primary">Create New API Key</button>
+            </form>
+            <div id="api-key-usage-section" style="display: none" class="mt-4">
+              <hr />
+              <h3>Using your API key</h3>
+              <div class="d-flex justify-content-between align-items-end mb-3">
+                <p class="mb-0">Here's an example of how to use your API key to fetch components:</p>
+                <div class="btn-group btn-group-sm" role="group" aria-label="Tool switcher">
+                  <input type="radio" class="btn-check" name="tool-switcher" id="curl-btn" autocomplete="off" checked />
+                  <label class="btn btn-outline-primary" for="curl-btn">cURL</label>
 
-                            <input type="radio" class="btn-check" name="tool-switcher" id="httpie-btn" autocomplete="off">
-                            <label class="btn btn-outline-primary" for="httpie-btn">HTTPie</label>
-                        </div>
-                    </div>
-                    <div class="code-container">
-                        <pre><code id="curl-example" class="curl-example"></code></pre>
-                        <i class="bi bi-clipboard copy-code-btn" title="Copy to clipboard"></i>
-                    </div>
-                    <div class="code-container mt-3">
-                        <pre><code id="curl-search-example" class="curl-example"></code></pre>
-                        <i class="bi bi-clipboard copy-code-btn" title="Copy to clipboard"></i>
-                    </div>
+                  <input type="radio" class="btn-check" name="tool-switcher" id="httpie-btn" autocomplete="off" />
+                  <label class="btn btn-outline-primary" for="httpie-btn">HTTPie</label>
                 </div>
+              </div>
+              <div class="code-container">
+                <pre><code id="curl-example" class="curl-example"></code></pre>
+                <i class="bi bi-clipboard copy-code-btn" title="Copy to clipboard"></i>
+              </div>
+              <div class="code-container mt-3">
+                <pre><code id="curl-search-example" class="curl-example"></code></pre>
+                <i class="bi bi-clipboard copy-code-btn" title="Copy to clipboard"></i>
+              </div>
             </div>
+          </div>
         </div>
         <div class="card mb-4">
-            <div class="card-header">
-                <h2>Your Websites</h2>
-            </div>
-            <div class="card-body">
-                <ul id="websites-list" class="list-group mb-3"></ul>
-                <nav id="website-pagination-nav">
-                    <ul class="pagination mb-0" id="website-pagination"></ul>
-                </nav>
-            </div>
+          <div class="card-header">
+            <h2>Your Websites</h2>
+          </div>
+          <div class="card-body">
+            <ul id="websites-list" class="list-group mb-3"></ul>
+            <nav id="website-pagination-nav">
+              <ul class="pagination mb-0" id="website-pagination"></ul>
+            </nav>
+          </div>
         </div>
         <div class="card mb-4">
-            <div class="card-header">
-                <h2>Change Password</h2>
-            </div>
-            <div class="card-body">
-                <form id="change-password-form">
-                    <div class="mb-3">
-                        <label for="new-password" class="form-label">New Password</label>
-                        <input type="password" class="form-control" id="new-password" name="new-password" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="re-enter-password" class="form-label">Re-enter your password</label>
-                        <input type="password" class="form-control" id="re-enter-password" name="re-enter-password" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Change Password</button>
-                </form>
-            </div>
+          <div class="card-header">
+            <h2>Change Password</h2>
+          </div>
+          <div class="card-body">
+            <form id="change-password-form">
+              <div class="mb-3">
+                <label for="new-password" class="form-label">New Password</label>
+                <input type="password" class="form-control" id="new-password" name="new-password" required />
+              </div>
+              <div class="mb-3">
+                <label for="re-enter-password" class="form-label">Re-enter your password</label>
+                <input type="password" class="form-control" id="re-enter-password" name="re-enter-password" required />
+              </div>
+              <button type="submit" class="btn btn-primary">Change Password</button>
+            </form>
+          </div>
         </div>
-        <div id="error-message" class="alert alert-danger alert-dismissible fade show mt-3" role="alert" style="display: none;">
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <div id="error-message" class="alert alert-danger alert-dismissible fade show mt-3" role="alert" style="display: none">
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
-    </main>
+      </main>
 
-    <footer id="footer-placeholder"></footer>
+      <footer id="footer-placeholder"></footer>
 
-    <!-- build:js -->
-    <script src="/vendor/jquery/jquery.min.js"></script>
-    <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-    <script src="/js/app.js"></script>
-    <script src="js/dashboard.js"></script>
-    <!-- endbuild -->
-</body>
+      <!-- build:js -->
+      <script src="/vendor/jquery/jquery.min.js"></script>
+      <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+      <script src="/js/app.js"></script>
+      <script src="/js/dashboard.js"></script>
+      <!-- endbuild -->
+    </body>
+  </head>
 </html>

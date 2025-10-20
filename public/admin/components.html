@@ -1,55 +1,56 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Components - vulnz</title>
-    <link rel="icon" href="/favicon.png" type="image/png">
+    <link rel="icon" href="/favicon.png" type="image/png" />
     <!-- build:css -->
-    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap-icons.css">
-    <link rel="stylesheet" href="/css/app.css">
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap-icons.css" />
+    <link rel="stylesheet" href="/css/app.css" />
     <!-- endbuild -->
-</head>
-<body class="authenticated">
+  </head>
+  <body class="authenticated">
     <header id="header-placeholder"></header>
     <main class="container mt-5">
-        <div class="card">
-            <div class="card-header">
-                <h2>Components</h2>
-            </div>
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <button id="new-component-btn" class="btn btn-primary"><i class="bi bi-plus-circle me-2"></i>Add</button>
-                    <nav id="component-pagination-nav">
-                        <ul class="pagination mb-0" id="component-pagination"></ul>
-                    </nav>
-                </div>
-                <ul id="components-list" class="list-group mb-3"></ul>
-                <div id="component-form-container" style="display: none;">
-                    <form id="create-component-form" class="mt-4">
-                        <h4>Create Component</h4>
-                        <div class="mb-3">
-                        <label for="new-component-type-slug" class="form-label">Type</label>
-                        <select class="form-control" id="new-component-type-slug" name="new-component-type-slug" required></select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="new-component-slug" class="form-label">Slug</label>
-                        <input type="text" class="form-control" id="new-component-slug" name="new-component-slug" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="new-component-title" class="form-label">Title</label>
-                        <input type="text" class="form-control" id="new-component-title" name="new-component-title" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="new-component-description" class="form-label">Description</label>
-                        <textarea class="form-control" id="new-component-description" name="new-component-description"></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Create Component</button>
-                    <button type="button" id="cancel-edit-component" class="btn btn-secondary" style="display: none;">Cancel</button>
-                </form>
-            </div>
+      <div class="card">
+        <div class="card-header">
+          <h2>Components</h2>
         </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <button id="new-component-btn" class="btn btn-primary"><i class="bi bi-plus-circle me-2"></i>Add</button>
+            <nav id="component-pagination-nav">
+              <ul class="pagination mb-0" id="component-pagination"></ul>
+            </nav>
+          </div>
+          <ul id="components-list" class="list-group mb-3"></ul>
+          <div id="component-form-container" style="display: none">
+            <form id="create-component-form" class="mt-4">
+              <h4>Create Component</h4>
+              <div class="mb-3">
+                <label for="new-component-type-slug" class="form-label">Type</label>
+                <select class="form-control" id="new-component-type-slug" name="new-component-type-slug" required></select>
+              </div>
+              <div class="mb-3">
+                <label for="new-component-slug" class="form-label">Slug</label>
+                <input type="text" class="form-control" id="new-component-slug" name="new-component-slug" required />
+              </div>
+              <div class="mb-3">
+                <label for="new-component-title" class="form-label">Title</label>
+                <input type="text" class="form-control" id="new-component-title" name="new-component-title" required />
+              </div>
+              <div class="mb-3">
+                <label for="new-component-description" class="form-label">Description</label>
+                <textarea class="form-control" id="new-component-description" name="new-component-description"></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary">Create Component</button>
+              <button type="button" id="cancel-edit-component" class="btn btn-secondary" style="display: none">Cancel</button>
+            </form>
+          </div>
+        </div>
+      </div>
     </main>
 
     <footer id="footer-placeholder"></footer>
@@ -60,5 +61,5 @@
     <script src="/js/app.js"></script>
     <script src="/js/admin/components.js"></script>
     <!-- endbuild -->
-</body>
+  </body>
 </html>

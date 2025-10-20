@@ -20,5 +20,5 @@ function generateApiKey() {
 
 module.exports = {
   createTable,
-  generateApiKey
+  generateApiKey,
 };

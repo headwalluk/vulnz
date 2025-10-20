@@ -1,64 +1,63 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Register - vulnz</title>
-    <link rel="icon" href="/favicon.png" type="image/png">
+    <link rel="icon" href="/favicon.png" type="image/png" />
     <!-- build:css -->
-    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap-icons.css">
-    <link rel="stylesheet" href="/css/app.css">
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap-icons.css" />
+    <link rel="stylesheet" href="/css/app.css" />
     <!-- endbuild -->
     <style>
-        html, body {
-            height: 100%;
-        }
+      html,
+      body {
+        height: 100%;
+      }
     </style>
-</head>
-<body class="d-flex align-items-center justify-content-center">
+  </head>
+  <body class="d-flex align-items-center justify-content-center">
     <main class="container">
-        <div id="loading-spinner" class="d-flex justify-content-center">
-            <div class="spinner-border text-light" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
+      <div id="loading-spinner" class="d-flex justify-content-center">
+        <div class="spinner-border text-light" role="status">
+          <span class="visually-hidden">Loading...</span>
         </div>
-        <div id="main-card" class="row justify-content-center" style="display: none;">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h1>Register</h1>
-                    </div>
-                    <div class="card-body">
-                        <div id="registration-container">
-                            <form id="register-form">
-                                <div class="mb-3">
-                                    <label for="username" class="form-label">Username</label>
-                                    <input type="text" class="form-control" id="username" name="username" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="password" class="form-label">Password</label>
-                                    <input type="password" class="form-control" id="password" name="password" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="confirm-password" class="form-label">Confirm Password</label>
-                                    <input type="password" class="form-control" id="confirm-password" name="confirm-password" required>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <button type="submit" class="btn btn-primary">Register</button>
-                                    <a href="/login">Already have an account? Login</a>
-                                </div>
-                            </form>
-                            <div id="success-message" class="alert alert-success mt-3" style="display: none;"></div>
-                            <div id="error-message" class="alert alert-danger mt-3" style="display: none;"></div>
-                        </div>
-                        <div id="registration-disabled-message" class="alert alert-info" style="display: none;">
-                            This site is not currently accepting new account registrations.
-                        </div>
-                    </div>
-                </div>
+      </div>
+      <div id="main-card" class="row justify-content-center" style="display: none">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header">
+              <h1>Register</h1>
             </div>
+            <div class="card-body">
+              <div id="registration-container">
+                <form id="register-form">
+                  <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" class="form-control" id="username" name="username" required />
+                  </div>
+                  <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" required />
+                  </div>
+                  <div class="mb-3">
+                    <label for="confirm-password" class="form-label">Confirm Password</label>
+                    <input type="password" class="form-control" id="confirm-password" name="confirm-password" required />
+                  </div>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <button type="submit" class="btn btn-primary">Register</button>
+                    <a href="/login">Already have an account? Login</a>
+                  </div>
+                </form>
+                <div id="success-message" class="alert alert-success mt-3" style="display: none"></div>
+                <div id="error-message" class="alert alert-danger mt-3" style="display: none"></div>
+              </div>
+              <div id="registration-disabled-message" class="alert alert-info" style="display: none">This site is not currently accepting new account registrations.</div>
+            </div>
+          </div>
         </div>
+      </div>
     </main>
     <!-- build:js -->
     <script src="/vendor/jquery/jquery.min.js"></script>
@@ -66,5 +65,5 @@
     <script src="js/register.js"></script>
     <script src="js/register-page.js"></script>
     <!-- endbuild -->
-</body>
+  </body>
 </html>

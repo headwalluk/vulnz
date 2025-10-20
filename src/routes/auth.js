@@ -3,7 +3,6 @@ const router = express.Router();
 const passport = require('passport');
 const user = require('../models/user');
 const db = require('../db');
-const { isAuthenticated } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 const crypto = require('crypto');
 const passwordResetToken = require('../models/passwordResetToken');
@@ -134,8 +133,10 @@ router.post('/login', authLimiter, logApiCall, (req, res, next) => {
  *         description: Logged out
  */
 router.get('/logout', logApiCall, (req, res, next) => {
-  req.logout(function(err) {
-    if (err) { return next(err); }
+  req.logout(function (err) {
+    if (err) {
+      return next(err);
+    }
     res.send('Logged out');
   });
 });
@@ -158,23 +159,32 @@ router.get('/me', logApiCall, async (req, res) => {
   if (!req.user) {
     sitemap.push({ url: '/login', text: 'Login', type: 'btn-primary' });
     if (process.env.REGISTRATION_ENABLED === 'true') {
-      sitemap.push({ url: '/register', text: 'Register', type: 'btn-secondary' });
+      sitemap.push({
+        url: '/register',
+        text: 'Register',
+        type: 'btn-secondary',
+      });
     }
     return res.json({ isAuthenticated: false, sitemap });
   }
 
   try {
-    const rows = await db.query(
-      'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
-      [req.user.id]
-    );
-    const roles = rows.map(row => row.name);
+    const rows = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [req.user.id]);
+    const roles = rows.map((row) => row.name);
 
     if (roles.includes('administrator')) {
       sitemap.push({ url: '/admin', text: 'Admin', type: 'btn-danger' });
       sitemap.push({ url: '/admin/users', text: 'Users', type: 'btn-danger' });
-      sitemap.push({ url: '/admin/components', text: 'Components', type: 'btn-danger' });
-      sitemap.push({ url: '/admin/api-logs', text: 'API Logs', type: 'btn-danger' });
+      sitemap.push({
+        url: '/admin/components',
+        text: 'Components',
+        type: 'btn-danger',
+      });
+      sitemap.push({
+        url: '/admin/api-logs',
+        text: 'API Logs',
+        type: 'btn-danger',
+      });
     }
     sitemap.push({ url: '/dashboard', text: 'Dashboard', type: 'btn-primary' });
     sitemap.push({ url: '/logout', text: 'Logout', type: 'btn-secondary' });
@@ -183,7 +193,7 @@ router.get('/me', logApiCall, async (req, res) => {
       isAuthenticated: true,
       username: req.user.username,
       roles: roles,
-      sitemap: sitemap
+      sitemap: sitemap,
     });
   } catch (err) {
     console.error(err);
@@ -203,7 +213,7 @@ router.post('/reset-password', authLimiter, logApiCall, async (req, res) => {
     }
 
     const resetToken = crypto.randomBytes(32).toString('hex');
-    
+
     await passwordResetToken.deleteTokensByUserId(userToReset.id);
     await passwordResetToken.createToken(userToReset.id, resetToken);
 
@@ -260,7 +270,7 @@ router.get('/validate-token/:token', logApiCall, async (req, res) => {
     const tokenExpiry = process.env.PASSWORD_RESET_TOKEN_DURATION * 1000;
 
     if (tokenAge > tokenExpiry) {
-        return res.status(400).send('Token has expired.');
+      return res.status(400).send('Token has expired.');
     }
 
     res.status(200).send('Token is valid.');

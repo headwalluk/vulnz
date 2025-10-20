@@ -10,7 +10,7 @@ process.on('uncaughtException', (err) => {
 });
 
 // Monkey-patch BigInt to allow JSON serialization
-BigInt.prototype.toJSON = function() {
+BigInt.prototype.toJSON = function () {
   return this.toString();
 };
 
@@ -45,8 +45,7 @@ const roleRoutes = require('./routes/roles');
 const logRoutes = require('./routes/logs');
 const websiteRoutes = require('./routes/websites');
 const configRoutes = require('./routes/config');
-const { logApiCall } = require('./middleware/logApiCall');
-const { redirectIfAuthenticated, isAuthenticatedPage, hasRole, hasRolePage, isAdminPage } = require('./middleware/auth');
+const { redirectIfAuthenticated, isAuthenticatedPage, isAdminPage } = require('./middleware/auth');
 const { versionAssets } = require('./middleware/versionAssets');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
@@ -85,18 +84,20 @@ const sessionStore = new MySQLStore({
   database: dbConfig.database,
   clearExpired: true,
   checkExpirationInterval: 900000, // 15 minutes
-  expiration: (parseInt(process.env.SESSION_DURATION_DAYS, 10) * 24 * 60 * 60 * 1000),
+  expiration: parseInt(process.env.SESSION_DURATION_DAYS, 10) * 24 * 60 * 60 * 1000,
 });
 
-app.use(expressSession({
-  secret: process.env.SESSION_SECRET,
-  store: sessionStore,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    maxAge: (parseInt(process.env.SESSION_DURATION_DAYS, 10) * 24 * 60 * 60 * 1000),
-  }
-}));
+app.use(
+  expressSession({
+    secret: process.env.SESSION_SECRET,
+    store: sessionStore,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: parseInt(process.env.SESSION_DURATION_DAYS, 10) * 24 * 60 * 60 * 1000,
+    },
+  })
+);
 
 app.use(passport.initialize());
 app.use(passport.session());
@@ -150,7 +151,6 @@ app.get('/admin/api-logs', isAdminPage, (req, res, next) => {
   versionAssets(req, res, next, path.join(__dirname, root, 'admin/api-logs.html'));
 });
 
-
 app.get('/', (req, res, next) => {
   versionAssets(req, res, next, path.join(__dirname, root, 'index.html'));
 });
@@ -168,7 +168,7 @@ app.use('/api/config', configRoutes);
 if (process.env.NODE_ENV === 'production') {
   // IMPORTANT: Leave this set to /public (not /dist) until we fix the
   // static asset paths in the production build.
-  app.use(express.static(path.join(__dirname, '../public'))); 
+  app.use(express.static(path.join(__dirname, '../public')));
 } else {
   app.use(express.static(path.join(__dirname, '../public')));
 }
@@ -190,17 +190,17 @@ async function startServer() {
       console.log(`Scheduling cron jobs for instance ${process.env.NODE_APP_INSTANCE}`);
 
       cron.schedule('0 0 * * *', () => {
-        console.log('Running cron job to purge expired sessions...');
+        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to purge expired sessions...');
         sessionStore.clearExpiredSessions();
       });
 
       cron.schedule('0 0 * * *', () => {
-        console.log('Running cron job to purge old API call logs...');
+        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to purge old API call logs...');
         apiCallLog.purgeOldLogs();
       });
 
       cron.schedule('* * * * *', () => {
-        console.log('Running cron job to sync plugin data from wporg...');
+        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to sync plugin data from wporg...');
         syncNextPlugin();
       });
     }

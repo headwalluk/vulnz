@@ -1,35 +1,35 @@
 body {
-    padding-top: 56px;
+  padding-top: 56px;
 }
 
 body.authenticated main {
-    min-height: 70vh;
+  min-height: 70vh;
 }
 
 .fly-in-menu {
-    position: fixed;
-    top: 0;
-    right: -300px;
-    width: 300px;
-    height: 100%;
-    background-color: #fff;
-    box-shadow: -2px 0 5px rgba(0,0,0,0.5);
-    transition: right 0.3s ease;
-    z-index: 1050;
-    padding: 20px;
+  position: fixed;
+  top: 0;
+  right: -300px;
+  width: 300px;
+  height: 100%;
+  background-color: #fff;
+  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.5);
+  transition: right 0.3s ease;
+  z-index: 1050;
+  padding: 20px;
 }
 
 .fly-in-menu.show {
-    right: 0;
+  right: 0;
 }
 
 #fly-in-menu-items {
-    clear:both;
+  clear: both;
 }
 
 .truncate-text {
-    max-width: 20em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  max-width: 20em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

@@ -27,7 +27,7 @@ router.get('/', apiOrSessionAuth, async (req, res) => {
     const offset = (page - 1) * limit;
 
     const roleRows = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [req.user.id]);
-    const roles = (roleRows || []).map(row => row.name);
+    const roles = (roleRows || []).map((row) => row.name);
 
     let websites;
     let total;
@@ -42,7 +42,8 @@ router.get('/', apiOrSessionAuth, async (req, res) => {
     }
 
     for (const website of websites) {
-        const components = await db.query(`
+      const components = await db.query(
+        `
 SELECT
 	releases.id,
 	releases.version,
@@ -56,18 +57,19 @@ JOIN component_types
 JOIN website_components
   ON releases.id = website_components.release_id
 WHERE website_components.website_id = ?
-        `, [website.id]);
-        
+        `,
+        [website.id]
+      );
 
-        website.wordpressPlugins = (components ? components.filter(c => c.type === 'wordpress-plugin') : []);
-        website.wordpressThemes = (components ? components.filter(c => c.type === 'wordpress-theme') : [] );
+      website.wordpressPlugins = components ? components.filter((c) => c.type === 'wordpress-plugin') : [];
+      website.wordpressThemes = components ? components.filter((c) => c.type === 'wordpress-theme') : [];
     }
 
     res.json({
       websites: websites || [],
       total,
       page,
-      limit
+      limit,
     });
   } catch (err) {
     console.error(err);
@@ -107,7 +109,7 @@ router.post('/', apiOrSessionAuth, async (req, res) => {
 
     const components = [...(wordpressPlugins || []), ...(wordpressThemes || [])];
     for (const releaseId of components) {
-        await db.query('INSERT INTO website_components (website_id, release_id) VALUES (?, ?)', [websiteId, releaseId]);
+      await db.query('INSERT INTO website_components (website_id, release_id) VALUES (?, ?)', [websiteId, releaseId]);
     }
 
     res.status(201).send('Website created');
@@ -151,7 +153,7 @@ router.put('/:id', apiOrSessionAuth, async (req, res) => {
   try {
     const { url, title, wordpressPlugins, wordpressThemes } = req.body;
     const [roleRows] = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [req.user.id]);
-    const roles = (roleRows || []).map(row => row.name);
+    const roles = (roleRows || []).map((row) => row.name);
 
     if (roles.includes('administrator')) {
       await db.query('UPDATE websites SET url = ?, title = ? WHERE id = ?', [url, title, req.params.id]);
@@ -162,7 +164,7 @@ router.put('/:id', apiOrSessionAuth, async (req, res) => {
     await db.query('DELETE FROM website_components WHERE website_id = ?', [req.params.id]);
     const components = [...(wordpressPlugins || []), ...(wordpressThemes || [])];
     for (const releaseId of components) {
-        await db.query('INSERT INTO website_components (website_id, release_id) VALUES (?, ?)', [req.params.id, releaseId]);
+      await db.query('INSERT INTO website_components (website_id, release_id) VALUES (?, ?)', [req.params.id, releaseId]);
     }
 
     res.send('Website updated');
@@ -191,7 +193,7 @@ router.put('/:id', apiOrSessionAuth, async (req, res) => {
 router.delete('/:id', apiOrSessionAuth, async (req, res) => {
   try {
     const roleRows = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [req.user.id]);
-    const roles = Array.isArray(roleRows) ? roleRows.map(row => row.name) : [];
+    const roles = Array.isArray(roleRows) ? roleRows.map((row) => row.name) : [];
 
     if (roles.includes('administrator')) {
       await db.query('DELETE FROM websites WHERE id = ?', [req.params.id]);

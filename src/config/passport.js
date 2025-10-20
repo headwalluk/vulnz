@@ -4,8 +4,8 @@ const HeaderAPIKeyStrategy = require('passport-headerapikey').HeaderAPIKeyStrate
 const db = require('../db');
 const bcrypt = require('bcrypt');
 
-passport.use(new LocalStrategy(
-  async (username, password, done) => {
+passport.use(
+  new LocalStrategy(async (username, password, done) => {
     try {
       const [user] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
       if (!user) {
@@ -19,13 +19,11 @@ passport.use(new LocalStrategy(
     } catch (err) {
       return done(err);
     }
-  }
-));
+  })
+);
 
-passport.use(new HeaderAPIKeyStrategy(
-  { header: 'X-API-Key', prefix: '' },
-  false,
-  async (apiKey, done) => {
+passport.use(
+  new HeaderAPIKeyStrategy({ header: 'X-API-Key', prefix: '' }, false, async (apiKey, done) => {
     try {
       const [key] = await db.query('SELECT * FROM api_keys WHERE api_key = ?', [apiKey]);
       if (!key) {
@@ -39,8 +37,8 @@ passport.use(new HeaderAPIKeyStrategy(
     } catch (err) {
       return done(err);
     }
-  }
-));
+  })
+);
 
 passport.serializeUser((user, done) => {
   done(null, user.id);

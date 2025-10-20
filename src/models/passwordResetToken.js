@@ -19,9 +19,9 @@ async function createToken(userId, token) {
 }
 
 async function findToken(token) {
-    const query = 'SELECT * FROM password_reset_tokens WHERE token = ?';
-    const rows = await db.query(query, [token]);
-    return rows[0];
+  const query = 'SELECT * FROM password_reset_tokens WHERE token = ?';
+  const rows = await db.query(query, [token]);
+  return rows[0];
 }
 
 async function deleteTokensByUserId(userId) {

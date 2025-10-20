@@ -2,7 +2,7 @@ const db = require('../db');
 const passport = require('passport');
 
 function apiOrSessionAuth(req, res, next) {
-  passport.authenticate('headerapikey', { session: false }, (err, user, info) => {
+  passport.authenticate('headerapikey', { session: false }, (err, user) => {
     if (err) {
       return next(err);
     }
@@ -43,11 +43,8 @@ function hasRole(role) {
       return res.status(401).send('Unauthorized');
     }
     try {
-      const rows = await db.query(
-        'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
-        [req.user.id]
-      );
-      const roles = rows.map(row => row.name);
+      const rows = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [req.user.id]);
+      const roles = rows.map((row) => row.name);
       if (roles.includes(role)) {
         return next();
       }
@@ -65,11 +62,8 @@ function hasRolePage(role) {
       return res.redirect('/login');
     }
     try {
-      const rows = await db.query(
-        'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
-        [req.user.id]
-      );
-      const roles = rows.map(row => row.name);
+      const rows = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [req.user.id]);
+      const roles = rows.map((row) => row.name);
       if (roles.includes(role)) {
         return next();
       }
@@ -96,7 +90,7 @@ function redirectIfAuthenticated(req, res, next) {
 }
 
 function optionalApiOrSessionAuth(req, res, next) {
-  passport.authenticate('headerapikey', { session: false }, (err, user, info) => {
+  passport.authenticate('headerapikey', { session: false }, (err, user) => {
     if (err) {
       return next(err);
     }

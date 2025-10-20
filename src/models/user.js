@@ -70,46 +70,46 @@ async function updatePassword(userId, newPassword) {
 }
 
 async function updateUser(userId, { username, password, roles, blocked, max_api_keys }) {
-    if (password) {
-        const passwordValidation = validatePassword(password);
-        if (!passwordValidation.isValid) {
-            throw new Error(passwordValidation.errors.join(' '));
-        }
-        const hashedPassword = await bcrypt.hash(password, 10);
-        await db.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
+  if (password) {
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      throw new Error(passwordValidation.errors.join(' '));
     }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await db.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
+  }
 
-    if (username) {
-        const usernameValidation = validateUsername(username);
-        if (!usernameValidation.isValid) {
-            throw new Error(usernameValidation.errors.join(' '));
-        }
-        await db.query('UPDATE users SET username = ? WHERE id = ?', [username, userId]);
+  if (username) {
+    const usernameValidation = validateUsername(username);
+    if (!usernameValidation.isValid) {
+      throw new Error(usernameValidation.errors.join(' '));
     }
+    await db.query('UPDATE users SET username = ? WHERE id = ?', [username, userId]);
+  }
 
-    if (blocked !== undefined) {
-        await db.query('UPDATE users SET blocked = ? WHERE id = ?', [blocked, userId]);
-    }
+  if (blocked !== undefined) {
+    await db.query('UPDATE users SET blocked = ? WHERE id = ?', [blocked, userId]);
+  }
 
-    if (max_api_keys !== undefined) {
-        let maxApiKeys = parseInt(max_api_keys, 10);
-        if (process.env.MAX_API_KEYS_PER_USER) {
-            maxApiKeys = Math.min(maxApiKeys, parseInt(process.env.MAX_API_KEYS_PER_USER, 10));
-        }
-        await db.query('UPDATE users SET max_api_keys = ? WHERE id = ?', [maxApiKeys, userId]);
+  if (max_api_keys !== undefined) {
+    let maxApiKeys = parseInt(max_api_keys, 10);
+    if (process.env.MAX_API_KEYS_PER_USER) {
+      maxApiKeys = Math.min(maxApiKeys, parseInt(process.env.MAX_API_KEYS_PER_USER, 10));
     }
+    await db.query('UPDATE users SET max_api_keys = ? WHERE id = ?', [maxApiKeys, userId]);
+  }
 
-    if (roles) {
-        await db.query('DELETE FROM user_roles WHERE user_id = ?', [userId]);
-        for (const roleName of roles) {
-            const [role] = await db.query('SELECT id FROM roles WHERE name = ?', [roleName]);
-            if (role) {
-                await db.query('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [userId, role.id]);
-            } else {
-                console.warn(`Role '${roleName}' not found.`);
-            }
-        }
+  if (roles) {
+    await db.query('DELETE FROM user_roles WHERE user_id = ?', [userId]);
+    for (const roleName of roles) {
+      const [role] = await db.query('SELECT id FROM roles WHERE name = ?', [roleName]);
+      if (role) {
+        await db.query('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [userId, role.id]);
+      } else {
+        console.warn(`Role '${roleName}' not found.`);
+      }
     }
+  }
 }
 
 module.exports = {
@@ -117,5 +117,5 @@ module.exports = {
   createUser,
   findUserByUsername,
   updatePassword,
-  updateUser
+  updateUser,
 };
