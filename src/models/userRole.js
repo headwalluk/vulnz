@@ -14,5 +14,5 @@ async function createTable() {
 }
 
 module.exports = {
-  createTable
+  createTable,
 };

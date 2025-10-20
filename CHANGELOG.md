@@ -3,6 +3,7 @@
 ## 0.11.0 2025-10-20
 
 - Fixed the saerch results by removing duplicates and apply a less aggressive sanitsation of the search query.
+- Added linting and formatting (prettier) and tidied up the code a bit.
 
 ## 0.9.0- 2025-10-19
 

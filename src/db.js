@@ -4,7 +4,7 @@ const dbConfig = require('./config/db');
 const pool = mariadb.createPool({
   ...dbConfig,
   connectionLimit: 10,
-  idleTimeout: 60000 // 60 seconds
+  idleTimeout: 60000, // 60 seconds
 });
 
 // Log pool events for debugging
@@ -28,15 +28,12 @@ async function query(sql, params) {
   let conn;
   try {
     conn = await pool.getConnection();
-    const rows = await conn.query(sql, params);
-    return rows;
-  } catch (err) {
-    throw err;
+    return await conn.query(sql, params);
   } finally {
     if (conn) conn.release();
   }
 }
 
 module.exports = {
-  query
+  query,
 };

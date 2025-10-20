@@ -1,54 +1,61 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Log - vulnz</title>
-    <link rel="icon" href="/favicon.png" type="image/png">
+    <link rel="icon" href="/favicon.png" type="image/png" />
     <!-- build:css -->
-    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap-icons.css">
-    <link rel="stylesheet" href="/css/app.css">
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap-icons.css" />
+    <link rel="stylesheet" href="/css/app.css" />
     <!-- endbuild -->
-</head>
-<body class="authenticated">
+  </head>
+  <body class="authenticated">
     <header id="header-placeholder"></header>
     <main class="container mt-5">
-        <h1>API Call Logs</h1>
-        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
-            <div class="btn-toolbar w-100" role="toolbar">
-                <div class="input-group me-3 mb-2 mb-md-0">
-                    <label for="sort-order" class="input-group-text">Sort by:</label>
-                    <select id="sort-order" class="form-select">
-                        <option value="desc">Timestamp Descending</option>
-                        <option value="asc">Timestamp Ascending</option>
-                    </select>
-                </div>
-                <div class="btn-group ms-auto" role="group">
-                    <button type="button" class="btn btn-primary" id="first-page"><i class="bi bi-chevron-bar-left"></i></button>
-                    <button type="button" class="btn btn-primary" id="prev-page"><i class="bi bi-chevron-left"></i></button>
-                    <button type="button" class="btn btn-primary" id="next-page"><i class="bi bi-chevron-right"></i></button>
-                    <button type="button" class="btn btn-primary" id="last-page"><i class="bi bi-chevron-bar-right"></i></button>
-                </div>
-            </div>
+      <h1>API Call Logs</h1>
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+        <div class="btn-toolbar w-100" role="toolbar">
+          <div class="input-group me-3 mb-2 mb-md-0">
+            <label for="sort-order" class="input-group-text">Sort by:</label>
+            <select id="sort-order" class="form-select">
+              <option value="desc">Timestamp Descending</option>
+              <option value="asc">Timestamp Ascending</option>
+            </select>
+          </div>
+          <div class="btn-group ms-auto" role="group">
+            <button type="button" class="btn btn-primary" id="first-page">
+              <i class="bi bi-chevron-bar-left"></i>
+            </button>
+            <button type="button" class="btn btn-primary" id="prev-page">
+              <i class="bi bi-chevron-left"></i>
+            </button>
+            <button type="button" class="btn btn-primary" id="next-page">
+              <i class="bi bi-chevron-right"></i>
+            </button>
+            <button type="button" class="btn btn-primary" id="last-page">
+              <i class="bi bi-chevron-bar-right"></i>
+            </button>
+          </div>
         </div>
-        <div class="table-responsive">
-            <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Timestamp</th>
-                    <th>Username</th>
-                    <th>Method</th>
-                    <th>Route</th>
-                    <th>IP Address</th>
-                    <th>Status Code</th>
-                </tr>
-            </thead>
-            <tbody id="logs-table-body">
-            </tbody>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Username</th>
+              <th>Method</th>
+              <th>Route</th>
+              <th>IP Address</th>
+              <th>Status Code</th>
+            </tr>
+          </thead>
+          <tbody id="logs-table-body"></tbody>
         </table>
-        </div>
-        <nav id="pagination"></nav>
+      </div>
+      <nav id="pagination"></nav>
     </main>
 
     <footer id="footer-placeholder"></footer>
@@ -59,5 +66,5 @@
     <script src="/js/app.js"></script>
     <script src="/js/api-logs.js"></script>
     <!-- endbuild -->
-</body>
+  </body>
 </html>

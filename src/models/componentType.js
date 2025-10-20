@@ -13,7 +13,7 @@ async function createTable() {
 async function seedData() {
   const componentTypes = [
     { slug: 'wordpress-theme', title: 'WordPress Theme' },
-    { slug: 'wordpress-plugin', title: 'WordPress Plugin' }
+    { slug: 'wordpress-plugin', title: 'WordPress Plugin' },
   ];
 
   for (const type of componentTypes) {
@@ -24,5 +24,5 @@ async function seedData() {
 
 module.exports = {
   createTable,
-  seedData
+  seedData,
 };

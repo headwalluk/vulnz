@@ -14,9 +14,9 @@ The app is designed to help WordPress hosting providers collate and manage WP pl
 
 ## Requirements
 
-* MySQL/MariaDB: Any recent version should be fine.
-* BASH: Required if you want to use the tools to backup, restore and pull from wordfence.com.
-* Node: Any recent LTS should be fine. Tested with Node v22.14.0
+- MySQL/MariaDB: Any recent version should be fine.
+- BASH: Required if you want to use the tools to backup, restore and pull from wordfence.com.
+- Node: Any recent LTS should be fine. Tested with Node v22.14.0
 
 ```bash
 # Clone the repo
@@ -28,13 +28,13 @@ git clone Github https://github.com/headwalluk/vulnz
 
 Copy `env.sample` to `.env` and configure it for your environment. Pay special attention to the following:
 
-*   **Database Credentials:** Set up a MySQL/MariaDB database and add the credentials.
-*   **`SERVER_MODE`:** Initially, run in `setup` mode to create the first administrator account. Once that's done, switch to `production`.
-*   **`REGISTRATION_ENABLED`:** Set to `false` to prevent new user registrations.
-*   **Rate Limiting:** Configure `UNAUTH_SEARCH_LIMIT_PER_SECOND` to control unauthenticated search requests.
-*   **API Key Limits:** Set `MAX_API_KEYS_PER_USER` to define the maximum number of API keys a user can create.
-*   **SMTP Details:** Add your SMTP server details for password reset emails.
-*   **`SESSION_SECRET`:** Generate a long, random string for session security.
+- **Database Credentials:** Set up a MySQL/MariaDB database and add the credentials.
+- **`SERVER_MODE`:** Initially, run in `setup` mode to create the first administrator account. Once that's done, switch to `production`.
+- **`REGISTRATION_ENABLED`:** Set to `false` to prevent new user registrations.
+- **Rate Limiting:** Configure `UNAUTH_SEARCH_LIMIT_PER_SECOND` to control unauthenticated search requests.
+- **API Key Limits:** Set `MAX_API_KEYS_PER_USER` to define the maximum number of API keys a user can create.
+- **SMTP Details:** Add your SMTP server details for password reset emails.
+- **`SESSION_SECRET`:** Generate a long, random string for session security.
 
 ```bash
 # Install Node packages.

@@ -22,30 +22,30 @@ const { isAuthenticated, hasRole } = require('../middleware/auth');
  *         description: A list of users
  */
 router.get('/', hasRole('administrator'), async (req, res) => {
-    try {
-        const page = parseInt(req.query.page, 10) || 1;
-        const limit = parseInt(req.query.limit, 10) || 10;
-        const offset = (page - 1) * limit;
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const offset = (page - 1) * limit;
 
-        const users = await db.query('SELECT id, username, blocked, max_api_keys FROM users LIMIT ? OFFSET ?', [limit, offset]);
-        for (let u of users) {
-            const roles = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [u.id]);
-            u.roles = roles.map(r => r.name);
-        }
-
-        const totalUsers = await db.query('SELECT COUNT(*) as count FROM users');
-        const total = totalUsers[0].count;
-
-        res.json({
-            users,
-            total,
-            page,
-            limit
-        });
-    } catch (err) {
-        console.error(err);
-        res.status(500).send('Server error');
+    const users = await db.query('SELECT id, username, blocked, max_api_keys FROM users LIMIT ? OFFSET ?', [limit, offset]);
+    for (let u of users) {
+      const roles = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [u.id]);
+      u.roles = roles.map((r) => r.name);
     }
+
+    const totalUsers = await db.query('SELECT COUNT(*) as count FROM users');
+    const total = totalUsers[0].count;
+
+    res.json({
+      users,
+      total,
+      page,
+      limit,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
 });
 
 /**
@@ -84,13 +84,13 @@ router.get('/', hasRole('administrator'), async (req, res) => {
  *         description: User updated
  */
 router.put('/:id', hasRole('administrator'), async (req, res) => {
-    try {
-        await user.updateUser(req.params.id, req.body);
-        res.send('User updated');
-    } catch (err) {
-        console.error(err);
-        res.status(500).send('Server error');
-    }
+  try {
+    await user.updateUser(req.params.id, req.body);
+    res.send('User updated');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
 });
 
 /**
@@ -115,16 +115,16 @@ router.put('/:id', hasRole('administrator'), async (req, res) => {
  *         description: Password updated
  */
 router.put('/password', isAuthenticated, async (req, res) => {
-    try {
-        await user.updatePassword(req.user.id, req.body.newPassword);
-        res.send('Password updated');
-    } catch (err) {
-        if (err.message.includes('Password must')) {
-            return res.status(400).send(err.message);
-        }
-        console.error(err);
-        res.status(500).send('Server error');
+  try {
+    await user.updatePassword(req.user.id, req.body.newPassword);
+    res.send('Password updated');
+  } catch (err) {
+    if (err.message.includes('Password must')) {
+      return res.status(400).send(err.message);
     }
+    console.error(err);
+    res.status(500).send('Server error');
+  }
 });
 
 module.exports = router;

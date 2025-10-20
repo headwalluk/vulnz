@@ -35,18 +35,18 @@ async function search(query, page = 1, limit = 10) {
     ORDER BY priority ASC
   `;
 
-  if( process.env.LOG_LEVEL === 'debug' ) {
+  if (process.env.LOG_LEVEL === 'debug') {
     console.log('Executing componentsSql with params:', [query, searchQuery, searchQuery, query]);
   }
 
-  const allComponentIds = (await db.query(componentsSql, [query, searchQuery, searchQuery, query])).map(c => c.id);
+  const allComponentIds = (await db.query(componentsSql, [query, searchQuery, searchQuery, query])).map((c) => c.id);
 
   // Remove duplicates while preserving order.
   const uniqueComponentIds = [...new Set(allComponentIds)];
 
   // Total number of unique components found.
   const total = uniqueComponentIds.length;
-  
+
   // Grab only the component ids for the requested page.
   const wantedComponentIds = uniqueComponentIds.slice(offset, offset + limit);
 

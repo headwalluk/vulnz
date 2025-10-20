@@ -5,7 +5,7 @@ async function logApiCall(req, res, next) {
     return next();
   }
   const originalSend = res.send;
-  res.send = function() {
+  res.send = function () {
     const username = req.user ? req.user.username : 'guest';
     if (process.env.LOG_LEVEL === 'debug') {
       console.log(`Logging API call for user: ${username}, route: ${req.originalUrl}, method: ${req.method}, IP: ${req.ip}, status: ${res.statusCode}`);
@@ -21,5 +21,5 @@ async function logApiCall(req, res, next) {
 }
 
 module.exports = {
-  logApiCall
+  logApiCall,
 };

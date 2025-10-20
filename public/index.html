@@ -1,48 +1,47 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VULNZ - Open Source WordPress plugin vulnerability database</title>
-    <meta name="description" content="A meta vulnerability database for WordPress plugins, collating information on known vulnerabilities to assist website hosting providers.">
-    <link rel="icon" href="/favicon.png" type="image/png">
+    <meta name="description" content="A meta vulnerability database for WordPress plugins, collating information on known vulnerabilities to assist website hosting providers." />
+    <link rel="icon" href="/favicon.png" type="image/png" />
     <!-- build:css -->
-    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap-icons.css">
-    <link rel="stylesheet" href="/css/app.css">
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap-icons.css" />
+    <link rel="stylesheet" href="/css/app.css" />
     <!-- endbuild -->
     <style>
-        body {
-            background: linear-gradient(-45deg, #1a237e, #311b92, #4a148c, #880e4f);
-            background-size: 400% 400%;
-            animation: gradient 15s ease infinite;
-            color: white;
-            padding-top: 70px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        }
+      body {
+        background: linear-gradient(-45deg, #1a237e, #311b92, #4a148c, #880e4f);
+        background-size: 400% 400%;
+        animation: gradient 15s ease infinite;
+        color: white;
+        padding-top: 70px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      }
 
-        @keyframes gradient {
-            0% {
-                background-position: 0% 50%;
-            }
-            50% {
-                background-position: 100% 50%;
-            }
-            100% {
-                background-position: 0% 50%;
-            }
+      @keyframes gradient {
+        0% {
+          background-position: 0% 50%;
         }
-
-     
-        h1 {
-            font-size: 5rem;
-            font-weight: 700;
-            letter-spacing: 0.1rem;
-            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
-            margin: 0;
+        50% {
+          background-position: 100% 50%;
         }
+        100% {
+          background-position: 0% 50%;
+        }
+      }
 
-        /*
+      h1 {
+        font-size: 5rem;
+        font-weight: 700;
+        letter-spacing: 0.1rem;
+        text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
+        margin: 0;
+      }
+
+      /*
         p.strapline {
             font-weight: 500;
             margin-bottom: 2rem;
@@ -55,44 +54,54 @@
         }
             */
 
-        a {
-            text-decoration: none;
-        }
+      a {
+        text-decoration: none;
+      }
 
-        html {
-            scroll-behavior: auto !important;
-        }
+      html {
+        scroll-behavior: auto !important;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <header id="header-placeholder"></header>
 
-    <section id="main-content" class="container d-flex flex-column justify-content-center align-items-center text-center" style="height: 80vh; transition: all 0.5s ease;">
-        <h1>VULNZ</h1>
-        <p class="fw-bold">An open source vulnerability database for WordPress users</p>
-        <div class="col-md-6">
-            <div class="input-group mb-3">
-                <input type="text" id="search-input" class="form-control" placeholder="Search for a WordPress plugin..." aria-label="Search for a WordPress plugin" aria-describedby="search-button">
-                <button class="btn btn-light" type="button" id="search-button">
-                    Search
-                    <span id="spinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
-                </button>
-            </div>
-            <small class="form-text text-light">Search plugins by slug or by name.</small>
+    <section id="main-content" class="container d-flex flex-column justify-content-center align-items-center text-center" style="height: 80vh; transition: all 0.5s ease">
+      <h1>VULNZ</h1>
+      <p class="fw-bold">An open source vulnerability database for WordPress users</p>
+      <div class="col-md-6">
+        <div class="input-group mb-3">
+          <input
+            type="text"
+            id="search-input"
+            class="form-control"
+            placeholder="Search for a WordPress plugin..."
+            aria-label="Search for a WordPress plugin"
+            aria-describedby="search-button"
+          />
+          <button class="btn btn-light" type="button" id="search-button">
+            Search
+            <span id="spinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none"></span>
+          </button>
         </div>
+        <small class="form-text text-light">Search plugins by slug or by name.</small>
+      </div>
     </section>
 
-    <div id="search-results" class="container" style="display: none;">
-        <div class="d-flex justify-content-between align-items-center">
-            <h2>Search Results <span id="results-spinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span></h2>
-            <small id="page-indicator" class="text-light" style="display: none;"></small>
-        </div>
-        <ul id="results-list" class="list-group"></ul>
-        <nav id="pagination" class="mt-4"></nav>
+    <div id="search-results" class="container" style="display: none">
+      <div class="d-flex justify-content-between align-items-center">
+        <h2>
+          Search Results
+          <span id="results-spinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none"></span>
+        </h2>
+        <small id="page-indicator" class="text-light" style="display: none"></small>
+      </div>
+      <ul id="results-list" class="list-group"></ul>
+      <nav id="pagination" class="mt-4"></nav>
     </div>
 
     <footer class="text-center text-white mt-5 mb-5">
-        <a href="https://github.com/headwalluk/vulnz" class="text-white"><i class="bi bi-github"></i> GitHub / vulnz</a>
+      <a href="https://github.com/headwalluk/vulnz" class="text-white"><i class="bi bi-github"></i> GitHub / vulnz</a>
     </footer>
 
     <!-- build:js -->
@@ -101,5 +110,5 @@
     <script src="/js/app.js"></script>
     <script src="/js/index.js"></script>
     <!-- endbuild -->
-</body>
+  </body>
 </html>

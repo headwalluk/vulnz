@@ -18,10 +18,7 @@ async function createTable() {
 }
 
 async function logCall(username, route, method, ipAddress, statusCode) {
-  await db.query(
-    'INSERT INTO api_call_logs (username, route, method, ip_address, status_code) VALUES (?, ?, ?, ?, ?)',
-    [username, route, method, ipAddress, statusCode]
-  );
+  await db.query('INSERT INTO api_call_logs (username, route, method, ip_address, status_code) VALUES (?, ?, ?, ?, ?)', [username, route, method, ipAddress, statusCode]);
 }
 
 async function purgeOldLogs() {
@@ -35,7 +32,7 @@ async function purgeOldLogs() {
     DELETE FROM api_call_logs
     WHERE timestamp < NOW() - INTERVAL ? DAY
   `;
-  
+
   try {
     const [result] = await db.query(sql, [retentionDays]);
     console.log(`Purged ${result.affectedRows} old API call logs.`);

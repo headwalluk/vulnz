@@ -3,9 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { hasRole, apiOrSessionAuth, optionalApiOrSessionAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
-const {
- stripAll, isUrl, sanitizeVersion, stripNonAlphaNumeric, sanitizeSearchQuery,
-} = require('../lib/sanitizer');
+const { isUrl, sanitizeVersion, sanitizeSearchQuery } = require('../lib/sanitizer');
 const { unauthenticatedSearchLimiter } = require('../middleware/rateLimit');
 const component = require('../models/component');
 
@@ -103,7 +101,7 @@ router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
     const [{ total }] = await db.query('SELECT COUNT(*) as total FROM components');
 
     res.json({
-      components: components.map(c => ({ ...c, id: parseInt(c.id, 10) })),
+      components: components.map((c) => ({ ...c, id: parseInt(c.id, 10) })),
       total: parseInt(total, 10),
       page,
       limit,
@@ -137,10 +135,7 @@ router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
 router.post('/', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (req, res) => {
   try {
     const { slug, component_type_slug, title, description } = req.body;
-    await db.query(
-      'INSERT INTO components (slug, component_type_slug, title, description) VALUES (?, ?, ?, ?)',
-      [slug, component_type_slug, title, description]
-    );
+    await db.query('INSERT INTO components (slug, component_type_slug, title, description) VALUES (?, ?, ?, ?)', [slug, component_type_slug, title, description]);
     res.status(201).json({ slug, component_type_slug, title, description });
   } catch (err) {
     console.error(err);
@@ -213,27 +208,18 @@ router.post('/:componentTypeSlug/:componentSlug/:version', apiOrSessionAuth, log
 
     let component = await db.query('SELECT * FROM components WHERE component_type_slug = ? AND slug = ?', [componentTypeSlug, componentSlug]);
     if (component.length === 0) {
-      await db.query(
-        'INSERT INTO components (slug, component_type_slug, title, description) VALUES (?, ?, ?, ?)',
-        [componentSlug, componentTypeSlug, componentSlug, '']
-      );
+      await db.query('INSERT INTO components (slug, component_type_slug, title, description) VALUES (?, ?, ?, ?)', [componentSlug, componentTypeSlug, componentSlug, '']);
       component = await db.query('SELECT * FROM components WHERE component_type_slug = ? AND slug = ?', [componentTypeSlug, componentSlug]);
     }
 
     let release = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [component[0].id, version]);
     if (release.length === 0) {
-      await db.query(
-        'INSERT INTO releases (component_id, version) VALUES (?, ?)',
-        [component[0].id, version]
-      );
+      await db.query('INSERT INTO releases (component_id, version) VALUES (?, ?)', [component[0].id, version]);
       release = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [component[0].id, version]);
     }
 
     for (const url of urls) {
-      await db.query(
-        'INSERT IGNORE INTO vulnerabilities (release_id, url) VALUES (?, ?)',
-        [release[0].id, url]
-      );
+      await db.query('INSERT IGNORE INTO vulnerabilities (release_id, url) VALUES (?, ?)', [release[0].id, url]);
     }
 
     res.status(200).send();
@@ -309,22 +295,26 @@ router.get('/:componentTypeSlug/:componentSlug/:version', apiOrSessionAuth, logA
 
     let component = await db.query('SELECT * FROM components WHERE component_type_slug = ? AND slug = ?', [componentTypeSlug, componentSlug]);
     if (component.length === 0) {
-      await db.query(
-        'INSERT INTO components (slug, component_type_slug, title, description) VALUES (?, ?, ?, ?)',
-        [componentSlug, componentTypeSlug, componentSlug, '']
-      );
+      await db.query('INSERT INTO components (slug, component_type_slug, title, description) VALUES (?, ?, ?, ?)', [componentSlug, componentTypeSlug, componentSlug, '']);
       component = await db.query('SELECT * FROM components WHERE component_type_slug = ? AND slug = ?', [componentTypeSlug, componentSlug]);
     }
     let release = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [component[0].id, version]);
     if (release.length === 0) {
-      await db.query(
-        'INSERT INTO releases (component_id, version) VALUES (?, ?)',
-        [component[0].id, version]
-      );
+      await db.query('INSERT INTO releases (component_id, version) VALUES (?, ?)', [component[0].id, version]);
       release = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [component[0].id, version]);
     }
     const vulnerabilities = await db.query('SELECT * FROM vulnerabilities WHERE release_id = ?', [release[0].id]);
-    res.json({ ...release[0], id: parseInt(release[0].id, 10), component_id: parseInt(release[0].component_id, 10), vulnerabilities: vulnerabilities.map(v => ({ ...v, id: parseInt(v.id, 10), release_id: parseInt(v.release_id, 10) })), has_vulnerabilities: vulnerabilities.length > 0 });
+    res.json({
+      ...release[0],
+      id: parseInt(release[0].id, 10),
+      component_id: parseInt(release[0].component_id, 10),
+      vulnerabilities: vulnerabilities.map((v) => ({
+        ...v,
+        id: parseInt(v.id, 10),
+        release_id: parseInt(v.release_id, 10),
+      })),
+      has_vulnerabilities: vulnerabilities.length > 0,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
@@ -367,20 +357,30 @@ router.get('/:componentTypeSlug/:componentSlug', apiOrSessionAuth, logApiCall, a
 
     let component = await db.query('SELECT * FROM components WHERE component_type_slug = ? AND slug = ?', [componentTypeSlug, componentSlug]);
     if (component.length === 0) {
-      await db.query(
-        'INSERT INTO components (slug, component_type_slug, title, description) VALUES (?, ?, ?, ?)',
-        [componentSlug, componentTypeSlug, componentSlug, '']
-      );
+      await db.query('INSERT INTO components (slug, component_type_slug, title, description) VALUES (?, ?, ?, ?)', [componentSlug, componentTypeSlug, componentSlug, '']);
       component = await db.query('SELECT * FROM components WHERE component_type_slug = ? AND slug = ?', [componentTypeSlug, componentSlug]);
     }
-    const releases = await db.query(`
+    const releases = await db.query(
+      `
       SELECT r.*, COUNT(v.id) > 0 AS has_vulnerabilities
       FROM releases r
       LEFT JOIN vulnerabilities v ON r.id = v.release_id
       WHERE r.component_id = ?
       GROUP BY r.id
-    `, [component[0].id]);
-    res.json({ ...component[0], id: parseInt(component[0].id, 10), synced_from_wporg: !!component[0].synced_from_wporg, releases: releases.map(r => ({ ...r, id: parseInt(r.id, 10), component_id: parseInt(r.component_id, 10), has_vulnerabilities: !!r.has_vulnerabilities })) });
+    `,
+      [component[0].id]
+    );
+    res.json({
+      ...component[0],
+      id: parseInt(component[0].id, 10),
+      synced_from_wporg: !!component[0].synced_from_wporg,
+      releases: releases.map((r) => ({
+        ...r,
+        id: parseInt(r.id, 10),
+        component_id: parseInt(r.component_id, 10),
+        has_vulnerabilities: !!r.has_vulnerabilities,
+      })),
+    });
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
@@ -394,14 +394,27 @@ router.get('/:id', apiOrSessionAuth, logApiCall, async (req, res) => {
     if (component.length === 0) {
       return res.status(404).send('Component not found');
     }
-    const releases = await db.query(`
+    const releases = await db.query(
+      `
       SELECT r.*, COUNT(v.id) > 0 AS has_vulnerabilities
       FROM releases r
       LEFT JOIN vulnerabilities v ON r.id = v.release_id
       WHERE r.component_id = ?
       GROUP BY r.id
-    `, [id]);
-    res.json({ ...component[0], id: parseInt(component[0].id, 10), synced_from_wporg: !!component[0].synced_from_wporg, releases: releases.map(r => ({ ...r, id: parseInt(r.id, 10), component_id: parseInt(r.component_id, 10), has_vulnerabilities: !!r.has_vulnerabilities })) });
+    `,
+      [id]
+    );
+    res.json({
+      ...component[0],
+      id: parseInt(component[0].id, 10),
+      synced_from_wporg: !!component[0].synced_from_wporg,
+      releases: releases.map((r) => ({
+        ...r,
+        id: parseInt(r.id, 10),
+        component_id: parseInt(r.component_id, 10),
+        has_vulnerabilities: !!r.has_vulnerabilities,
+      })),
+    });
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
@@ -465,10 +478,7 @@ router.put('/:id', apiOrSessionAuth, logApiCall, hasRole('administrator'), async
     }
     queryParams.push(id);
 
-    await db.query(
-      `UPDATE components SET ${queryParts.join(', ')} WHERE id = ?`,
-      queryParams
-    );
+    await db.query(`UPDATE components SET ${queryParts.join(', ')} WHERE id = ?`, queryParams);
 
     res.json({ id: parseInt(id, 10), ...fields });
   } catch (err) {

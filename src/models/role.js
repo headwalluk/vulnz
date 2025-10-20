@@ -19,5 +19,5 @@ async function seedData() {
 
 module.exports = {
   createTable,
-  seedData
+  seedData,
 };

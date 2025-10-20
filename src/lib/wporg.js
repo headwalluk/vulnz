@@ -10,10 +10,7 @@ async function syncNextPlugin() {
   const userAgent = process.env.WPORG_USER_AGENT || 'VULNZ/1.0';
 
   try {
-    const components = await db.query(
-      "SELECT * FROM components WHERE component_type_slug = 'wordpress-plugin' AND synced_from_wporg != 1 LIMIT ?",
-      [parseInt(batchSize, 10)]
-    );
+    const components = await db.query("SELECT * FROM components WHERE component_type_slug = 'wordpress-plugin' AND synced_from_wporg != 1 LIMIT ?", [parseInt(batchSize, 10)]);
 
     if (!components || components.length === 0) {
       return;
@@ -23,6 +20,7 @@ async function syncNextPlugin() {
       if (process.env.LOG_LEVEL === 'info') {
         console.log(`Syncing plugin: ${component.slug}`);
       }
+
       try {
         const url = `${baseUrl}${endpoint}${component.slug}.json`;
         const options = {

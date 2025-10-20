@@ -36,7 +36,7 @@ router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
       logs,
       total: total[0].count,
       page,
-      limit
+      limit,
     });
   } catch (err) {
     console.error(err);
