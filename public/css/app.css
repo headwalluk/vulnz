@@ -33,3 +33,11 @@ body.authenticated main {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.vulnerability-icon {
+  transform: scale(1.8);
+}
+
+.website-info {
+  gap: 15px;
+}

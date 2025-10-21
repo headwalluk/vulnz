@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.0 2025-10-21
+
+- The /api/websites REST endpoint is coming together now, with an addition to the /dashboard page su users can track the websites' vulnerabilities.
+
 ## 0.12.0 2025-10-20
 
 - Fixed the saerch results by removing duplicates and apply a less aggressive sanitsation of the search query.

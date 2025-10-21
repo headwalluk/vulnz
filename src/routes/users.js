@@ -50,6 +50,83 @@ router.get('/', hasRole('administrator'), async (req, res) => {
 
 /**
  * @swagger
+ * /api/users:
+ *   post:
+ *     summary: Create a new user
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               roles:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               blocked:
+ *                 type: boolean
+ *               max_api_keys:
+ *                  type: integer
+ *     responses:
+ *       201:
+ *         description: User created
+ */
+router.post('/', hasRole('administrator'), async (req, res) => {
+  try {
+    const { username, password, roles, blocked, max_api_keys } = req.body;
+    const newUser = await user.createUser(username, password, roles, blocked, max_api_keys);
+    res.status(201).json(newUser);
+  } catch (err) {
+    if (err.message.includes('Password must')) {
+      return res.status(400).send(err.message);
+    }
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   get:
+ *     summary: Get a single user by ID
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: A single user object
+ *       404:
+ *         description: User not found
+ */
+router.get('/:id', hasRole('administrator'), async (req, res) => {
+  try {
+    const u = await db.query('SELECT id, username, blocked, max_api_keys FROM users WHERE id = ?', [req.params.id]);
+    if (!u || u.length === 0) {
+      return res.status(404).send('User not found');
+    }
+    const userResult = u[0];
+    const roles = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [userResult.id]);
+    userResult.roles = roles.map((r) => r.name);
+    res.json(userResult);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+/**
+ * @swagger
  * /api/users/{id}:
  *   put:
  *     summary: Update a user
