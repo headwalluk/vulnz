@@ -113,6 +113,37 @@ function optionalApiOrSessionAuth(req, res, next) {
   })(req, res, next);
 }
 
+function apiKeyOrSessionAdminAuth(req, res, next) {
+  passport.authenticate('headerapikey', { session: false }, async (err, user) => {
+    if (err) {
+      return next(err);
+    }
+    // API Key authentication successful
+    if (user) {
+      if (user.blocked) {
+        return res.status(401).send('User account is blocked.');
+      }
+      // Now check for admin role
+      try {
+        const rows = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [user.id]);
+        const roles = rows.map((row) => row.name);
+        if (roles.includes('administrator')) {
+          req.user = user; // Log in the user for this request
+          return next();
+        } else {
+          return res.status(403).send('Forbidden: API key holder is not an administrator.');
+        }
+      } catch (dbErr) {
+        console.error(dbErr);
+        return res.status(500).send('Server error during role check.');
+      }
+    } else {
+      // No valid API key, fall back to session-based role check
+      return hasRole('administrator')(req, res, next);
+    }
+  })(req, res, next);
+}
+
 module.exports = {
   isAuthenticated,
   isAuthenticatedPage,
@@ -122,4 +153,5 @@ module.exports = {
   apiOrSessionAuth,
   optionalApiOrSessionAuth,
   isAdminPage,
+  apiKeyOrSessionAdminAuth,
 };

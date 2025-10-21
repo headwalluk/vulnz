@@ -18,9 +18,14 @@ const createTable = async () => {
   await db.query(query);
 };
 
-const findAll = async (userId) => {
-    const rows = await db.query('SELECT * FROM websites WHERE user_id = ?', [userId]);
+const findAll = async (userId, limit, offset) => {
+    const rows = await db.query('SELECT * FROM websites WHERE user_id = ? LIMIT ? OFFSET ?', [userId, limit, offset]);
     return Array.isArray(rows) ? rows : [];
+};
+
+const countAll = async (userId) => {
+    const rows = await db.query('SELECT COUNT(*) as count FROM websites WHERE user_id = ?', [userId]);
+    return Number(rows[0].count);
 };
 
 const findByDomain = async (domain) => {
@@ -49,6 +54,7 @@ const remove = async (domain) => {
 module.exports = {
   createTable,
   findAll,
+  countAll,
   findByDomain,
   create,
   update,

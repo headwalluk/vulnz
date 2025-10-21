@@ -1,7 +1,8 @@
 # Changelog
 
-## 0.14.0 2025-10-21
+## 0.15.0 2025-10-21
 
+- Support for multiple users monitoring their own websites independent of each other.
 - The /api/websites REST endpoint is coming together now, with an addition to the /dashboard page su users can track the websites' vulnerabilities.
 
 ## 0.12.0 2025-10-20

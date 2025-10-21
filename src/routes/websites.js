@@ -42,7 +42,13 @@ const addUrl = (website) => {
 
 router.get('/', apiOrSessionAuth, async (req, res) => {
     try {
-        const websites = await Website.findAll(req.user.id);
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+        const offset = (page - 1) * limit;
+
+        const total = await Website.countAll(req.user.id);
+        const websites = await Website.findAll(req.user.id, limit, offset);
+
         for (const website of websites) {
             const { wordpressPlugins, wordpressThemes } = await getWebsiteComponents(website);
             website['wordpress-plugins'] = wordpressPlugins;
@@ -53,9 +59,9 @@ router.get('/', apiOrSessionAuth, async (req, res) => {
 
         res.json({
             websites: websites || [],
-            total: websites.length,
-            page: 1,
-            limit: websites.length,
+            total,
+            page,
+            limit,
         });
     } catch (err) {
         console.error(err);
@@ -79,9 +85,26 @@ router.get('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
 
 router.post('/', apiOrSessionAuth, async (req, res) => {
     try {
-        const { domain, title } = req.body;
-        const website = await Website.create({ user_id: req.user.id, domain, title });
-        res.status(201).json(website);
+        const { domain, title, user_id } = req.body;
+        const roles = await User.getRoles(req.user.id);
+        let websiteUserId = req.user.id;
+
+        if (roles.includes('administrator') && user_id) {
+            websiteUserId = user_id;
+        }
+
+        const website = await Website.create({ user_id: websiteUserId, domain, title });
+
+        if (roles.includes('administrator')) {
+            res.status(201).json({
+                ...website,
+                id: parseInt(website.id, 10),
+                user_id: parseInt(website.user_id, 10),
+            });
+        } else {
+            const { id, user_id, ...responseWebsite } = website;
+            res.status(201).json(responseWebsite);
+        }
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') {
             return res.status(409).send('That website has already been added.');
