@@ -39,6 +39,9 @@
         right: 10px;
         cursor: pointer;
       }
+      .vulnerability-links {
+        padding-left: 20px;
+      }
     </style>
     <body class="authenticated">
       <header id="header-placeholder"></header>
@@ -48,16 +51,23 @@
           <strong>ALERT:</strong> When you've configured the amdinistrator account, change <code>SERVER_MODE</code> in your <code>.env</code> file to "production" and restart the
           application.
         </div>
-        <h1>Dashboard</h1>
+        <h1 class="mb-4">Dashboard</h1>
         <div class="card mb-4">
           <div class="card-header">
             <h2>Your Websites</h2>
           </div>
           <div class="card-body">
+            <div id="website-toolbar" class="d-flex justify-content-between align-items-center mb-3" style="display: none;">
+              <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary" id="first-page"><i class="bi bi-chevron-double-left"></i></button>
+                <button type="button" class="btn btn-outline-primary" id="prev-page"><i class="bi bi-chevron-left"></i></button>
+                <button type="button" class="btn btn-outline-primary" id="next-page"><i class="bi bi-chevron-right"></i></button>
+                <button type="button" class="btn btn-outline-primary" id="last-page"><i class="bi bi-chevron-double-right"></i></button>
+              </div>
+              <span id="website-page-count"></span>
+            </div>
             <ul id="websites-list" class="list-group mb-3"></ul>
-            <nav id="website-pagination-nav">
-              <ul class="pagination mb-0" id="website-pagination"></ul>
-            </nav>
+          </div>
           </div>
         </div>
         <div class="card mt-4 mb-4">
@@ -115,6 +125,23 @@
           <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
       </main>
+
+      <div class="modal fade" id="components-modal" tabindex="-1" aria-labelledby="components-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="components-modal-label">Plugins & Themes</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <ul id="components-list" class="list-group"></ul>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <footer id="footer-placeholder"></footer>
 

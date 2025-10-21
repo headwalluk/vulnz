@@ -192,9 +192,11 @@ $(document).ready(function () {
     });
   });
 
-  const limit = 10;
+  const limit = 5;
+  let currentPage = 1;
 
   function loadWebsites(page = 1) {
+    currentPage = page;
     $.ajax({
       url: `/api/websites?page=${page}&limit=${limit}`,
       method: 'GET',
@@ -216,17 +218,19 @@ $(document).ready(function () {
                                 <div class="d-flex align-items-center website-info">
                                     ${vulnerabilityIcon}
                                     <div>
-                                        <strong>${website.title}</strong>
+                                        <strong>${website.title || website.domain}</strong>
                                         <br>
                                         <small><a href="${website.url}" target="_blank">${website.url} <i class="bi bi-box-arrow-up-right"></i></a></small>
                                     </div>
                                 </div>
                                 <div class="d-flex align-items-center">
+                                    <button class="btn btn-sm btn-primary me-2 view-components-btn">Info...</button>
                                     <button class="btn btn-sm btn-danger delete-website-btn">Delete</button>
                                 </div>
                             </div>
                         </li>
                     `);
+          websiteItem.data('website', website);
           websitesList.append(websiteItem);
           });
         }
@@ -238,21 +242,27 @@ $(document).ready(function () {
 
   function renderWebsitePagination(total, page, limit) {
     const totalPages = Math.ceil(total / limit);
-    const pagination = $('#website-pagination');
-    pagination.empty();
 
-    if (totalPages <= 1) {
+    console.log( `Total: ${total} ${typeof total}, Page: ${page}, Limit: ${limit}, Total Pages: ${totalPages}` );
+
+    if (total === 0) {
+      $('#website-toolbar').hide();
+      $('#website-page-count').text('');
       return;
     }
+    $('#website-toolbar').show();
 
-    for (let i = 1; i <= totalPages; i++) {
-      const li = $(`<li class="page-item ${i === page ? 'active' : ''}"><a class="page-link" href="#">${i}</a></li>`);
-      li.on('click', function (e) {
-        e.preventDefault();
-        loadWebsites(i);
-      });
-      pagination.append(li);
-    }
+    $('#website-page-count').text(`Page ${page} of ${totalPages}`);
+
+    $('#first-page').toggleClass('disabled', page === 1);
+    $('#prev-page').toggleClass('disabled', page === 1);
+    $('#next-page').toggleClass('disabled', page === totalPages);
+    $('#last-page').toggleClass('disabled', page === totalPages);
+
+    $('#first-page').off('click').on('click', () => loadWebsites(1));
+    $('#prev-page').off('click').on('click', () => loadWebsites(page - 1));
+    $('#next-page').off('click').on('click', () => loadWebsites(page + 1));
+    $('#last-page').off('click').on('click', () => loadWebsites(totalPages));
   }
 
   $('#websites-list').on('click', '.delete-website-btn', function () {

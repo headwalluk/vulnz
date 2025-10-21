@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const user = require('../models/user');
 const db = require('../db');
-const { isAuthenticated, hasRole } = require('../middleware/auth');
+const { isAuthenticated, apiKeyOrSessionAdminAuth } = require('../middleware/auth');
 
 /**
  * @swagger
@@ -21,20 +21,45 @@ const { isAuthenticated, hasRole } = require('../middleware/auth');
  *       200:
  *         description: A list of users
  */
-router.get('/', hasRole('administrator'), async (req, res) => {
+router.get('/', apiKeyOrSessionAdminAuth, async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
     const offset = (page - 1) * limit;
+    const searchQuery = req.query.q || '';
 
-    const users = await db.query('SELECT id, username, blocked, max_api_keys FROM users LIMIT ? OFFSET ?', [limit, offset]);
-    for (let u of users) {
+    let usersData;
+    let totalUsers;
+    const queryParams = [];
+
+    let baseQuery = 'SELECT id, username, blocked, max_api_keys FROM users';
+    let countQuery = 'SELECT COUNT(*) as count FROM users';
+
+    if (searchQuery) {
+      baseQuery += ' WHERE username LIKE ?';
+      countQuery += ' WHERE username LIKE ?';
+      queryParams.push(`%${searchQuery}%`);
+    }
+
+    baseQuery += ' LIMIT ? OFFSET ?';
+    queryParams.push(limit, offset);
+
+    usersData = await db.query(baseQuery, queryParams);
+
+    for (let u of usersData) {
       const roles = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [u.id]);
       u.roles = roles.map((r) => r.name);
     }
 
-    const totalUsers = await db.query('SELECT COUNT(*) as count FROM users');
-    const total = totalUsers[0].count;
+    const countParams = searchQuery ? [`%${searchQuery}%`] : [];
+    totalUsers = await db.query(countQuery, countParams);
+    const total = parseInt(totalUsers[0].count, 10);
+
+    const users = usersData.map((u) => ({
+      ...u,
+      id: parseInt(u.id, 10),
+      blocked: Boolean(u.blocked),
+    }));
 
     res.json({
       users,
@@ -77,7 +102,7 @@ router.get('/', hasRole('administrator'), async (req, res) => {
  *       201:
  *         description: User created
  */
-router.post('/', hasRole('administrator'), async (req, res) => {
+router.post('/', apiKeyOrSessionAdminAuth, async (req, res) => {
   try {
     const { username, password, roles, blocked, max_api_keys } = req.body;
     const newUser = await user.createUser(username, password, roles, blocked, max_api_keys);
@@ -109,7 +134,7 @@ router.post('/', hasRole('administrator'), async (req, res) => {
  *       404:
  *         description: User not found
  */
-router.get('/:id', hasRole('administrator'), async (req, res) => {
+router.get('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
   try {
     const u = await db.query('SELECT id, username, blocked, max_api_keys FROM users WHERE id = ?', [req.params.id]);
     if (!u || u.length === 0) {
@@ -160,7 +185,7 @@ router.get('/:id', hasRole('administrator'), async (req, res) => {
  *       200:
  *         description: User updated
  */
-router.put('/:id', hasRole('administrator'), async (req, res) => {
+router.put('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
   try {
     await user.updateUser(req.params.id, req.body);
     res.send('User updated');

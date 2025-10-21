@@ -111,9 +111,11 @@ $(document).ready(function () {
           usersList.append(`
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             <div>
-                                <i class="bi bi-person-circle me-2"></i>
-                                ${user.username}
-                                ${blockedIcon}
+                              <i class="bi bi-person-circle me-2 fs-4"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <span class="fw-medium">${user.username}</span>${blockedIcon}<br/>
+                                <span class="badge bg-secondary">id = ${user.id}</span>
                             </div>
                             <div class="d-flex gap-2">
                                 <button class="btn btn-sm btn-warning" data-id="${user.id}"><i class="bi bi-pencil"></i></button>
