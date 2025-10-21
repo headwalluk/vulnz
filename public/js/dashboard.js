@@ -202,11 +202,20 @@ $(document).ready(function () {
         const websitesList = $('#websites-list');
         websitesList.empty();
         data.websites.forEach(function (website) {
+          const vulnerabilityIcon = website.vulnerability_count > 0
+            ? `<i class="bi bi-exclamation-triangle-fill text-danger me-2" title="Vulnerable components = ${website.vulnerability_count}"></i>`
+            : `<i class="bi bi-check-circle-fill text-success me-2" title="Vulnerable components = ${website.vulnerability_count}"></i>`;
+
           const websiteItem = $(`
-                        <li class="list-group-item" data-id="${website.id}">
+                        <li class="list-group-item" data-domain="${website.domain}">
                             <div class="d-flex justify-content-between align-items-center">
-                                <span>${website.title} (${website.url})</span>
                                 <div>
+                                    <strong>${website.title}</strong>
+                                    <br>
+                                    <small><a href="${website.url}" target="_blank">${website.url} <i class="bi bi-box-arrow-up-right"></i></a></small>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    ${vulnerabilityIcon}
                                     <button class="btn btn-sm btn-danger delete-website-btn">Delete</button>
                                 </div>
                             </div>
@@ -215,6 +224,7 @@ $(document).ready(function () {
           websitesList.append(websiteItem);
         });
         renderWebsitePagination(data.total, data.page, data.limit);
+        $('#websites-list [title]').tooltip();
       },
     });
   }
@@ -239,10 +249,10 @@ $(document).ready(function () {
   }
 
   $('#websites-list').on('click', '.delete-website-btn', function () {
-    const websiteId = $(this).closest('li').data('id');
+    const websiteDomain = $(this).closest('li').data('domain');
     if (confirm('Are you sure you want to delete this website?')) {
       $.ajax({
-        url: `/api/websites/${websiteId}`,
+        url: `/api/websites/${websiteDomain}`,
         method: 'DELETE',
         success: function () {
           loadWebsites();

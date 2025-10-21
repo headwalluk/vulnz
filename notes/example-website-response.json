@@ -1,0 +1,54 @@
+{
+    "websites": [
+        {
+            "domain": "headwall-hosting.com",
+            "title": "Headwall Hosting",
+            "wordpress-plugins": [
+            {
+                "slug": "woocommerce",
+                "version": "9.7.0",
+                "has_vulnerabilities": true,
+                "vulnerabilities": [
+                    "https://www.wordfence.com/threat-intel/vulnerabilities/id/5a69f51e-0bac-4b2e-8ad4-597c6fbbff83?source=api-prod"
+                ]
+            },
+            {
+                "slug": "wc-uk-gift-aid",
+                "version": "1.1.0",
+                "has_vulnerabilities": false,
+                "vulnerabilities": []
+            }],
+            "wordpress-themes": []
+        },
+        {
+            "domain": "headwall.net",
+            "title": "Headwall Networks",
+            "wordpress-plugins": [
+            {
+                "slug": "revslider",
+                "version": "6.7.37",
+                "has_vulnerabilities": true,
+                "vulnerabilities": [
+                    "https://www.wordfence.com/threat-intel/vulnerabilities/id/43f2c4e5-c19d-4b7c-849b-47052bb62cb5?source=api-prod"
+                ]
+            },
+            {
+                "slug": "wc-uk-gift-aid",
+                "version": "1.1.0",
+                "has_vulnerabilities": false,
+                "vulnerabilities": []
+            }],
+            "wordpress-themes": [
+            {
+                "slug": "astra",
+                "version": "1.1.0",
+                "has_vulnerabilities": false,
+                "vulnerabilities": []
+            }]
+        }
+
+    ],
+    "total": 2,
+    "page": 1,
+    "limit": 10
+}
