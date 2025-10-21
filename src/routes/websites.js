@@ -46,8 +46,11 @@ router.get('/', apiOrSessionAuth, async (req, res) => {
         const limit = parseInt(req.query.limit, 10) || 10;
         const offset = (page - 1) * limit;
 
-        const total = await Website.countAll(req.user.id);
-        const websites = await Website.findAll(req.user.id, limit, offset);
+        const roles = await User.getRoles(req.user.id);
+        const isAdmin = roles.includes('administrator');
+
+        const total = await Website.countAll(isAdmin ? null : req.user.id);
+        const websites = await Website.findAll(isAdmin ? null : req.user.id, limit, offset);
 
         for (const website of websites) {
             const { wordpressPlugins, wordpressThemes } = await getWebsiteComponents(website);
