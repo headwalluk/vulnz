@@ -64,10 +64,38 @@ $(document).ready(function () {
         loadUsers(currentUser, currentPage);
       },
       error: function (err) {
-        $('#error-message').text(err.responseText).show();
+        alert(err.responseText);
       },
     });
   });
+
+  $('#generate-password-btn').on('click', () => {
+    const password = generateStrongPassword();
+    $('#new-user-password').val(password);
+  });
+
+  function generateStrongPassword() {
+    const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lower = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const symbols = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+
+    let password = '';
+    password += upper[Math.floor(Math.random() * upper.length)];
+    password += lower[Math.floor(Math.random() * lower.length)];
+    password += lower[Math.floor(Math.random() * lower.length)];
+    password += numbers[Math.floor(Math.random() * numbers.length)];
+    password += numbers[Math.floor(Math.random() * numbers.length)];
+    password += symbols[Math.floor(Math.random() * symbols.length)];
+    password += symbols[Math.floor(Math.random() * symbols.length)];
+
+    const allChars = upper + lower + numbers + symbols;
+    while (password.length < 12) {
+      password += allChars[Math.floor(Math.random() * allChars.length)];
+    }
+
+    return password.split('').sort(() => 0.5 - Math.random()).join('');
+  }
 
   function loadUsers(currentUser, page) {
     $.ajax({
@@ -123,6 +151,10 @@ $(document).ready(function () {
         $('#new-user-roles input').each(function () {
           $(this).prop('checked', user.roles.includes($(this).val()));
         });
+      },
+      error: function (err) {
+        alert('Failed to load user data.');
+        console.error(err);
       },
     });
   });

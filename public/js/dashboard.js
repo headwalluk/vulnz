@@ -201,28 +201,35 @@ $(document).ready(function () {
       success: function (data) {
         const websitesList = $('#websites-list');
         websitesList.empty();
-        data.websites.forEach(function (website) {
-          const vulnerabilityIcon = website.vulnerability_count > 0
-            ? `<i class="bi bi-exclamation-triangle-fill text-danger me-2" title="Vulnerable components = ${website.vulnerability_count}"></i>`
-            : `<i class="bi bi-check-circle-fill text-success me-2" title="Vulnerable components = ${website.vulnerability_count}"></i>`;
+        if (data.websites.length === 0) {
+          websitesList.append('<div class="alert alert-info">You aren\'t monitoring any websites yet.</div>');
+        } else {
+          data.websites.forEach(function (website) {
+          const hasVulnerabilities = website.vulnerability_count > 0;
+          const vulnerabilityIcon = hasVulnerabilities
+            ? `<i class="bi bi-exclamation-triangle-fill text-danger me-2 vulnerability-icon" title="Vulnerable components = ${website.vulnerability_count}"></i>`
+            : `<i class="bi bi-check-circle-fill text-success me-2 vulnerability-icon" title="Vulnerable components = ${website.vulnerability_count}"></i>`;
 
           const websiteItem = $(`
-                        <li class="list-group-item" data-domain="${website.domain}">
+                        <li class="list-group-item ${hasVulnerabilities ? 'list-group-item-danger' : ''}" data-domain="${website.domain}">
                             <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong>${website.title}</strong>
-                                    <br>
-                                    <small><a href="${website.url}" target="_blank">${website.url} <i class="bi bi-box-arrow-up-right"></i></a></small>
+                                <div class="d-flex align-items-center website-info">
+                                    ${vulnerabilityIcon}
+                                    <div>
+                                        <strong>${website.title}</strong>
+                                        <br>
+                                        <small><a href="${website.url}" target="_blank">${website.url} <i class="bi bi-box-arrow-up-right"></i></a></small>
+                                    </div>
                                 </div>
                                 <div class="d-flex align-items-center">
-                                    ${vulnerabilityIcon}
                                     <button class="btn btn-sm btn-danger delete-website-btn">Delete</button>
                                 </div>
                             </div>
                         </li>
                     `);
           websitesList.append(websiteItem);
-        });
+          });
+        }
         renderWebsitePagination(data.total, data.page, data.limit);
         $('#websites-list [title]').tooltip();
       },

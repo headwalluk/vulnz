@@ -49,12 +49,23 @@
           application.
         </div>
         <h1>Dashboard</h1>
+        <div class="card mb-4">
+          <div class="card-header">
+            <h2>Your Websites</h2>
+          </div>
+          <div class="card-body">
+            <ul id="websites-list" class="list-group mb-3"></ul>
+            <nav id="website-pagination-nav">
+              <ul class="pagination mb-0" id="website-pagination"></ul>
+            </nav>
+          </div>
+        </div>
         <div class="card mt-4 mb-4">
           <div class="card-header">
             <h2>Your API Keys</h2>
           </div>
           <div class="card-body">
-            <ul id="api-keys-list" class="list-group mb-3"></ul>
+            <ul id="api-keys-list" class="list-group"></ul>
             <form id="create-api-key-form" class="mb-4">
               <button type="submit" class="btn btn-primary">Create New API Key</button>
             </form>
@@ -80,17 +91,6 @@
                 <i class="bi bi-clipboard copy-code-btn" title="Copy to clipboard"></i>
               </div>
             </div>
-          </div>
-        </div>
-        <div class="card mb-4">
-          <div class="card-header">
-            <h2>Your Websites</h2>
-          </div>
-          <div class="card-body">
-            <ul id="websites-list" class="list-group mb-3"></ul>
-            <nav id="website-pagination-nav">
-              <ul class="pagination mb-0" id="website-pagination"></ul>
-            </nav>
           </div>
         </div>
         <div class="card mb-4">
