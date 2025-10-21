@@ -300,7 +300,11 @@ $(document).ready(function () {
         if (hasVulnerabilities && component.vulnerabilities) {
           vulnerabilitiesHtml = '<div class="mt-2 vulnerability-links">';
           component.vulnerabilities.forEach(url => {
-            vulnerabilitiesHtml += `<a href="${url}" target="_blank" class="d-block">${url} <i class="bi bi-box-arrow-up-right"></i></a>`;
+            let hostname = new URL(url).hostname;
+            if (hostname.startsWith('www.')) {
+              hostname = hostname.substring(4);
+            }
+            vulnerabilitiesHtml += `<a href="${url}" target="_blank" class="d-block">${hostname} <i class="bi bi-box-arrow-up-right"></i></a>`;
           });
           vulnerabilitiesHtml += '</div>';
         }
