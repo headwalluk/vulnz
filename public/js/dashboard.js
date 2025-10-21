@@ -279,4 +279,50 @@ $(document).ready(function () {
   });
 
   loadWebsites();
+
+  $('#websites-list').on('click', '.view-components-btn', function () {
+    const website = $(this).closest('li').data('website');
+    const componentsList = $('#components-list');
+    componentsList.empty();
+
+    const components = [...(website['wordpress-plugins'] || []), ...(website['wordpress-themes'] || [])];
+
+    if (components.length === 0) {
+      componentsList.append('<li class="list-group-item">No plugins or themes found.</li>');
+    } else {
+      components.forEach(component => {
+        const hasVulnerabilities = component.has_vulnerabilities;
+        const vulnerabilityIcon = hasVulnerabilities
+          ? `<i class="bi bi-exclamation-triangle-fill text-danger"></i>`
+          : '';
+        
+        let vulnerabilitiesHtml = '';
+        if (hasVulnerabilities && component.vulnerabilities) {
+          vulnerabilitiesHtml = '<div class="mt-2 vulnerability-links">';
+          component.vulnerabilities.forEach(url => {
+            vulnerabilitiesHtml += `<a href="${url}" target="_blank" class="d-block">${url} <i class="bi bi-box-arrow-up-right"></i></a>`;
+          });
+          vulnerabilitiesHtml += '</div>';
+        }
+
+        const listItem = `
+          <li class="list-group-item ${hasVulnerabilities ? 'list-group-item-danger' : ''}">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <strong>${component.slug}</strong> (v${component.version})
+              </div>
+              ${vulnerabilityIcon}
+            </div>
+            ${vulnerabilitiesHtml}
+          </li>
+        `;
+        componentsList.append(listItem);
+      });
+    }
+
+    const modalTitle = website.title || website.url;
+    $('#components-modal-label').text(modalTitle);
+    const componentsModal = new bootstrap.Modal($('#components-modal'));
+    componentsModal.show();
+  });
 });
