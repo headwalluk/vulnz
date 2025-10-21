@@ -19,12 +19,26 @@ const createTable = async () => {
 };
 
 const findAll = async (userId, limit, offset) => {
-    const rows = await db.query('SELECT * FROM websites WHERE user_id = ? LIMIT ? OFFSET ?', [userId, limit, offset]);
+    let query = 'SELECT * FROM websites';
+    const params = [];
+    if (userId) {
+        query += ' WHERE user_id = ?';
+        params.push(userId);
+    }
+    query += ' ORDER BY id DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+    const rows = await db.query(query, params);
     return Array.isArray(rows) ? rows : [];
 };
 
 const countAll = async (userId) => {
-    const rows = await db.query('SELECT COUNT(*) as count FROM websites WHERE user_id = ?', [userId]);
+    let query = 'SELECT COUNT(*) as count FROM websites';
+    const params = [];
+    if (userId) {
+        query += ' WHERE user_id = ?';
+        params.push(userId);
+    }
+    const rows = await db.query(query, params);
     return Number(rows[0].count);
 };
 
