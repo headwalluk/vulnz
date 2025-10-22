@@ -109,7 +109,7 @@ $(document).ready(function () {
                                 <i class="bi bi-clipboard copy-icon me-2" data-key="${key.api_key}" title="Copy to clipboard"></i>
                                 <span class="api-key-text" data-key="${key.api_key}" title="Click to copy">${key.api_key}</span>
                             </div>
-                            <button class="btn btn-sm btn-danger" data-key="${key.api_key}" title="Delete API key"><i class="bi bi-trash"></i></button>
+                            <button class="btn btn-sm btn-danger" data-key="${key.api_key}"><i class="bi bi-trash"></i></button>
                         </li>
                     `);
         });
@@ -222,12 +222,12 @@ $(document).ready(function () {
               const vulnerabilityCount = website.vulnerability_count > 9 ? '9+' : website.vulnerability_count;
               iconHtml = `
             <span class="position-relative">
-                <i class="bi bi-globe text-danger me-2 vulnerability-icon" title="${tooltipText}"></i>
+                <i class="bi bi-globe text-danger me-2 vulnerability-icon"></i>
                 <span class="position-absolute top-0 start-0 translate-middle badge rounded-pill bg-danger">${vulnerabilityCount}</span>
             </span>
         `;
             } else {
-              iconHtml = `<i class="bi bi-globe me-2 vulnerability-icon" title="${tooltipText}"></i>`;
+              iconHtml = `<i class="bi bi-globe me-2 vulnerability-icon"></i>`;
             }
 
             const websiteItem = $(`
@@ -243,7 +243,7 @@ $(document).ready(function () {
                                 </div>
                                 <div class="d-flex align-items-center">
                                     <button class="btn btn-sm btn-primary me-2 view-components-btn">Info...</button>
-                                    <button class="btn btn-sm btn-danger delete-website-btn" title="Delete website"><i class="bi bi-trash"></i></button>
+                                    <button class="btn btn-sm btn-danger delete-website-btn"><i class="bi bi-trash"></i></button>
                                 </div>
                             </div>
                         </li>
