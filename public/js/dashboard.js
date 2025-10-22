@@ -312,12 +312,12 @@ $(document).ready(function () {
       components.forEach(component => {
         const hasVulnerabilities = component.has_vulnerabilities;
         const vulnerabilityIcon = hasVulnerabilities
-          ? `<i class="bi bi-exclamation-triangle-fill text-danger"></i>`
-          : '';
+          ? `<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>`
+          : `<i class="bi bi-check-circle-fill text-success me-2"></i>`;
         
         let vulnerabilitiesHtml = '';
         if (hasVulnerabilities && component.vulnerabilities) {
-          vulnerabilitiesHtml = '<div class="mt-2 vulnerability-links">';
+          vulnerabilitiesHtml = '<div class="vulnerability-links">';
           component.vulnerabilities.forEach(url => {
             let hostname = new URL(url).hostname;
             if (hostname.startsWith('www.')) {
@@ -331,12 +331,15 @@ $(document).ready(function () {
         const listItem = `
           <li class="list-group-item ${hasVulnerabilities ? 'list-group-item-danger' : ''}">
             <div class="d-flex justify-content-between align-items-center">
-              <div>
-                <strong>${component.slug}</strong> (v${component.version})
+              <div class="d-flex align-items-start">
+                ${vulnerabilityIcon}
+                <div>
+                  <strong>${component.slug}</strong>
+                  ${vulnerabilitiesHtml}
+                </div>
               </div>
-              ${vulnerabilityIcon}
+              <span class="badge bg-secondary rounded-pill">${component.version}</span>
             </div>
-            ${vulnerabilitiesHtml}
           </li>
         `;
         componentsList.append(listItem);
