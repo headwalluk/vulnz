@@ -104,14 +104,20 @@ router.get('/', apiKeyOrSessionAdminAuth, async (req, res) => {
  */
 router.post('/', apiKeyOrSessionAdminAuth, async (req, res) => {
   try {
-    const { username, password, roles, blocked, max_api_keys } = req.body;
+    let { username, password, roles, blocked, max_api_keys } = req.body;
+    if (!username) {
+      return res.status(400).send('Username is required');
+    }
+    if (!password) {
+      return res.status(400).send('Password is required');
+    }
     if (!roles || roles.length === 0) {
       roles = ['user'];
     }
     const newUser = await user.createUser(username, password, roles, blocked, max_api_keys);
     res.status(201).json(newUser);
   } catch (err) {
-    if (err.message.includes('Password must')) {
+    if (err.message.includes('Password must') || err.message.includes('Username must')) {
       return res.status(400).send(err.message);
     }
     console.error(err);
