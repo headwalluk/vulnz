@@ -216,9 +216,9 @@ $(document).ready(function () {
           data.websites.forEach(function (website) {
             const hasVulnerabilities = website.vulnerability_count > 0;
             const tooltipText = hasVulnerabilities ? `Vulnerable components = ${website.vulnerability_count}` : 'No vulnerable plugins or themes detected.';
-          const vulnerabilityIcon = hasVulnerabilities
-            ? `<i class="bi bi-exclamation-triangle-fill text-danger me-2 vulnerability-icon" title="${tooltipText}"></i>`
-            : `<i class="bi bi-globe me-2 vulnerability-icon" title="${tooltipText}"></i>`;
+            const vulnerabilityIcon = hasVulnerabilities
+              ? `<i class="bi bi-exclamation-triangle-fill text-danger me-2 vulnerability-icon" title="${tooltipText}"></i>`
+              : `<i class="bi bi-globe me-2 vulnerability-icon" title="${tooltipText}"></i>`;
 
             const websiteItem = $(`
                         <li class="list-group-item ${hasVulnerabilities ? 'list-group-item-danger' : ''}" data-domain="${website.domain}">
@@ -319,9 +319,7 @@ $(document).ready(function () {
     } else {
       components.forEach((component) => {
         const hasVulnerabilities = component.has_vulnerabilities;
-        const vulnerabilityIcon = hasVulnerabilities
-          ? `<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>`
-          : `<i class="bi bi-plugin me-2"></i>`;
+        const vulnerabilityIcon = hasVulnerabilities ? `<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>` : `<i class="bi bi-plugin me-2"></i>`;
 
         let vulnerabilitiesHtml = '';
         if (hasVulnerabilities && component.vulnerabilities) {
