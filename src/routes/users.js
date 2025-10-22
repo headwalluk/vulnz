@@ -105,6 +105,9 @@ router.get('/', apiKeyOrSessionAdminAuth, async (req, res) => {
 router.post('/', apiKeyOrSessionAdminAuth, async (req, res) => {
   try {
     const { username, password, roles, blocked, max_api_keys } = req.body;
+    if (!roles || roles.length === 0) {
+      roles = ['user'];
+    }
     const newUser = await user.createUser(username, password, roles, blocked, max_api_keys);
     res.status(201).json(newUser);
   } catch (err) {
