@@ -127,8 +127,8 @@ async function updateUser(userId, { username, password, roles, blocked, max_api_
 }
 
 const getRoles = async (userId) => {
-    const rows = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [userId]);
-    return Array.isArray(rows) ? rows.map((row) => row.name) : [];
+  const rows = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [userId]);
+  return Array.isArray(rows) ? rows.map((row) => row.name) : [];
 };
 
 async function deleteUser(userId) {

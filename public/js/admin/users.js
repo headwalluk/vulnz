@@ -95,7 +95,10 @@ $(document).ready(function () {
       password += allChars[Math.floor(Math.random() * allChars.length)];
     }
 
-    return password.split('').sort(() => 0.5 - Math.random()).join('');
+    return password
+      .split('')
+      .sort(() => 0.5 - Math.random())
+      .join('');
   }
 
   function loadUsers(currentUser, page) {
