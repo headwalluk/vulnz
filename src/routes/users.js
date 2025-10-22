@@ -241,4 +241,30 @@ router.put('/password', isAuthenticated, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   delete:
+ *     summary: Delete a user
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: User deleted
+ */
+router.delete('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
+  try {
+    await user.deleteUser(req.params.id);
+    res.send('User deleted');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
 module.exports = router;

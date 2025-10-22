@@ -126,9 +126,15 @@ const getRoles = async (userId) => {
     return Array.isArray(rows) ? rows.map((row) => row.name) : [];
 };
 
+async function deleteUser(userId) {
+  await db.query('DELETE FROM user_roles WHERE user_id = ?', [userId]);
+  await db.query('DELETE FROM users WHERE id = ?', [userId]);
+}
+
 module.exports = {
   createTable,
   createUser,
+  deleteUser,
   getRoles,
   findUserByUsername,
   updatePassword,
