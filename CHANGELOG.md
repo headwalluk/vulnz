@@ -6,6 +6,7 @@
 - Tidying up the list of websites in the /dahboard page.
 - Tidying up the modal plugin list when clicking a website's "info..." button.
 - Made the paging toolbars for result-sets more consistent across the back-end UI.
+- Tweaking the domainRegex when validitaing domains of newly created website records.
 
 ## 0.15.0 2025-10-21
 
