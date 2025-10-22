@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.18.0 2025-10-22
+
+- Cleaner data input/out when POSTing to the /api/users route to create new users (using an administrator's API key in the request header).
+
 ## 0.15.0 2025-10-21
 
 - Support for multiple users monitoring their own websites independent of each other.

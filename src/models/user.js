@@ -53,10 +53,14 @@ async function createUser(username, password, roleNames, blocked, max_api_keys) 
     }
   }
 
-  const [newUser] = await db.query('SELECT id, username, blocked, max_api_keys FROM users WHERE id = ?', [userId]);
+  const [userRow] = await db.query('SELECT id, username, blocked, max_api_keys FROM users WHERE id = ?', [userId]);
   const roles = await getRoles(userId);
-  newUser.roles = roles;
-  return newUser;
+  return {
+    ...userRow,
+    id: parseInt(userRow.id, 10),
+    blocked: Boolean(userRow.blocked),
+    roles,
+  };
 }
 
 async function findUserByUsername(username) {
