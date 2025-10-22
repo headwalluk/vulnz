@@ -111,7 +111,7 @@ router.post('/', apiOrSessionAuth, async (req, res) => {
       return res.status(400).send('The domain property must be specified.');
     }
 
-    const domainRegex = /^(?!-)[A-Za-z0-9-]+([\\-\\.]{1}[a-z0-9]+)*\.[A-Za-z]{2,}$/;
+    const domainRegex = /^(?!-)[A-Za-z0-9-_]+([\\-\\.]{1}[a-z0-9-_]+)*\.[A-Za-z]{2,}$/;
     if (!domainRegex.test(domain)) {
       return res.status(400).send('The domain property is not a valid website hostname.');
     }
