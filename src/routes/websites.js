@@ -40,6 +40,15 @@ const addUrl = (website) => {
     website.url = `${website.is_ssl ? 'https' : 'http'}://${website.domain}`;
 };
 
+const tidyWebsite = (website) => {
+    return {
+        ...website,
+        id: parseInt(website.id, 10),
+        user_id: parseInt(website.user_id, 10),
+        is_ssl: Boolean(website.is_ssl),
+    };
+};
+
 router.get('/', apiOrSessionAuth, async (req, res) => {
     try {
         const page = parseInt(req.query.page, 10) || 1;
@@ -61,7 +70,7 @@ router.get('/', apiOrSessionAuth, async (req, res) => {
         }
 
         res.json({
-            websites: websites || [],
+            websites: websites.map(tidyWebsite) || [],
             total,
             page,
             limit,
@@ -79,7 +88,7 @@ router.get('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
         req.website['wordpress-themes'] = wordpressThemes;
         addVulnerabilityCount(req.website);
         addUrl(req.website);
-        res.json(req.website);
+        res.json(tidyWebsite(req.website));
     } catch (err) {
         console.error(err);
         res.status(500).send('Server error');
