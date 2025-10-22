@@ -58,13 +58,23 @@
           </div>
           <div class="card-body">
             <div id="website-toolbar" class="d-flex justify-content-between align-items-center mb-3" style="display: none;">
-              <div class="btn-group" role="group">
-                <button type="button" class="btn btn-outline-primary" id="first-page"><i class="bi bi-chevron-double-left"></i></button>
-                <button type="button" class="btn btn-outline-primary" id="prev-page"><i class="bi bi-chevron-left"></i></button>
-                <button type="button" class="btn btn-outline-primary" id="next-page"><i class="bi bi-chevron-right"></i></button>
-                <button type="button" class="btn btn-outline-primary" id="last-page"><i class="bi bi-chevron-double-right"></i></button>
+              <div>
+                <div class="btn-group" role="group">
+                  <button type="button" class="btn btn-outline-primary" id="first-page"><i class="bi bi-chevron-double-left"></i></button>
+                  <button type="button" class="btn btn-outline-primary" id="prev-page"><i class="bi bi-chevron-left"></i></button>
+                  <button type="button" class="btn btn-outline-primary" id="next-page"><i class="bi bi-chevron-right"></i></button>
+                  <button type="button" class="btn btn-outline-primary" id="last-page"><i class="bi bi-chevron-double-right"></i></button>
+                </div>
+                <div class="btn-group ms-2" role="group">
+                  <button type="button" class="btn btn-outline-primary" id="reload-page"><i class="bi bi-arrow-clockwise"></i></button>
+                </div>
               </div>
-              <span id="website-page-count"></span>
+              <div>
+                <div id="website-list-spinner" class="spinner-border spinner-border-sm text-primary" role="status" style="display: none;">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <span id="website-page-count"></span>
+              </div>
             </div>
             <ul id="websites-list" class="list-group mb-3"></ul>
           </div>

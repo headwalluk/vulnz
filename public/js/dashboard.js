@@ -40,6 +40,7 @@ $(document).ready(function () {
 
   function loadUserData() {
     loadApiKeys();
+    loadWebsites();
 
     $('#create-api-key-form').on('submit', function (e) {
       e.preventDefault();
@@ -192,15 +193,20 @@ $(document).ready(function () {
     });
   });
 
-  const limit = 5;
+  let limit = 5;
   let currentPage = 1;
 
   function loadWebsites(page = 1) {
+    if (currentUser && currentUser.defaultPageSize) {
+      limit = currentUser.defaultPageSize;
+    }
     currentPage = page;
+    $('#website-list-spinner').show();
     $.ajax({
       url: `/api/websites?page=${page}&limit=${limit}`,
       method: 'GET',
       success: function (data) {
+        $('#website-list-spinner').fadeOut();
         const websitesList = $('#websites-list');
         websitesList.empty();
         if (data.websites.length === 0) {
@@ -263,6 +269,7 @@ $(document).ready(function () {
     $('#prev-page').off('click').on('click', () => loadWebsites(page - 1));
     $('#next-page').off('click').on('click', () => loadWebsites(page + 1));
     $('#last-page').off('click').on('click', () => loadWebsites(totalPages));
+    $('#reload-page').off('click').on('click', () => loadWebsites(currentPage));
   }
 
   $('#websites-list').on('click', '.delete-website-btn', function () {
@@ -277,8 +284,6 @@ $(document).ready(function () {
       });
     }
   });
-
-  loadWebsites();
 
   $('#websites-list').on('click', '.view-components-btn', function () {
     const website = $(this).closest('li').data('website');
