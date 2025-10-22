@@ -61,11 +61,14 @@ router.get('/', apiKeyOrSessionAdminAuth, async (req, res) => {
       blocked: Boolean(u.blocked),
     }));
 
+    const totalPages = Math.ceil(total / limit);
+
     res.json({
       users,
       total,
       page,
       limit,
+      totalPages,
     });
   } catch (err) {
     console.error(err);

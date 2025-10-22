@@ -181,7 +181,9 @@ app.use((req, res, next) => {
 
 async function startServer() {
   try {
-    if (process.env.CRON_ENABLE === 'true') {
+    if (process.env.CRON_ENABLE !== 'true') {
+      console.warn('Cron jobs are disabled in .env (CRON_ENABLE).');
+    } else {
       if (process.env.NODE_ENV === 'production' && process.env.NODE_APP_INSTANCE && process.env.NODE_APP_INSTANCE !== '0') {
         console.log(`Not scheduling cron jobs on this instance (${process.env.NODE_APP_INSTANCE})`);
         return;

@@ -100,11 +100,14 @@ router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
     const components = await db.query('SELECT * FROM components LIMIT ? OFFSET ?', [limit, offset]);
     const [{ total }] = await db.query('SELECT COUNT(*) as total FROM components');
 
+    const totalPages = Math.ceil(Number(total) / limit);
+
     res.json({
       components: components.map((c) => ({ ...c, id: parseInt(c.id, 10) })),
       total: parseInt(total, 10),
       page,
       limit,
+      totalPages,
     });
   } catch (err) {
     console.error(err);

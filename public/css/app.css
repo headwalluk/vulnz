@@ -41,3 +41,11 @@ body.authenticated main {
 .website-info {
   gap: 15px;
 }
+
+.vulnerability-links a {
+  font-size: 0.875em;
+}
+
+#components-list .badge {
+  font-size: 0.875em;
+}
