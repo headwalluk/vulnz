@@ -1,9 +1,10 @@
 # Changelog
 
-## 0.18.0 2025-10-23
+## 0.26.0 2025-10-23
 
 - Cleaner data input/out when POSTing to the /api/users route to create new users (using an administrator's API key in the request header).
 - Tidying up the list of websites in the /dahboard page.
+- Tidying up the modal plugin list when clicking a website's "info..." button.
 
 ## 0.15.0 2025-10-21
 
