@@ -363,7 +363,7 @@ $(document).ready(function () {
     }
 
     const modalTitle = website.title || website.url;
-    $('#components-modal-label').text(modalTitle);
+    $('#components-modal-label').html(modalTitle);
     const componentsModal = new bootstrap.Modal($('#components-modal'));
     componentsModal.show();
   });
