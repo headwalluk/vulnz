@@ -117,6 +117,9 @@ router.post('/', apiKeyOrSessionAdminAuth, async (req, res) => {
     const newUser = await user.createUser(username, password, roles, blocked, max_api_keys);
     res.status(201).json(newUser);
   } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).send('An account with that username already exists.');
+    }
     if (err.message.includes('Password must') || err.message.includes('Username must')) {
       return res.status(400).send(err.message);
     }
