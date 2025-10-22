@@ -55,7 +55,18 @@ const create = async (website) => {
 };
 
 const update = async (domain, website) => {
-    const result = await db.query('UPDATE websites SET ? WHERE domain = ?', [website, domain]);
+    const fields = Object.keys(website);
+    const values = Object.values(website);
+    const setClause = fields.map(field => `${field} = ?`).join(', ');
+
+    if (fields.length === 0) {
+        return false;
+    }
+
+    const query = `UPDATE websites SET ${setClause} WHERE domain = ?`;
+    const params = [...values, domain];
+
+    const result = await db.query(query, params);
     return result.affectedRows > 0;
 };
 
