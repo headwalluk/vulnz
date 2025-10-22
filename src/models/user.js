@@ -68,6 +68,11 @@ async function findUserByUsername(username) {
   return user;
 }
 
+async function findUserById(userId) {
+  const [user] = await db.query('SELECT * FROM users WHERE id = ?', [userId]);
+  return user;
+}
+
 async function updatePassword(userId, newPassword) {
   const passwordValidation = validatePassword(newPassword);
   if (!passwordValidation.isValid) {
@@ -137,6 +142,7 @@ module.exports = {
   deleteUser,
   getRoles,
   findUserByUsername,
+  findUserById,
   updatePassword,
   updateUser,
 };

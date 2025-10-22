@@ -62,6 +62,10 @@ router.get('/', apiOrSessionAuth, async (req, res) => {
         const websites = await Website.findAll(isAdmin ? null : req.user.id, limit, offset);
 
         for (const website of websites) {
+            const user = await User.findUserById(website.user_id);
+            if (user) {
+                website.username = user.username;
+            }
             const { wordpressPlugins, wordpressThemes } = await getWebsiteComponents(website);
             website['wordpress-plugins'] = wordpressPlugins;
             website['wordpress-themes'] = wordpressThemes;
@@ -83,12 +87,16 @@ router.get('/', apiOrSessionAuth, async (req, res) => {
 
 router.get('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
     try {
+        const user = await User.findUserById(req.website.user_id);
         const { wordpressPlugins, wordpressThemes } = await getWebsiteComponents(req.website);
         req.website['wordpress-plugins'] = wordpressPlugins;
         req.website['wordpress-themes'] = wordpressThemes;
         addVulnerabilityCount(req.website);
         addUrl(req.website);
-        res.json(tidyWebsite(req.website));
+        res.json({
+            ...tidyWebsite(req.website),
+            username: user.username,
+        });
     } catch (err) {
         console.error(err);
         res.status(500).send('Server error');

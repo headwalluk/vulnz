@@ -290,6 +290,12 @@ $(document).ready(function () {
     const componentsList = $('#components-list');
     componentsList.empty();
 
+    if (website.username) {
+      $('#website-user-info').html(`<a href="mailto:${website.username}" class="btn btn-sm btn-outline-primary"><i class="bi bi-envelope"></i> ${website.username}</a>`);
+    } else {
+      $('#website-user-info').empty();
+    }
+
     const components = [...(website['wordpress-plugins'] || []), ...(website['wordpress-themes'] || [])];
 
     if (components.length === 0) {
