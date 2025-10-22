@@ -21,14 +21,11 @@ $(document).ready(function () {
     },
   });
 
-  $('#component-pagination').on('click', '.page-link', function (e) {
-    e.preventDefault();
-    const page = $(this).data('page');
-    if (page !== currentPage) {
-      currentPage = page;
-      loadComponents(currentPage);
-    }
-  });
+  $('#first-page').on('click', () => loadComponents(1));
+  $('#prev-page').on('click', () => loadComponents(currentPage - 1));
+  $('#next-page').on('click', () => loadComponents(currentPage + 1));
+  $('#last-page').on('click', () => loadComponents(totalPages));
+  $('#reload-page').on('click', () => loadComponents(currentPage));
 
   $('#create-component-form').on('submit', function (e) {
     e.preventDefault();
@@ -82,37 +79,26 @@ $(document).ready(function () {
   }
 
   function loadComponents(page) {
+    $('#component-list-spinner').show();
     $.ajax({
       url: `/api/components?page=${page}&limit=${limit}`,
       method: 'GET',
       success: function (data) {
-        const { components, total, page: currentPage, limit } = data;
-        totalPages = Math.ceil(total / limit);
+        const { components, totalPages: newTotalPages } = data;
+        totalPages = newTotalPages;
+        currentPage = page;
         const componentsList = $('#components-list');
         componentsList.empty();
-
-        const pagination = $('#component-pagination');
-        pagination.empty();
-
-        if (totalPages > 1) {
-          const firstDisabled = currentPage === 1 ? 'disabled' : '';
-          pagination.append(`<li class="page-item ${firstDisabled}"><a class="page-link" href="#" data-page="1"><i class="bi bi-chevron-bar-left"></i></a></li>`);
-
-          const prevDisabled = currentPage === 1 ? 'disabled' : '';
-          pagination.append(`<li class="page-item ${prevDisabled}"><a class="page-link" href="#" data-page="${currentPage - 1}"><i class="bi bi-chevron-left"></i></a></li>`);
-
-          pagination.append(`<li class="page-item disabled"><span class="page-link">Page ${currentPage} of ${totalPages}</span></li>`);
-
-          const nextDisabled = currentPage === totalPages ? 'disabled' : '';
-          pagination.append(`<li class="page-item ${nextDisabled}"><a class="page-link" href="#" data-page="${currentPage + 1}"><i class="bi bi-chevron-right"></i></a></li>`);
-
-          const lastDisabled = currentPage === totalPages ? 'disabled' : '';
-          pagination.append(`<li class="page-item ${lastDisabled}"><a class="page-link" href="#" data-page="${totalPages}"><i class="bi bi-chevron-bar-right"></i></a></li>`);
-        }
 
         if (components.length === 0) {
           return;
         }
+
+        $('#component-page-count').text(`Page ${currentPage} of ${totalPages}`);
+        $('#first-page').prop('disabled', currentPage === 1);
+        $('#prev-page').prop('disabled', currentPage === 1);
+        $('#next-page').prop('disabled', currentPage === totalPages);
+        $('#last-page').prop('disabled', currentPage === totalPages);
 
         components.forEach(function (component) {
           let icon = '';
@@ -135,6 +121,9 @@ $(document).ready(function () {
                     `);
         });
       },
+      complete: function () {
+        $('#component-list-spinner').hide();
+      },
     });
   }
 
@@ -144,7 +133,7 @@ $(document).ready(function () {
       url: `/api/components/${componentId}`,
       method: 'DELETE',
       success: function () {
-        loadComponents();
+        loadComponents(currentPage);
       },
     });
   });

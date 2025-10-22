@@ -1,6 +1,7 @@
 $(document).ready(function () {
   let currentPage = 1;
   const limit = 10;
+  let totalPages = 1;
   let editUserId = null;
   let currentUser = null;
 
@@ -98,11 +99,14 @@ $(document).ready(function () {
   }
 
   function loadUsers(currentUser, page) {
+    $('#user-list-spinner').show();
     $.ajax({
       url: `/api/users?page=${page}&limit=${limit}`,
       method: 'GET',
       success: function (data) {
-        const { users } = data;
+        const { users, totalPages: newTotalPages } = data;
+        totalPages = newTotalPages;
+        currentPage = page;
         const usersList = $('#users-list');
         usersList.empty();
         users.forEach(function (user) {
@@ -124,6 +128,15 @@ $(document).ready(function () {
                         </li>
                     `);
         });
+        $('#user-toolbar').show();
+        $('#user-page-count').text(`Page ${currentPage} of ${totalPages}`);
+        $('#first-page').prop('disabled', currentPage === 1);
+        $('#prev-page').prop('disabled', currentPage === 1);
+        $('#next-page').prop('disabled', currentPage === totalPages);
+        $('#last-page').prop('disabled', currentPage === totalPages);
+      },
+      complete: function () {
+        $('#user-list-spinner').hide();
       },
     });
   }
@@ -190,6 +203,12 @@ $(document).ready(function () {
       });
     }
   });
+
+  $('#first-page').on('click', () => loadUsers(currentUser, 1));
+  $('#prev-page').on('click', () => loadUsers(currentUser, currentPage - 1));
+  $('#next-page').on('click', () => loadUsers(currentUser, currentPage + 1));
+  $('#last-page').on('click', () => loadUsers(currentUser, totalPages));
+  $('#reload-page').on('click', () => loadUsers(currentUser, currentPage));
 
   function loadRoles() {
     $.ajax({

@@ -334,7 +334,7 @@ $(document).ready(function () {
               <div class="d-flex align-items-start">
                 ${vulnerabilityIcon}
                 <div>
-                  <strong>${component.slug}</strong>
+                  <strong><a href="/?q=${component.slug}" class="text-decoration-none">${component.slug}</a></strong>
                   ${vulnerabilitiesHtml}
                 </div>
               </div>
