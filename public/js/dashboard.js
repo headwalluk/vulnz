@@ -216,15 +216,25 @@ $(document).ready(function () {
           data.websites.forEach(function (website) {
             const hasVulnerabilities = website.vulnerability_count > 0;
             const tooltipText = hasVulnerabilities ? `Vulnerable components = ${website.vulnerability_count}` : 'No vulnerable plugins or themes detected.';
-            const vulnerabilityIcon = hasVulnerabilities
-              ? `<i class="bi bi-exclamation-triangle-fill text-danger me-2 vulnerability-icon" title="${tooltipText}"></i>`
-              : `<i class="bi bi-globe me-2 vulnerability-icon" title="${tooltipText}"></i>`;
+
+            let iconHtml;
+            if (hasVulnerabilities) {
+              const vulnerabilityCount = website.vulnerability_count > 9 ? '9+' : website.vulnerability_count;
+              iconHtml = `
+            <span class="position-relative">
+                <i class="bi bi-globe text-danger me-2 vulnerability-icon" title="${tooltipText}"></i>
+                <span class="position-absolute top-0 start-0 translate-middle badge rounded-pill bg-danger">${vulnerabilityCount}</span>
+            </span>
+        `;
+            } else {
+              iconHtml = `<i class="bi bi-globe me-2 vulnerability-icon" title="${tooltipText}"></i>`;
+            }
 
             const websiteItem = $(`
                         <li class="list-group-item ${hasVulnerabilities ? 'list-group-item-danger' : ''}" data-domain="${website.domain}">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div class="d-flex align-items-center website-info">
-                                    ${vulnerabilityIcon}
+                                    ${iconHtml}
                                     <div>
                                         <strong>${website.title || website.domain}</strong>
                                         <br>
