@@ -89,6 +89,16 @@ router.get('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
 router.post('/', apiOrSessionAuth, async (req, res) => {
     try {
         const { domain, title, user_id } = req.body;
+
+        if (!domain) {
+            return res.status(400).send('The domain property must be specified.');
+        }
+
+        const domainRegex = /^(?!-)[A-Za-z0-9-]+([\\-\\.]{1}[a-z0-9]+)*\.[A-Za-z]{2,}$/;
+        if (!domainRegex.test(domain)) {
+            return res.status(400).send('The domain property is not a valid website hostname.');
+        }
+
         const roles = await User.getRoles(req.user.id);
         let websiteUserId = req.user.id;
 
@@ -96,7 +106,7 @@ router.post('/', apiOrSessionAuth, async (req, res) => {
             websiteUserId = user_id;
         }
 
-        const website = await Website.create({ user_id: websiteUserId, domain, title });
+        const website = await Website.create({ user_id: websiteUserId, domain, title: title || domain });
 
         if (roles.includes('administrator')) {
             res.status(201).json({
