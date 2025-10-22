@@ -194,6 +194,7 @@ router.get('/me', logApiCall, async (req, res) => {
       username: req.user.username,
       roles: roles,
       sitemap: sitemap,
+      defaultPageSize: parseInt(process.env.LIST_PAGE_SIZE, 10) || 10,
     });
   } catch (err) {
     console.error(err);
