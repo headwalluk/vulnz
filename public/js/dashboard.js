@@ -109,7 +109,7 @@ $(document).ready(function () {
                                 <i class="bi bi-clipboard copy-icon me-2" data-key="${key.api_key}" title="Copy to clipboard"></i>
                                 <span class="api-key-text" data-key="${key.api_key}" title="Click to copy">${key.api_key}</span>
                             </div>
-                            <button class="btn btn-sm btn-danger" data-key="${key.api_key}">Delete</button>
+                            <button class="btn btn-sm btn-danger" data-key="${key.api_key}" title="Delete API key"><i class="bi bi-trash"></i></button>
                         </li>
                     `);
         });
@@ -243,7 +243,7 @@ $(document).ready(function () {
                                 </div>
                                 <div class="d-flex align-items-center">
                                     <button class="btn btn-sm btn-primary me-2 view-components-btn">Info...</button>
-                                    <button class="btn btn-sm btn-danger delete-website-btn">Delete</button>
+                                    <button class="btn btn-sm btn-danger delete-website-btn" title="Delete website"><i class="bi bi-trash"></i></button>
                                 </div>
                             </div>
                         </li>
