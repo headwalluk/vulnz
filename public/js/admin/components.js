@@ -103,7 +103,7 @@ $(document).ready(function () {
         components.forEach(function (component) {
           let icon = '';
           if (component.component_type_slug === 'wordpress-plugin') {
-            icon = '<i class="bi bi-plugin me-2"></i>';
+            icon = '<i class="bi bi-puzzle-fill me-2"></i>';
           } else if (component.component_type_slug === 'wordpress-theme') {
             icon = '<i class="bi bi-palette-fill me-2"></i>';
           }
@@ -133,7 +133,7 @@ $(document).ready(function () {
       url: `/api/components/${componentId}`,
       method: 'DELETE',
       success: function () {
-        loadComponents(currentPage);
+        loadComponents();
       },
     });
   });

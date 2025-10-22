@@ -35,6 +35,7 @@ body.authenticated main {
 }
 
 .vulnerability-icon {
+  display: block;
   transform: scale(1.8);
 }
 
