@@ -1,3 +1,4 @@
+/* global bootstrap */
 $(document).ready(function () {
   let currentUser = null;
 
@@ -213,15 +214,13 @@ $(document).ready(function () {
           websitesList.append('<div class="alert alert-info">You aren\'t monitoring any websites yet.</div>');
         } else {
           data.websites.forEach(function (website) {
-          const hasVulnerabilities = website.vulnerability_count > 0;
-          const tooltipText = hasVulnerabilities
-            ? `Vulnerable components = ${website.vulnerability_count}`
-            : 'No vulnerable plugins or themes detected.';
+            const hasVulnerabilities = website.vulnerability_count > 0;
+            const tooltipText = hasVulnerabilities ? `Vulnerable components = ${website.vulnerability_count}` : 'No vulnerable plugins or themes detected.';
           const vulnerabilityIcon = hasVulnerabilities
             ? `<i class="bi bi-exclamation-triangle-fill text-danger me-2 vulnerability-icon" title="${tooltipText}"></i>`
-            : `<i class="bi bi-check-circle-fill text-success me-2 vulnerability-icon" title="${tooltipText}"></i>`;
+            : `<i class="bi bi-globe me-2 vulnerability-icon" title="${tooltipText}"></i>`;
 
-          const websiteItem = $(`
+            const websiteItem = $(`
                         <li class="list-group-item ${hasVulnerabilities ? 'list-group-item-danger' : ''}" data-domain="${website.domain}">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div class="d-flex align-items-center website-info">
@@ -239,8 +238,8 @@ $(document).ready(function () {
                             </div>
                         </li>
                     `);
-          websiteItem.data('website', website);
-          websitesList.append(websiteItem);
+            websiteItem.data('website', website);
+            websitesList.append(websiteItem);
           });
         }
         renderWebsitePagination(data.total, data.page, data.limit);
@@ -252,7 +251,7 @@ $(document).ready(function () {
   function renderWebsitePagination(total, page, limit) {
     const totalPages = Math.ceil(total / limit);
 
-    console.log( `Total: ${total} ${typeof total}, Page: ${page}, Limit: ${limit}, Total Pages: ${totalPages}` );
+    console.log(`Total: ${total} ${typeof total}, Page: ${page}, Limit: ${limit}, Total Pages: ${totalPages}`);
 
     if (total === 0) {
       $('#website-toolbar').hide();
@@ -268,11 +267,21 @@ $(document).ready(function () {
     $('#next-page').toggleClass('disabled', page === totalPages);
     $('#last-page').toggleClass('disabled', page === totalPages);
 
-    $('#first-page').off('click').on('click', () => loadWebsites(1));
-    $('#prev-page').off('click').on('click', () => loadWebsites(page - 1));
-    $('#next-page').off('click').on('click', () => loadWebsites(page + 1));
-    $('#last-page').off('click').on('click', () => loadWebsites(totalPages));
-    $('#reload-page').off('click').on('click', () => loadWebsites(currentPage));
+    $('#first-page')
+      .off('click')
+      .on('click', () => loadWebsites(1));
+    $('#prev-page')
+      .off('click')
+      .on('click', () => loadWebsites(page - 1));
+    $('#next-page')
+      .off('click')
+      .on('click', () => loadWebsites(page + 1));
+    $('#last-page')
+      .off('click')
+      .on('click', () => loadWebsites(totalPages));
+    $('#reload-page')
+      .off('click')
+      .on('click', () => loadWebsites(currentPage));
   }
 
   $('#websites-list').on('click', '.delete-website-btn', function () {
@@ -282,7 +291,6 @@ $(document).ready(function () {
         url: `/api/websites/${websiteDomain}`,
         method: 'DELETE',
         success: function () {
-          const totalWebsites = parseInt($('#website-page-count').text().split(' ')[3], 10) * limit - (limit - $('#websites-list').children().length);
           if ($('#websites-list').children().length === 1 && currentPage > 1) {
             loadWebsites(currentPage - 1);
           } else {
@@ -309,16 +317,16 @@ $(document).ready(function () {
     if (components.length === 0) {
       componentsList.append('<li class="list-group-item">No plugins or themes found.</li>');
     } else {
-      components.forEach(component => {
+      components.forEach((component) => {
         const hasVulnerabilities = component.has_vulnerabilities;
         const vulnerabilityIcon = hasVulnerabilities
           ? `<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>`
-          : `<i class="bi bi-check-circle-fill text-success me-2"></i>`;
-        
+          : `<i class="bi bi-plugin me-2"></i>`;
+
         let vulnerabilitiesHtml = '';
         if (hasVulnerabilities && component.vulnerabilities) {
           vulnerabilitiesHtml = '<div class="vulnerability-links">';
-          component.vulnerabilities.forEach(url => {
+          component.vulnerabilities.forEach((url) => {
             let hostname = new URL(url).hostname;
             if (hostname.startsWith('www.')) {
               hostname = hostname.substring(4);

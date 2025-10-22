@@ -111,15 +111,15 @@ async function search(query, page = 1, limit = 10) {
 }
 
 const findOrCreate = async (slug, componentTypeSlug, title) => {
-    let rows = await db.query('SELECT * FROM components WHERE slug = ? AND component_type_slug = ?', [slug, componentTypeSlug]);
-    let component = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
-    if (!component) {
-        const result = await db.query('INSERT INTO components (slug, component_type_slug, title) VALUES (?, ?, ?)', [slug, componentTypeSlug, title]);
-        const insertId = result.insertId;
-        rows = await db.query('SELECT * FROM components WHERE id = ?', [insertId]);
-        component = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
-    }
-    return component;
+  let rows = await db.query('SELECT * FROM components WHERE slug = ? AND component_type_slug = ?', [slug, componentTypeSlug]);
+  let component = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
+  if (!component) {
+    const result = await db.query('INSERT INTO components (slug, component_type_slug, title) VALUES (?, ?, ?)', [slug, componentTypeSlug, title]);
+    const insertId = result.insertId;
+    rows = await db.query('SELECT * FROM components WHERE id = ?', [insertId]);
+    component = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
+  }
+  return component;
 };
 
 module.exports = {
