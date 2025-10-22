@@ -214,9 +214,12 @@ $(document).ready(function () {
         } else {
           data.websites.forEach(function (website) {
           const hasVulnerabilities = website.vulnerability_count > 0;
+          const tooltipText = hasVulnerabilities
+            ? `Vulnerable components = ${website.vulnerability_count}`
+            : 'No vulnerable plugins or themes detected.';
           const vulnerabilityIcon = hasVulnerabilities
-            ? `<i class="bi bi-exclamation-triangle-fill text-danger me-2 vulnerability-icon" title="Vulnerable components = ${website.vulnerability_count}"></i>`
-            : `<i class="bi bi-check-circle-fill text-success me-2 vulnerability-icon" title="Vulnerable components = ${website.vulnerability_count}"></i>`;
+            ? `<i class="bi bi-exclamation-triangle-fill text-danger me-2 vulnerability-icon" title="${tooltipText}"></i>`
+            : `<i class="bi bi-check-circle-fill text-success me-2 vulnerability-icon" title="${tooltipText}"></i>`;
 
           const websiteItem = $(`
                         <li class="list-group-item ${hasVulnerabilities ? 'list-group-item-danger' : ''}" data-domain="${website.domain}">
@@ -279,7 +282,12 @@ $(document).ready(function () {
         url: `/api/websites/${websiteDomain}`,
         method: 'DELETE',
         success: function () {
-          loadWebsites();
+          const totalWebsites = parseInt($('#website-page-count').text().split(' ')[3], 10) * limit - (limit - $('#websites-list').children().length);
+          if ($('#websites-list').children().length === 1 && currentPage > 1) {
+            loadWebsites(currentPage - 1);
+          } else {
+            loadWebsites(currentPage);
+          }
         },
       });
     }
