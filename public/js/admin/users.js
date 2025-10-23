@@ -4,6 +4,7 @@ $(document).ready(function () {
   let totalPages = 1;
   let editUserId = null;
   let currentUser = null;
+  let currentSearch = '';
 
   // Check if the user is authenticated and an administrator
   $.ajax({
@@ -101,10 +102,14 @@ $(document).ready(function () {
       .join('');
   }
 
-  function loadUsers(currentUser, page) {
+  function loadUsers(currentUser, page, search = '') {
     $('#user-list-spinner').show();
+    let url = `/api/users?page=${page}&limit=${limit}`;
+    if (search) {
+      url += `&q=${encodeURIComponent(search)}`;
+    }
     $.ajax({
-      url: `/api/users?page=${page}&limit=${limit}`,
+      url,
       method: 'GET',
       success: function (data) {
         const { users, totalPages: newTotalPages } = data;
@@ -112,10 +117,17 @@ $(document).ready(function () {
         currentPage = page;
         const usersList = $('#users-list');
         usersList.empty();
-        users.forEach(function (user) {
-          const deleteButton = currentUser.id === user.id ? '' : `<button class="btn btn-sm btn-danger" data-id="${user.id}">Delete</button>`;
-          const blockedIcon = user.blocked ? '<i class="bi bi-slash-circle-fill text-danger ms-2"></i>' : '';
-          usersList.append(`
+        if (users.length === 0) {
+          if (currentSearch) {
+            usersList.append('<div class="alert alert-info">No users found matching your search.</div>');
+          } else {
+            usersList.append('<div class="alert alert-info">No users found.</div>');
+          }
+        } else {
+          users.forEach(function (user) {
+            const deleteButton = currentUser.id === user.id ? '' : `<button class="btn btn-sm btn-danger" data-id="${user.id}">Delete</button>`;
+            const blockedIcon = user.blocked ? '<i class="bi bi-slash-circle-fill text-danger ms-2"></i>' : '';
+            usersList.append(`
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             <div>
                               <i class="bi bi-person-circle me-2 fs-4"></i>
@@ -130,13 +142,19 @@ $(document).ready(function () {
                             </div>
                         </li>
                     `);
-        });
+          });
+        }
         $('#user-toolbar').show();
-        $('#user-page-count').text(`Page ${currentPage} of ${totalPages}`);
-        $('#first-page').prop('disabled', currentPage === 1);
-        $('#prev-page').prop('disabled', currentPage === 1);
-        $('#next-page').prop('disabled', currentPage === totalPages);
-        $('#last-page').prop('disabled', currentPage === totalPages);
+        if (totalPages > 0) {
+          $('#user-page-count').text(`Page ${currentPage} of ${totalPages}`).show();
+        } else {
+          $('#user-page-count').hide();
+        }
+        const noPages = totalPages === 0;
+        $('#first-page').prop('disabled', currentPage === 1 || noPages);
+        $('#prev-page').prop('disabled', currentPage === 1 || noPages);
+        $('#next-page').prop('disabled', currentPage === totalPages || noPages);
+        $('#last-page').prop('disabled', currentPage === totalPages || noPages);
       },
       complete: function () {
         $('#user-list-spinner').hide();
@@ -207,11 +225,25 @@ $(document).ready(function () {
     }
   });
 
-  $('#first-page').on('click', () => loadUsers(currentUser, 1));
-  $('#prev-page').on('click', () => loadUsers(currentUser, currentPage - 1));
-  $('#next-page').on('click', () => loadUsers(currentUser, currentPage + 1));
-  $('#last-page').on('click', () => loadUsers(currentUser, totalPages));
-  $('#reload-page').on('click', () => loadUsers(currentUser, currentPage));
+  $('#user-search-form').on('submit', function (e) {
+    e.preventDefault();
+    const searchTerm = $('#user-search-input').val();
+    currentSearch = searchTerm;
+    loadUsers(currentUser, 1, searchTerm);
+  });
+
+  $('#user-search-input').on('input', function () {
+    if ($(this).val() === '') {
+      currentSearch = '';
+      loadUsers(currentUser, 1, '');
+    }
+  });
+
+  $('#first-page').on('click', () => loadUsers(currentUser, 1, currentSearch));
+  $('#prev-page').on('click', () => loadUsers(currentUser, currentPage - 1, currentSearch));
+  $('#next-page').on('click', () => loadUsers(currentUser, currentPage + 1, currentSearch));
+  $('#last-page').on('click', () => loadUsers(currentUser, totalPages, currentSearch));
+  $('#reload-page').on('click', () => loadUsers(currentUser, currentPage, currentSearch));
 
   function loadRoles() {
     $.ajax({

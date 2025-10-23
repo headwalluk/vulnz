@@ -55,6 +55,14 @@ $(function () {
         $('#close-menu').trigger('click');
       }
     });
+
+    $(document).on('click', function (e) {
+      const flyInMenu = $('#fly-in-menu');
+      const burgerMenu = $('#burger-menu');
+      if (flyInMenu.hasClass('show') && !flyInMenu.is(e.target) && flyInMenu.has(e.target).length === 0 && !burgerMenu.is(e.target) && burgerMenu.has(e.target).length === 0) {
+        flyInMenu.removeClass('show');
+      }
+    });
   });
   $('#footer-placeholder').load('/partials/footer.html');
 });

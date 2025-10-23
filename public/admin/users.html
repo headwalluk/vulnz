@@ -23,20 +23,28 @@
             <div>
               <button id="new-user-btn" class="btn btn-primary me-2"><i class="bi bi-plus-circle me-2"></i>Add</button>
               <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary" id="reload-page"><i class="bi bi-arrow-clockwise"></i></button>
+              </div>
+              <div class="ms-2 d-inline-block">
+                <form id="user-search-form">
+                  <div class="input-group">
+                    <input type="search" id="user-search-input" class="form-control" placeholder="Search users..." />
+                    <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i></button>
+                  </div>
+                </form>
+              </div>
+            </div>
+            <div class="d-flex align-items-center">
+              <div id="user-list-spinner" class="spinner-border spinner-border-sm text-primary me-2" role="status" style="display: none">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <span id="user-page-count" class="me-2"></span>
+              <div class="btn-group" role="group">
                 <button type="button" class="btn btn-outline-primary" id="first-page"><i class="bi bi-chevron-double-left"></i></button>
                 <button type="button" class="btn btn-outline-primary" id="prev-page"><i class="bi bi-chevron-left"></i></button>
                 <button type="button" class="btn btn-outline-primary" id="next-page"><i class="bi bi-chevron-right"></i></button>
                 <button type="button" class="btn btn-outline-primary" id="last-page"><i class="bi bi-chevron-double-right"></i></button>
               </div>
-              <div class="btn-group ms-2" role="group">
-                <button type="button" class="btn btn-outline-primary" id="reload-page"><i class="bi bi-arrow-clockwise"></i></button>
-              </div>
-            </div>
-            <div>
-              <div id="user-list-spinner" class="spinner-border spinner-border-sm text-primary" role="status" style="display: none">
-                <span class="visually-hidden">Loading...</span>
-              </div>
-              <span id="user-page-count"></span>
             </div>
           </div>
           <ul id="users-list" class="list-group mb-3"></ul>

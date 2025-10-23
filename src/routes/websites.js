@@ -54,12 +54,13 @@ router.get('/', apiOrSessionAuth, async (req, res) => {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
     const offset = (page - 1) * limit;
+    const search = req.query.q || null;
 
     const roles = await User.getRoles(req.user.id);
     const isAdmin = roles.includes('administrator');
 
-    const total = await Website.countAll(isAdmin ? null : req.user.id);
-    const websites = await Website.findAll(isAdmin ? null : req.user.id, limit, offset);
+    const total = await Website.countAll(isAdmin ? null : req.user.id, search);
+    const websites = await Website.findAll(isAdmin ? null : req.user.id, limit, offset, search);
 
     for (const website of websites) {
       const user = await User.findUserById(website.user_id);
