@@ -20,6 +20,7 @@ $(document).ready(function () {
   });
 
   function loadDashboard() {
+    $('[data-bs-toggle="tooltip"]').tooltip();
     $.ajax({
       url: '/api/config',
       method: 'GET',
@@ -210,6 +211,10 @@ $(document).ready(function () {
     }
   });
 
+  $('#vulnerable-toggle').on('change', function () {
+    loadWebsites(1, currentSearch);
+  });
+
   function loadWebsites(page = 1, search = '') {
     if (currentUser && currentUser.defaultPageSize) {
       limit = currentUser.defaultPageSize;
@@ -218,9 +223,13 @@ $(document).ready(function () {
     currentSearch = search;
     $('#website-list-spinner').show();
 
+    const onlyVulnerable = $('#vulnerable-toggle').is(':checked');
     let url = `/api/websites?page=${page}&limit=${limit}`;
     if (search) {
       url += `&q=${encodeURIComponent(search)}`;
+    }
+    if (onlyVulnerable) {
+      url += '&only_vulnerable=1';
     }
 
     $.ajax({
@@ -316,7 +325,8 @@ $(document).ready(function () {
       .on('click', () => loadWebsites(totalPages, currentSearch));
     $('#reload-page')
       .off('click')
-      .on('click', () => loadWebsites(currentPage, currentSearch));
+      .on('click', () => loadWebsites(currentPage, currentSearch))
+      .tooltip();
   }
 
   $('#websites-list').on('click', '.delete-website-btn', function () {

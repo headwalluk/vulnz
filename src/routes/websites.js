@@ -55,12 +55,13 @@ router.get('/', apiOrSessionAuth, async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const offset = (page - 1) * limit;
     const search = req.query.q || null;
+    const onlyVulnerable = ['true', '1'].includes(req.query.only_vulnerable);
 
     const roles = await User.getRoles(req.user.id);
     const isAdmin = roles.includes('administrator');
 
-    const total = await Website.countAll(isAdmin ? null : req.user.id, search);
-    const websites = await Website.findAll(isAdmin ? null : req.user.id, limit, offset, search);
+    const total = await Website.countAll(isAdmin ? null : req.user.id, search, onlyVulnerable);
+    const websites = await Website.findAll(isAdmin ? null : req.user.id, limit, offset, search, onlyVulnerable);
 
     for (const website of websites) {
       const user = await User.findUserById(website.user_id);

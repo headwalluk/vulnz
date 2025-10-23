@@ -243,7 +243,9 @@ $(document).ready(function () {
   $('#prev-page').on('click', () => loadUsers(currentUser, currentPage - 1, currentSearch));
   $('#next-page').on('click', () => loadUsers(currentUser, currentPage + 1, currentSearch));
   $('#last-page').on('click', () => loadUsers(currentUser, totalPages, currentSearch));
-  $('#reload-page').on('click', () => loadUsers(currentUser, currentPage, currentSearch));
+  $('#reload-page')
+    .on('click', () => loadUsers(currentUser, currentPage, currentSearch))
+    .tooltip();
 
   function loadRoles() {
     $.ajax({
