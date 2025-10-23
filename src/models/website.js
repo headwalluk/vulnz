@@ -18,18 +18,26 @@ const createTable = async () => {
   await db.query(query);
 };
 
-const findAll = async (userId, limit, offset, search) => {
-  let query = 'SELECT * FROM websites';
+const findAll = async (userId, limit, offset, search, onlyVulnerable) => {
+  let query = 'SELECT w.* FROM websites w';
   const params = [];
   const whereClauses = [];
 
+  if (onlyVulnerable) {
+    query += `
+      JOIN website_components wc ON w.id = wc.website_id
+      JOIN releases r ON wc.release_id = r.id
+      JOIN vulnerabilities v ON r.id = v.release_id
+    `;
+  }
+
   if (userId) {
-    whereClauses.push('user_id = ?');
+    whereClauses.push('w.user_id = ?');
     params.push(userId);
   }
 
   if (search) {
-    whereClauses.push('domain LIKE ?');
+    whereClauses.push('w.domain LIKE ?');
     params.push(`%${search}%`);
   }
 
@@ -37,24 +45,36 @@ const findAll = async (userId, limit, offset, search) => {
     query += ` WHERE ${whereClauses.join(' AND ')}`;
   }
 
-  query += ' ORDER BY id DESC LIMIT ? OFFSET ?';
+  if (onlyVulnerable) {
+    query += ' GROUP BY w.id';
+  }
+
+  query += ' ORDER BY w.id DESC LIMIT ? OFFSET ?';
   params.push(limit, offset);
   const rows = await db.query(query, params);
   return Array.isArray(rows) ? rows : [];
 };
 
-const countAll = async (userId, search) => {
-  let query = 'SELECT COUNT(*) as count FROM websites';
+const countAll = async (userId, search, onlyVulnerable) => {
+  let query = 'SELECT COUNT(DISTINCT w.id) as count FROM websites w';
   const params = [];
   const whereClauses = [];
 
+  if (onlyVulnerable) {
+    query += `
+      JOIN website_components wc ON w.id = wc.website_id
+      JOIN releases r ON wc.release_id = r.id
+      JOIN vulnerabilities v ON r.id = v.release_id
+    `;
+  }
+
   if (userId) {
-    whereClauses.push('user_id = ?');
+    whereClauses.push('w.user_id = ?');
     params.push(userId);
   }
 
   if (search) {
-    whereClauses.push('domain LIKE ?');
+    whereClauses.push('w.domain LIKE ?');
     params.push(`%${search}%`);
   }
 

@@ -25,7 +25,9 @@ $(document).ready(function () {
   $('#prev-page').on('click', () => loadComponents(currentPage - 1));
   $('#next-page').on('click', () => loadComponents(currentPage + 1));
   $('#last-page').on('click', () => loadComponents(totalPages));
-  $('#reload-page').on('click', () => loadComponents(currentPage));
+  $('#reload-page')
+    .on('click', () => loadComponents(currentPage))
+    .tooltip();
 
   $('#create-component-form').on('submit', function (e) {
     e.preventDefault();
