@@ -45,6 +45,7 @@ const roleRoutes = require('./routes/roles');
 const logRoutes = require('./routes/logs');
 const websiteRoutes = require('./routes/websites');
 const configRoutes = require('./routes/config');
+const reportRoutes = require('./routes/reports');
 const { redirectIfAuthenticated, isAuthenticatedPage, isAdminPage } = require('./middleware/auth');
 const { versionAssets } = require('./middleware/versionAssets');
 const swaggerUi = require('swagger-ui-express');
@@ -136,8 +137,8 @@ app.get('/dashboard', isAuthenticatedPage, (req, res, next) => {
   versionAssets(req, res, next, path.join(__dirname, root, 'dashboard.html'));
 });
 
-app.get('/admin', isAdminPage, (req, res, next) => {
-  versionAssets(req, res, next, path.join(__dirname, root, 'admin/index.html'));
+app.get('/admin', isAdminPage, (req, res) => {
+  res.redirect('/admin/users');
 });
 
 app.get('/admin/users', isAdminPage, (req, res, next) => {
@@ -165,6 +166,7 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/logs', logRoutes);
 app.use('/api/websites', websiteRoutes);
 app.use('/api/config', configRoutes);
+app.use('/api/reports', reportRoutes);
 
 if (process.env.NODE_ENV === 'production') {
   // IMPORTANT: Leave this set to /public (not /dist) until we fix the

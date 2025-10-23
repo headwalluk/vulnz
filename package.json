@@ -1,6 +1,6 @@
 {
   "name": "vulnz",
-  "version": "0.36.0",
+  "version": "0.37.0",
   "description": "Vulnerability database for WordPress plugins and themes",
   "main": "src/index.js",
   "scripts": {
@@ -27,6 +27,7 @@
     "express-mysql-session": "^3.0.3",
     "express-rate-limit": "^8.1.0",
     "express-session": "^1.18.2",
+    "handlebars": "^4.7.8",
     "helmet": "^8.1.0",
     "mariadb": "^3.4.5",
     "node-cron": "^4.2.1",
