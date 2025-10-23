@@ -196,15 +196,35 @@ $(document).ready(function () {
 
   let limit = 5;
   let currentPage = 1;
+  let currentSearch = '';
 
-  function loadWebsites(page = 1) {
+  $('#website-search-form').on('submit', function (e) {
+    e.preventDefault();
+    const searchTerm = $('#website-search-input').val();
+    loadWebsites(1, searchTerm);
+  });
+
+  $('#website-search-input').on('input', function () {
+    if ($(this).val() === '') {
+      loadWebsites(1, '');
+    }
+  });
+
+  function loadWebsites(page = 1, search = '') {
     if (currentUser && currentUser.defaultPageSize) {
       limit = currentUser.defaultPageSize;
     }
     currentPage = page;
+    currentSearch = search;
     $('#website-list-spinner').show();
+
+    let url = `/api/websites?page=${page}&limit=${limit}`;
+    if (search) {
+      url += `&q=${encodeURIComponent(search)}`;
+    }
+
     $.ajax({
-      url: `/api/websites?page=${page}&limit=${limit}`,
+      url,
       method: 'GET',
       success: function (data) {
         $('#website-list-spinner').fadeOut();
@@ -261,37 +281,43 @@ $(document).ready(function () {
   function renderWebsitePagination(total, page, limit) {
     const totalPages = Math.ceil(total / limit);
 
-    console.log(`Total: ${total} ${typeof total}, Page: ${page}, Limit: ${limit}, Total Pages: ${totalPages}`);
-
     if (total === 0) {
-      $('#website-toolbar').hide();
-      $('#website-page-count').text('');
-      return;
+      if (currentSearch) {
+        $('#websites-list').html('<div class="alert alert-info">No websites found matching your search.</div>');
+      } else {
+        $('#websites-list').html('<div class="alert alert-info">You aren\'t monitoring any websites yet.</div>');
+      }
     }
+
+    if (totalPages > 0) {
+      $('#website-page-count').text(`Page ${page} of ${totalPages}`).show();
+    } else {
+      $('#website-page-count').hide();
+    }
+
     $('#website-toolbar').show();
 
-    $('#website-page-count').text(`Page ${page} of ${totalPages}`);
-
-    $('#first-page').toggleClass('disabled', page === 1);
-    $('#prev-page').toggleClass('disabled', page === 1);
-    $('#next-page').toggleClass('disabled', page === totalPages);
-    $('#last-page').toggleClass('disabled', page === totalPages);
+    const noPages = totalPages === 0;
+    $('#first-page').toggleClass('disabled', page === 1 || noPages);
+    $('#prev-page').toggleClass('disabled', page === 1 || noPages);
+    $('#next-page').toggleClass('disabled', page === totalPages || noPages);
+    $('#last-page').toggleClass('disabled', page === totalPages || noPages);
 
     $('#first-page')
       .off('click')
-      .on('click', () => loadWebsites(1));
+      .on('click', () => loadWebsites(1, currentSearch));
     $('#prev-page')
       .off('click')
-      .on('click', () => loadWebsites(page - 1));
+      .on('click', () => loadWebsites(page - 1, currentSearch));
     $('#next-page')
       .off('click')
-      .on('click', () => loadWebsites(page + 1));
+      .on('click', () => loadWebsites(page + 1, currentSearch));
     $('#last-page')
       .off('click')
-      .on('click', () => loadWebsites(totalPages));
+      .on('click', () => loadWebsites(totalPages, currentSearch));
     $('#reload-page')
       .off('click')
-      .on('click', () => loadWebsites(currentPage));
+      .on('click', () => loadWebsites(currentPage, currentSearch));
   }
 
   $('#websites-list').on('click', '.delete-website-btn', function () {

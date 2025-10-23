@@ -51,6 +51,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const cron = require('node-cron');
 const { syncNextPlugin } = require('./lib/wporg');
+const migrations = require('./migrations');
 
 // Swagger definition
 const swaggerOptions = {
@@ -181,6 +182,9 @@ app.use((req, res, next) => {
 
 async function startServer() {
   try {
+    await migrations.run();
+    console.log('Migrations complete.');
+
     if (process.env.CRON_ENABLE !== 'true') {
       console.warn('Cron jobs are disabled in .env (CRON_ENABLE).');
     } else {

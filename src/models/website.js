@@ -18,26 +18,50 @@ const createTable = async () => {
   await db.query(query);
 };
 
-const findAll = async (userId, limit, offset) => {
+const findAll = async (userId, limit, offset, search) => {
   let query = 'SELECT * FROM websites';
   const params = [];
+  const whereClauses = [];
+
   if (userId) {
-    query += ' WHERE user_id = ?';
+    whereClauses.push('user_id = ?');
     params.push(userId);
   }
+
+  if (search) {
+    whereClauses.push('domain LIKE ?');
+    params.push(`%${search}%`);
+  }
+
+  if (whereClauses.length > 0) {
+    query += ` WHERE ${whereClauses.join(' AND ')}`;
+  }
+
   query += ' ORDER BY id DESC LIMIT ? OFFSET ?';
   params.push(limit, offset);
   const rows = await db.query(query, params);
   return Array.isArray(rows) ? rows : [];
 };
 
-const countAll = async (userId) => {
+const countAll = async (userId, search) => {
   let query = 'SELECT COUNT(*) as count FROM websites';
   const params = [];
+  const whereClauses = [];
+
   if (userId) {
-    query += ' WHERE user_id = ?';
+    whereClauses.push('user_id = ?');
     params.push(userId);
   }
+
+  if (search) {
+    whereClauses.push('domain LIKE ?');
+    params.push(`%${search}%`);
+  }
+
+  if (whereClauses.length > 0) {
+    query += ` WHERE ${whereClauses.join(' AND ')}`;
+  }
+
   const rows = await db.query(query, params);
   return Number(rows[0].count);
 };
