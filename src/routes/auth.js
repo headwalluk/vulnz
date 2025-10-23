@@ -173,7 +173,6 @@ router.get('/me', logApiCall, async (req, res) => {
     const roles = rows.map((row) => row.name);
 
     if (roles.includes('administrator')) {
-      sitemap.push({ url: '/admin', text: 'Admin', type: 'btn-danger' });
       sitemap.push({ url: '/admin/users', text: 'Users', type: 'btn-danger' });
       sitemap.push({
         url: '/admin/components',
