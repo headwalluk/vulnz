@@ -89,6 +89,37 @@
             <ul id="websites-list" class="list-group mb-3"></ul>
           </div>
         </div>
+        <div class="card mb-4">
+          <div class="card-header">
+            <h2>Weekly Reports</h2>
+          </div>
+          <div class="card-body">
+            <p>Receive weekly digest reports about your websites' vulnerabilities.</p>
+            <form id="reporting-form">
+              <div class="mb-3">
+                <label for="reporting-email" class="form-label">Email Address</label>
+                <input type="email" class="form-control" id="reporting-email" readonly />
+              </div>
+              <div class="mb-3">
+                <label for="reporting-weekday" class="form-label">Reporting Day</label>
+                <select class="form-select" id="reporting-weekday">
+                  <option value="">Disable Email Reports</option>
+                  <option value="MON">Monday</option>
+                  <option value="TUE">Tuesday</option>
+                  <option value="WED">Wednesday</option>
+                  <option value="THU">Thursday</option>
+                  <option value="FRI">Friday</option>
+                  <option value="SAT">Saturday</option>
+                  <option value="SUN">Sunday</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-primary">Save Changes</button>
+              <div id="reporting-spinner" class="spinner-border spinner-border-sm text-primary ms-2" role="status" style="display: none">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+            </form>
+          </div>
+        </div>
         <div class="card mt-4 mb-4">
           <div class="card-header">
             <h2>Your API Keys</h2>

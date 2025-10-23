@@ -32,7 +32,7 @@ router.get('/', apiKeyOrSessionAdminAuth, async (req, res) => {
     let totalUsers;
     const queryParams = [];
 
-    let baseQuery = 'SELECT id, username, blocked, max_api_keys FROM users';
+    let baseQuery = 'SELECT id, username, blocked, max_api_keys, reporting_weekday FROM users';
     let countQuery = 'SELECT COUNT(*) as count FROM users';
 
     if (searchQuery) {
@@ -107,7 +107,7 @@ router.get('/', apiKeyOrSessionAdminAuth, async (req, res) => {
  */
 router.post('/', apiKeyOrSessionAdminAuth, async (req, res) => {
   try {
-    let { username, password, roles, blocked, max_api_keys } = req.body;
+    let { username, password, roles, blocked, max_api_keys, reporting_weekday } = req.body;
     if (!username) {
       return res.status(400).send('Username is required');
     }
@@ -117,7 +117,7 @@ router.post('/', apiKeyOrSessionAdminAuth, async (req, res) => {
     if (!roles || roles.length === 0) {
       roles = ['user'];
     }
-    const newUser = await user.createUser(username, password, roles, blocked, max_api_keys);
+    const newUser = await user.createUser(username, password, roles, blocked, max_api_keys, reporting_weekday);
     res.status(201).json(newUser);
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
@@ -151,7 +151,7 @@ router.post('/', apiKeyOrSessionAdminAuth, async (req, res) => {
  */
 router.get('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
   try {
-    const u = await db.query('SELECT id, username, blocked, max_api_keys FROM users WHERE id = ?', [req.params.id]);
+    const u = await db.query('SELECT id, username, blocked, max_api_keys, reporting_weekday FROM users WHERE id = ?', [req.params.id]);
     if (!u || u.length === 0) {
       return res.status(404).send('User not found');
     }
@@ -203,6 +203,16 @@ router.get('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
 router.put('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
   try {
     await user.updateUser(req.params.id, req.body);
+    res.send('User updated');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+router.put('/me', isAuthenticated, async (req, res) => {
+  try {
+    await user.updateUser(req.user.id, req.body);
     res.send('User updated');
   } catch (err) {
     console.error(err);

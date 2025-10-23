@@ -46,6 +46,7 @@ $(document).ready(function () {
     });
     const blocked = $('#new-user-blocked').is(':checked');
     const max_api_keys = $('#max-api-keys').val();
+    const reporting_weekday = $('#reporting-weekday').val();
 
     const url = editUserId ? `/api/users/${editUserId}` : '/api/users';
     const method = editUserId ? 'PUT' : 'POST';
@@ -60,6 +61,7 @@ $(document).ready(function () {
         roles,
         blocked,
         max_api_keys,
+        reporting_weekday,
       }),
       success: function () {
         resetUserForm();
@@ -127,13 +129,14 @@ $(document).ready(function () {
           users.forEach(function (user) {
             const deleteButton = currentUser.id === user.id ? '' : `<button class="btn btn-sm btn-danger" data-id="${user.id}">Delete</button>`;
             const blockedIcon = user.blocked ? '<i class="bi bi-slash-circle-fill text-danger ms-2"></i>' : '';
+            const reportingDay = user.reporting_weekday ? `<span class="badge bg-info ms-2">${user.reporting_weekday}</span>` : '';
             usersList.append(`
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             <div>
                               <i class="bi bi-person-circle me-2 fs-4"></i>
                             </div>
                             <div class="flex-grow-1">
-                                <span class="fw-medium">${user.username}</span>${blockedIcon}<br/>
+                                <span class="fw-medium">${user.username}</span>${blockedIcon}${reportingDay}<br/>
                                 <span class="badge bg-secondary">id = ${user.id}</span>
                             </div>
                             <div class="d-flex gap-2">
@@ -171,6 +174,7 @@ $(document).ready(function () {
       success: function (user) {
         $('#new-username').val(user.username);
         $('#max-api-keys').val(user.max_api_keys);
+        $('#reporting-weekday').val(user.reporting_weekday);
         $('#create-user-form h4').text('Edit User');
         $('#create-user-form button[type="submit"]').text('Save Changes');
         $('#cancel-edit-user').show();

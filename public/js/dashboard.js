@@ -37,6 +37,8 @@ $(document).ready(function () {
     if (currentUser.roles.includes('administrator')) {
       $('#admin-section').show();
     }
+    $('#reporting-email').val(currentUser.username);
+    $('#reporting-weekday').val(currentUser.reporting_weekday);
     loadUserData();
   }
 
@@ -80,6 +82,27 @@ $(document).ready(function () {
         },
         error: function (err) {
           $('#error-message').text(err.responseText).show();
+        },
+      });
+    });
+
+    $('#reporting-form').on('submit', function (e) {
+      e.preventDefault();
+      const reporting_weekday = $('#reporting-weekday').val();
+      $('#reporting-spinner').show();
+      $.ajax({
+        url: '/api/users/me',
+        method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify({ reporting_weekday }),
+        success: function () {
+          alert('Reporting settings saved.');
+        },
+        error: function (err) {
+          alert(err.responseText);
+        },
+        complete: function () {
+          $('#reporting-spinner').fadeOut();
         },
       });
     });

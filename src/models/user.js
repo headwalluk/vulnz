@@ -16,7 +16,7 @@ async function createTable() {
   await db.query(sql);
 }
 
-async function createUser(username, password, roleNames, blocked, max_api_keys) {
+async function createUser(username, password, roleNames, blocked, max_api_keys, reporting_weekday) {
   const usernameValidation = validateUsername(username);
   if (!usernameValidation.isValid) {
     throw new Error(usernameValidation.errors.join(' '));
@@ -33,7 +33,14 @@ async function createUser(username, password, roleNames, blocked, max_api_keys) 
     finalMaxApiKeys = Math.min(finalMaxApiKeys, parseInt(process.env.MAX_API_KEYS_PER_USER, 10));
   }
   const finalBlocked = blocked !== undefined ? blocked : false;
-  const result = await db.query('INSERT INTO users (username, password, blocked, max_api_keys) VALUES (?, ?, ?, ?)', [username, hashedPassword, finalBlocked, finalMaxApiKeys]);
+  const finalReportingWeekday = reporting_weekday !== undefined ? reporting_weekday : '';
+  const result = await db.query('INSERT INTO users (username, password, blocked, max_api_keys, reporting_weekday) VALUES (?, ?, ?, ?, ?)', [
+    username,
+    hashedPassword,
+    finalBlocked,
+    finalMaxApiKeys,
+    finalReportingWeekday,
+  ]);
   const userId = result.insertId;
 
   let finalRoleNames = roleNames || [];
@@ -53,7 +60,7 @@ async function createUser(username, password, roleNames, blocked, max_api_keys) 
     }
   }
 
-  const [userRow] = await db.query('SELECT id, username, blocked, max_api_keys FROM users WHERE id = ?', [userId]);
+  const [userRow] = await db.query('SELECT id, username, blocked, max_api_keys, reporting_weekday FROM users WHERE id = ?', [userId]);
   const roles = await getRoles(userId);
   return {
     ...userRow,
@@ -83,7 +90,7 @@ async function updatePassword(userId, newPassword) {
   await db.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
 }
 
-async function updateUser(userId, { username, password, roles, blocked, max_api_keys }) {
+async function updateUser(userId, { username, password, roles, blocked, max_api_keys, reporting_weekday }) {
   if (password) {
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.isValid) {
@@ -111,6 +118,10 @@ async function updateUser(userId, { username, password, roles, blocked, max_api_
       maxApiKeys = Math.min(maxApiKeys, parseInt(process.env.MAX_API_KEYS_PER_USER, 10));
     }
     await db.query('UPDATE users SET max_api_keys = ? WHERE id = ?', [maxApiKeys, userId]);
+  }
+
+  if (reporting_weekday !== undefined) {
+    await db.query('UPDATE users SET reporting_weekday = ? WHERE id = ?', [reporting_weekday, userId]);
   }
 
   if (roles) {
