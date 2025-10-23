@@ -68,6 +68,19 @@
                 <label for="max-api-keys" class="form-label">Max API Keys</label>
                 <input type="number" class="form-control" id="max-api-keys" name="max-api-keys" min="0" value="1" required />
               </div>
+              <div class="mb-3">
+                <label for="reporting-weekday" class="form-label">Reporting Weekday</label>
+                <select class="form-select" id="reporting-weekday">
+                  <option value="">Disable Email Reports</option>
+                  <option value="MON">Monday</option>
+                  <option value="TUE">Tuesday</option>
+                  <option value="WED">Wednesday</option>
+                  <option value="THU">Thursday</option>
+                  <option value="FRI">Friday</option>
+                  <option value="SAT">Saturday</option>
+                  <option value="SUN">Sunday</option>
+                </select>
+              </div>
               <div class="form-check form-switch mb-3">
                 <input class="form-check-input" type="checkbox" id="new-user-blocked" />
                 <label class="form-check-label" for="new-user-blocked">Blocked</label>
