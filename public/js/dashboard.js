@@ -235,7 +235,6 @@ $(document).ready(function () {
         } else {
           data.websites.forEach(function (website) {
             const hasVulnerabilities = website.vulnerability_count > 0;
-            const tooltipText = hasVulnerabilities ? `Vulnerable components = ${website.vulnerability_count}` : 'No vulnerable plugins or themes detected.';
 
             let iconHtml;
             if (hasVulnerabilities) {
