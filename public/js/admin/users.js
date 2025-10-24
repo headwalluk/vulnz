@@ -47,6 +47,7 @@ $(document).ready(function () {
     const blocked = $('#new-user-blocked').is(':checked');
     const max_api_keys = $('#max-api-keys').val();
     const reporting_weekday = $('#reporting-weekday').val();
+    const reporting_email = $('#reporting-email').val();
 
     const url = editUserId ? `/api/users/${editUserId}` : '/api/users';
     const method = editUserId ? 'PUT' : 'POST';
@@ -62,6 +63,7 @@ $(document).ready(function () {
         blocked,
         max_api_keys,
         reporting_weekday,
+        reporting_email,
       }),
       success: function () {
         resetUserForm();
@@ -175,6 +177,7 @@ $(document).ready(function () {
         $('#new-username').val(user.username);
         $('#max-api-keys').val(user.max_api_keys);
         $('#reporting-weekday').val(user.reporting_weekday);
+        $('#reporting-email').val(user.reporting_email);
         $('#create-user-form h4').text('Edit User');
         $('#create-user-form button[type="submit"]').text('Save Changes');
         $('#cancel-edit-user').show();
