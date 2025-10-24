@@ -3,7 +3,7 @@ $(document).ready(function () {
     url: '/api/config',
     method: 'GET',
     success: function (config) {
-      if (config.registrationEnabled !== 'false') {
+      if (config.registrationEnabled) {
         $('#register-link').show();
       }
     },
