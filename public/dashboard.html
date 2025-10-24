@@ -97,10 +97,6 @@
             <p>Receive weekly digest reports about your websites' vulnerabilities.</p>
             <form id="reporting-form">
               <div class="mb-3">
-                <label for="reporting-email" class="form-label">Email Address</label>
-                <input type="email" class="form-control" id="reporting-email" readonly />
-              </div>
-              <div class="mb-3">
                 <label for="reporting-weekday" class="form-label">Reporting Day</label>
                 <select class="form-select" id="reporting-weekday">
                   <option value="">Disable Email Reports</option>
@@ -113,7 +109,12 @@
                   <option value="SUN">Sunday</option>
                 </select>
               </div>
+              <div class="mb-3">
+                <label for="reporting-email" class="form-label">Reporting Email</label>
+                <input type="email" class="form-control" id="reporting-email" />
+              </div>
               <button type="submit" class="btn btn-primary">Save Changes</button>
+              <button type="button" class="btn btn-secondary" id="send-report-now"><i class="bi bi-envelope"></i> Send now</button>
               <div id="reporting-spinner" class="spinner-border spinner-border-sm text-primary ms-2" role="status" style="display: none">
                 <span class="visually-hidden">Loading...</span>
               </div>

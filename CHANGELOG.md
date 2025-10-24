@@ -3,6 +3,7 @@
 ## 0.38.0 2025-10-24
 
 - Added support for dev/staging sites.
+- Added support for user account alternative email address for reporting.
 
 ## 0.33.0 2025-10-23
 

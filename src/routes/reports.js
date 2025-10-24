@@ -4,22 +4,23 @@ const user = require('../models/user');
 const website = require('../models/website');
 const websiteComponent = require('../models/websiteComponent');
 const emailer = require('../lib/email');
-const { apiKeyOrSessionAdminAuth } = require('../middleware/auth');
+const { isAuthenticated } = require('../middleware/auth');
+const { validateEmailAddress } = require('../lib/emailValidation');
 
-router.post('/email', apiKeyOrSessionAdminAuth, async (req, res) => {
+router.post('/summary-email', isAuthenticated, async (req, res) => {
   try {
-    const { user_id } = req.body;
-    if (!user_id) {
+    const userId = (req.body && req.body.user_id) || (req.user && req.user.id);
+    if (!userId) {
       return res.status(400).send('user_id is required');
     }
 
-    const userToSend = await user.findUserById(user_id);
+    const userToSend = await user.findUserById(userId);
     if (!userToSend) {
       return res.status(404).send('User not found');
     }
 
-    const totalWebsites = await website.countAll(user_id);
-    const vulnerableWebsites = await website.findAll(user_id, 1000, 0, null, true);
+    const totalWebsites = await website.countAll(userId);
+    const vulnerableWebsites = await website.findAll(userId, 1000, 0, null, true);
 
     for (const site of vulnerableWebsites) {
       const wordpressPlugins = await websiteComponent.getPlugins(site.id);
@@ -33,12 +34,20 @@ router.post('/email', apiKeyOrSessionAdminAuth, async (req, res) => {
       vulnerableWebsitesCount: vulnerableWebsites.length,
       vulnerableWebsites: vulnerableWebsites.map((site) => ({
         title: site.title,
-        url: site.is_ssl ? `https://${site.domain}` : `http://${site.domain}`,
+        domain: site.domain,
         vulnerableComponents: site.vulnerableComponents,
       })),
     };
 
-    await emailer.sendVulnerabilityReport(userToSend.username, emailData);
+    let targetEmail = userToSend.username;
+    if (userToSend.reporting_email) {
+      const validation = validateEmailAddress(userToSend.reporting_email);
+      if (validation.isValid) {
+        targetEmail = userToSend.reporting_email;
+      }
+    }
+
+    await emailer.sendVulnerabilityReport(targetEmail, emailData);
 
     res.send('Report sent');
   } catch (err) {

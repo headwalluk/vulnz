@@ -195,6 +195,7 @@ router.get('/me', logApiCall, async (req, res) => {
       sitemap: sitemap,
       defaultPageSize: parseInt(process.env.LIST_PAGE_SIZE, 10) || 10,
       reporting_weekday: req.user.reporting_weekday,
+      reporting_email: req.user.reporting_email,
     });
   } catch (err) {
     console.error(err);
