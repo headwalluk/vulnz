@@ -1,7 +1,7 @@
 const db = require('../db');
 const bcrypt = require('bcrypt');
 const { validatePassword } = require('../lib/passwordValidation');
-const { validateUsername } = require('../lib/usernameValidation');
+const { validateEmailAddress } = require('../lib/emailValidation');
 
 async function createTable() {
   const sql = `
@@ -9,6 +9,7 @@ async function createTable() {
       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       username VARCHAR(255) NOT NULL UNIQUE,
       password VARCHAR(255) NOT NULL,
+      reporting_email VARCHAR(255) NULL,
       max_api_keys INT NOT NULL DEFAULT 1,
       blocked BOOLEAN NOT NULL DEFAULT FALSE
     )
@@ -16,10 +17,10 @@ async function createTable() {
   await db.query(sql);
 }
 
-async function createUser(username, password, roleNames, blocked, max_api_keys, reporting_weekday) {
-  const usernameValidation = validateUsername(username);
-  if (!usernameValidation.isValid) {
-    throw new Error(usernameValidation.errors.join(' '));
+async function createUser(username, password, roleNames, blocked, max_api_keys, reporting_weekday, reporting_email) {
+  const emailValidation = validateEmailAddress(username);
+  if (!emailValidation.isValid) {
+    throw new Error(emailValidation.errors.join(' '));
   }
 
   const passwordValidation = validatePassword(password);
@@ -34,12 +35,13 @@ async function createUser(username, password, roleNames, blocked, max_api_keys, 
   }
   const finalBlocked = blocked !== undefined ? blocked : false;
   const finalReportingWeekday = reporting_weekday !== undefined ? reporting_weekday : '';
-  const result = await db.query('INSERT INTO users (username, password, blocked, max_api_keys, reporting_weekday) VALUES (?, ?, ?, ?, ?)', [
+  const result = await db.query('INSERT INTO users (username, password, blocked, max_api_keys, reporting_weekday, reporting_email) VALUES (?, ?, ?, ?, ?, ?)', [
     username,
     hashedPassword,
     finalBlocked,
     finalMaxApiKeys,
     finalReportingWeekday,
+    reporting_email,
   ]);
   const userId = result.insertId;
 
@@ -60,7 +62,7 @@ async function createUser(username, password, roleNames, blocked, max_api_keys, 
     }
   }
 
-  const [userRow] = await db.query('SELECT id, username, blocked, max_api_keys, reporting_weekday FROM users WHERE id = ?', [userId]);
+  const [userRow] = await db.query('SELECT id, username, blocked, max_api_keys, reporting_weekday, reporting_email FROM users WHERE id = ?', [userId]);
   const roles = await getRoles(userId);
   return {
     ...userRow,
@@ -90,7 +92,7 @@ async function updatePassword(userId, newPassword) {
   await db.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
 }
 
-async function updateUser(userId, { username, password, roles, blocked, max_api_keys, reporting_weekday }) {
+async function updateUser(userId, { username, password, roles, blocked, max_api_keys, reporting_weekday, reporting_email }) {
   if (password) {
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.isValid) {
@@ -101,9 +103,9 @@ async function updateUser(userId, { username, password, roles, blocked, max_api_
   }
 
   if (username) {
-    const usernameValidation = validateUsername(username);
-    if (!usernameValidation.isValid) {
-      throw new Error(usernameValidation.errors.join(' '));
+    const emailValidation = validateEmailAddress(username);
+    if (!emailValidation.isValid) {
+      throw new Error(emailValidation.errors.join(' '));
     }
     await db.query('UPDATE users SET username = ? WHERE id = ?', [username, userId]);
   }
@@ -122,6 +124,10 @@ async function updateUser(userId, { username, password, roles, blocked, max_api_
 
   if (reporting_weekday !== undefined) {
     await db.query('UPDATE users SET reporting_weekday = ? WHERE id = ?', [reporting_weekday, userId]);
+  }
+
+  if (reporting_email !== undefined) {
+    await db.query('UPDATE users SET reporting_email = ? WHERE id = ?', [reporting_email, userId]);
   }
 
   if (roles) {

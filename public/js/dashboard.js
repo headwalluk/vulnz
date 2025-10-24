@@ -37,7 +37,8 @@ $(document).ready(function () {
     if (currentUser.roles.includes('administrator')) {
       $('#admin-section').show();
     }
-    $('#reporting-email').val(currentUser.username);
+    $('#reporting-email').val(currentUser.reporting_email);
+    $('#reporting-email').attr('placeholder', currentUser.username);
     $('#reporting-weekday').val(currentUser.reporting_weekday);
     $('#is-dev').prop('checked', currentUser.is_dev);
     loadUserData();
@@ -90,15 +91,38 @@ $(document).ready(function () {
     $('#reporting-form').on('submit', function (e) {
       e.preventDefault();
       const reporting_weekday = $('#reporting-weekday').val();
+      const reporting_email = $('#reporting-email').val();
       const is_dev = $('#is-dev').is(':checked');
       $('#reporting-spinner').show();
       $.ajax({
         url: '/api/users/me',
         method: 'PUT',
         contentType: 'application/json',
-        data: JSON.stringify({ reporting_weekday, is_dev }),
+        data: JSON.stringify({ reporting_weekday, is_dev, reporting_email }),
         success: function () {
           alert('Reporting settings saved.');
+          $('#send-report-now').prop('disabled', false);
+        },
+        error: function (err) {
+          alert(err.responseText);
+        },
+        complete: function () {
+          $('#reporting-spinner').fadeOut();
+        },
+      });
+    });
+
+    $('#reporting-email, #reporting-weekday').on('input change', function () {
+      $('#send-report-now').prop('disabled', true);
+    });
+
+    $('#send-report-now').on('click', function () {
+      $('#reporting-spinner').show();
+      $.ajax({
+        url: '/api/reports/summary-email',
+        method: 'POST',
+        success: function () {
+          alert('Report sent successfully.');
         },
         error: function (err) {
           alert(err.responseText);
