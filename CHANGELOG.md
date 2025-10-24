@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.38.0 2025-10-24
+
+- Added support for dev/staging sites.
+
 ## 0.33.0 2025-10-23
 
 - Cleaner data input/out when POSTing to the /api/users route to create new users (using an administrator's API key in the request header).
