@@ -8,6 +8,7 @@ const createTable = async () => {
       domain VARCHAR(255) NOT NULL,
       title VARCHAR(255) NOT NULL,
       is_ssl BOOLEAN DEFAULT TRUE,
+      is_dev BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -92,8 +93,8 @@ const findByDomain = async (domain) => {
 };
 
 const create = async (website) => {
-  const { user_id, domain, title } = website;
-  const result = await db.query('INSERT INTO websites (user_id, domain, title) VALUES (?, ?, ?)', [user_id, domain, title]);
+  const { user_id, domain, title, is_dev } = website;
+  const result = await db.query('INSERT INTO websites (user_id, domain, title, is_dev) VALUES (?, ?, ?, ?)', [user_id, domain, title, is_dev]);
   const insertId = result.insertId || result[0]?.insertId;
   return { id: insertId, ...website };
 };

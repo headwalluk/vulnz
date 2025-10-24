@@ -184,8 +184,10 @@ app.use((req, res, next) => {
 
 async function startServer() {
   try {
-    await migrations.run();
-    console.log('Migrations complete.');
+    if (process.env.NODE_APP_INSTANCE === '0') {
+      await migrations.run();
+      console.log('Migrations complete.');
+    }
 
     if (process.env.CRON_ENABLE !== 'true') {
       console.warn('Cron jobs are disabled in .env (CRON_ENABLE).');
