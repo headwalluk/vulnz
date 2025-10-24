@@ -11,13 +11,14 @@ async function createTable() {
       password VARCHAR(255) NOT NULL,
       reporting_email VARCHAR(255) NULL,
       max_api_keys INT NOT NULL DEFAULT 1,
-      blocked BOOLEAN NOT NULL DEFAULT FALSE
+      blocked BOOLEAN NOT NULL DEFAULT FALSE,
+      last_summary_sent_at DATETIME NULL
     )
   `;
   await db.query(sql);
 }
 
-async function createUser(username, password, roleNames, blocked, max_api_keys, reporting_weekday, reporting_email) {
+async function createUser(username, password, roleNames, blocked, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at) {
   const emailValidation = validateEmailAddress(username);
   if (!emailValidation.isValid) {
     throw new Error(emailValidation.errors.join(' '));
@@ -35,14 +36,10 @@ async function createUser(username, password, roleNames, blocked, max_api_keys, 
   }
   const finalBlocked = blocked !== undefined ? blocked : false;
   const finalReportingWeekday = reporting_weekday !== undefined ? reporting_weekday : '';
-  const result = await db.query('INSERT INTO users (username, password, blocked, max_api_keys, reporting_weekday, reporting_email) VALUES (?, ?, ?, ?, ?, ?)', [
-    username,
-    hashedPassword,
-    finalBlocked,
-    finalMaxApiKeys,
-    finalReportingWeekday,
-    reporting_email,
-  ]);
+  const result = await db.query(
+    'INSERT INTO users (username, password, blocked, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [username, hashedPassword, finalBlocked, finalMaxApiKeys, finalReportingWeekday, reporting_email, last_summary_sent_at]
+  );
   const userId = result.insertId;
 
   let finalRoleNames = roleNames || [];
@@ -62,7 +59,7 @@ async function createUser(username, password, roleNames, blocked, max_api_keys, 
     }
   }
 
-  const [userRow] = await db.query('SELECT id, username, blocked, max_api_keys, reporting_weekday, reporting_email FROM users WHERE id = ?', [userId]);
+  const [userRow] = await db.query('SELECT id, username, blocked, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at FROM users WHERE id = ?', [userId]);
   const roles = await getRoles(userId);
   return {
     ...userRow,
@@ -92,7 +89,7 @@ async function updatePassword(userId, newPassword) {
   await db.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
 }
 
-async function updateUser(userId, { username, password, roles, blocked, max_api_keys, reporting_weekday, reporting_email }) {
+async function updateUser(userId, { username, password, roles, blocked, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at }) {
   if (password) {
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.isValid) {
@@ -130,6 +127,10 @@ async function updateUser(userId, { username, password, roles, blocked, max_api_
     await db.query('UPDATE users SET reporting_email = ? WHERE id = ?', [reporting_email, userId]);
   }
 
+  if (last_summary_sent_at !== undefined) {
+    await db.query('UPDATE users SET last_summary_sent_at = ? WHERE id = ?', [last_summary_sent_at, userId]);
+  }
+
   if (roles) {
     await db.query('DELETE FROM user_roles WHERE user_id = ?', [userId]);
     for (const roleName of roles) {
@@ -148,6 +149,32 @@ const getRoles = async (userId) => {
   return Array.isArray(rows) ? rows.map((row) => row.name) : [];
 };
 
+async function updateLastSummarySentAt(userId) {
+  await db.query('UPDATE users SET last_summary_sent_at = ? WHERE id = ?', [new Date(), userId]);
+}
+
+async function findUsersForWeeklyReport(dayOfWeek, batchSize) {
+  const query = `
+    SELECT * FROM users
+    WHERE reporting_weekday = ?
+    AND (last_summary_sent_at IS NULL OR DATE(last_summary_sent_at) < CURDATE())
+    AND blocked = 0
+    LIMIT ?
+  `;
+  return db.query(query, [dayOfWeek, batchSize]);
+}
+
+async function countUsersDueForWeeklyReport(dayOfWeek) {
+  const query = `
+    SELECT COUNT(*) as count FROM users
+    WHERE reporting_weekday = ?
+    AND (last_summary_sent_at IS NULL OR DATE(last_summary_sent_at) < CURDATE())
+    AND blocked = 0
+  `;
+  const [result] = await db.query(query, [dayOfWeek]);
+  return result.count;
+}
+
 async function deleteUser(userId) {
   await db.query('DELETE FROM user_roles WHERE user_id = ?', [userId]);
   await db.query('DELETE FROM users WHERE id = ?', [userId]);
@@ -162,4 +189,7 @@ module.exports = {
   findUserById,
   updatePassword,
   updateUser,
+  updateLastSummarySentAt,
+  findUsersForWeeklyReport,
+  countUsersDueForWeeklyReport,
 };

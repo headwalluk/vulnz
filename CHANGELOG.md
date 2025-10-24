@@ -4,6 +4,7 @@
 
 - Added support for dev/staging sites.
 - Added support for user account alternative email address for reporting.
+- Weekly summary email cron is in there now (1st version).
 
 ## 0.33.0 2025-10-23
 
