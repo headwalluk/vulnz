@@ -29,6 +29,7 @@ const user = require('./models/user');
 const userRole = require('./models/userRole');
 const session = require('./models/session');
 const apiCallLog = require('./models/apiCallLog');
+const emailLog = require('./models/emailLog');
 const passwordResetToken = require('./models/passwordResetToken');
 const release = require('./models/release');
 const vulnerability = require('./models/vulnerability');
@@ -52,6 +53,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const cron = require('node-cron');
 const { syncNextPlugin } = require('./lib/wporg');
+const { sendWeeklyReports } = require('./lib/reporting');
 const migrations = require('./migrations');
 
 // Swagger definition
@@ -209,6 +211,16 @@ async function startServer() {
         apiCallLog.purgeOldLogs();
       });
 
+      cron.schedule('0 0,12 * * *', () => {
+        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to purge old email logs...');
+        emailLog.purgeOldLogs();
+      });
+
+      cron.schedule('*/15 * * * *', () => {
+        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to send weekly summary emails...');
+        sendWeeklyReports();
+      });
+
       cron.schedule('* * * * *', () => {
         process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to sync plugin data from wporg...');
         syncNextPlugin();
@@ -225,6 +237,7 @@ async function startServer() {
     await componentType.seedData();
     await component.createTable();
     await apiCallLog.createTable();
+    await emailLog.createTable();
     await passwordResetToken.createTable();
     await release.createTable();
     await vulnerability.createTable();

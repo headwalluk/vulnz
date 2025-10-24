@@ -6,6 +6,7 @@ const db = require('../db');
 const { logApiCall } = require('../middleware/logApiCall');
 const crypto = require('crypto');
 const passwordResetToken = require('../models/passwordResetToken');
+const emailLog = require('../models/emailLog');
 const emailer = require('../lib/email');
 const { authLimiter } = require('../middleware/rateLimit');
 
@@ -219,7 +220,13 @@ router.post('/reset-password', authLimiter, logApiCall, async (req, res) => {
     await passwordResetToken.deleteTokensByUserId(userToReset.id);
     await passwordResetToken.createToken(userToReset.id, resetToken);
 
-    await emailer.sendPasswordResetEmail(userToReset.username, resetToken);
+    try {
+      await emailer.sendPasswordResetEmail(userToReset.username, resetToken);
+      await emailLog.logEmail(userToReset.username, 'password_reset', 'sent');
+    } catch (emailError) {
+      await emailLog.logEmail(userToReset.username, 'password_reset', 'error');
+      throw emailError;
+    }
 
     res.status(200).send('If an account with that email exists, a password reset link has been sent.');
   } catch (err) {
