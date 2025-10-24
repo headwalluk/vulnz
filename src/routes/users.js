@@ -200,16 +200,6 @@ router.get('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
  *       200:
  *         description: User updated
  */
-router.put('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
-  try {
-    await user.updateUser(req.params.id, req.body);
-    res.send('User updated');
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Server error');
-  }
-});
-
 router.put('/me', isAuthenticated, async (req, res) => {
   try {
     await user.updateUser(req.user.id, req.body);
@@ -249,6 +239,16 @@ router.put('/password', isAuthenticated, async (req, res) => {
     if (err.message.includes('Password must')) {
       return res.status(400).send(err.message);
     }
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+router.put('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
+  try {
+    await user.updateUser(req.params.id, req.body);
+    res.send('User updated');
+  } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
   }

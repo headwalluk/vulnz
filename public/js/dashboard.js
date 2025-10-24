@@ -39,6 +39,7 @@ $(document).ready(function () {
     }
     $('#reporting-email').val(currentUser.username);
     $('#reporting-weekday').val(currentUser.reporting_weekday);
+    $('#is-dev').prop('checked', currentUser.is_dev);
     loadUserData();
   }
 
@@ -89,12 +90,13 @@ $(document).ready(function () {
     $('#reporting-form').on('submit', function (e) {
       e.preventDefault();
       const reporting_weekday = $('#reporting-weekday').val();
+      const is_dev = $('#is-dev').is(':checked');
       $('#reporting-spinner').show();
       $.ajax({
         url: '/api/users/me',
         method: 'PUT',
         contentType: 'application/json',
-        data: JSON.stringify({ reporting_weekday }),
+        data: JSON.stringify({ reporting_weekday, is_dev }),
         success: function () {
           alert('Reporting settings saved.');
         },
@@ -281,15 +283,17 @@ $(document).ready(function () {
               iconHtml = `<i class="bi bi-globe me-2 vulnerability-icon"></i>`;
             }
 
+            const devBadge = website.is_dev ? '<span class="badge bg-secondary ms-2">DEV</span>' : '';
+
             const websiteItem = $(`
                         <li class="list-group-item ${hasVulnerabilities ? 'list-group-item-danger' : ''}" data-domain="${website.domain}">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div class="d-flex align-items-center website-info">
                                     ${iconHtml}
                                     <div>
-                                        <strong>${website.title || website.domain}</strong>
+                                        <strong>${website.title || website.domain}${devBadge}</strong>
                                         <br>
-                                        <small><a href="${website.url}" target="_blank">${website.url} <i class="bi bi-box-arrow-up-right"></i></a></small>
+                                        <small><a href="${website.url}" target="_blank" class="text-decoration-none">${website.domain} <i class="bi bi-box-arrow-up-right"></i></a></small>
                                     </div>
                                 </div>
                                 <div class="d-flex align-items-center">
