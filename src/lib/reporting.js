@@ -67,6 +67,9 @@ async function sendWeeklyReports() {
   const batchSize = parseInt(process.env.REPORTING_BATCH_SIZE, 10) || 10;
   const users = await user.findUsersForWeeklyReport(dayOfWeek, batchSize);
 
+  console.log( `sendWeeklyReports: CCC': ${users.length} users to process` );
+  console.log( users );
+
   for (const userToSend of users) {
     // Diagnostics
     console.log( `Sending emails to ${userToSend.username}`);
