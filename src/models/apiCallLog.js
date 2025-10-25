@@ -34,8 +34,9 @@ async function purgeOldLogs() {
   `;
 
   try {
-    const [result] = await db.query(sql, [retentionDays]);
-    console.log(`Purged ${result.affectedRows} old API call logs.`);
+    const result = await db.query(sql, [retentionDays]);
+    const affectedRows = result && result[0] ? result[0].affectedRows : 0;
+    console.log(`Purged ${affectedRows} old API call logs.`);
   } catch (err) {
     console.error('Failed to purge old API call logs:', err);
   }
