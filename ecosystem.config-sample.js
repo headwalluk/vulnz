@@ -8,6 +8,8 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
       },
+      max_memory_restart: '1G',
+      min_uptime: '10s',
     },
   ],
 };
