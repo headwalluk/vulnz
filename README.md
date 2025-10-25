@@ -58,21 +58,50 @@ The app is designed to help WordPress hosting providers collate and manage WP pl
     npm run start
     ```
 
+7.  **Running with PM2 (Optional):**
+    - For production environments, you can use PM2 to run the application in cluster mode.
+    - 
+      ```bash
+      # Copy the sample configuration file:
+      cp ecosystem.config-sample.js ecosystem.config.js
+      
+      # Start the application with PM2:
+      npm run pm2
+      ```
+
 ## Populating the Database
 
 The database will be empty initially. You will need to use the API to add websites, components, and vulnerabilities.
 
 We will be adding scripts and tools to pull from several public vulnerability databases soon. We will also release a WordPress plugin in the near future, which will link to the app via the API to automate website and component tracking.
 
-### Example API Usage
+### API Usage
 
-If you're running vulnz on a localhost on port 3000 (the defaults) and you have [HTTPie](https://httpie.io/) installed:
+If you're running vulnz on a localhost on port 3000 (the defaults), all the API Docs are available via Swagger:
+
+`http://localhost:3000/doc`
+
+The following examples use (HTTPie)[https://httpie.io/] but will work just as well with cUrl.
+
+### Example: Adding a vulnerability report to a plugin
 
 ```bash
-# Our request body.
+# The vulnerability information we want to add.
 BODY='{"urls": [ "https://a-security-website/news/security-hole-found-in-woo-1-2-3/" ] }'
 
-# POST to our locally hosted VULNZ API.
+# POST to our locally hosted VULNZ API. The plugin & release will be added to
+# the database automatically if they're not already in there.
 echo "${BODY}" | http POST http://localhost:3000/api/components/wordpress-plugin/woocommerce/1.2.3 \
+   "X-API-Key: YOUR_API_KEY"
+```
+
+### Example: Adding a new website
+
+```bash
+# Our website's meta data.
+BODY='{"domain": "my-clients-website.com"}'
+
+# POST to our locally hosted VULNZ API.
+echo "${BODY}" | http POST http://localhost:3000/api/websites \
    "X-API-Key: YOUR_API_KEY"
 ```
