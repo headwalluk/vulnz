@@ -49,6 +49,7 @@ const configRoutes = require('./routes/config');
 const reportRoutes = require('./routes/reports');
 const { redirectIfAuthenticated, isAuthenticatedPage, isAdminPage } = require('./middleware/auth');
 const { versionAssets } = require('./middleware/versionAssets');
+const redirectHtml = require('./middleware/redirectHtml');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const cron = require('node-cron');
@@ -77,6 +78,7 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 app.set('trust proxy', 1);
+app.use(redirectHtml);
 app.use('/doc', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use(helmet());
 app.use(express.json());

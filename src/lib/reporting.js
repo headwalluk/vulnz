@@ -16,9 +16,7 @@ async function sendSummaryEmail(userToSend) {
   for (const site of vulnerableWebsites) {
     const wordpressPlugins = await websiteComponent.getPlugins(site.id);
     const wordpressThemes = await websiteComponent.getThemes(site.id);
-    site.vulnerableComponents = [...wordpressPlugins, ...wordpressThemes]
-      .filter((c) => c.has_vulnerabilities)
-      .map((c) => `${c.title} ${c.version} (${c.slug})`);
+    site.vulnerableComponents = [...wordpressPlugins, ...wordpressThemes].filter((c) => c.has_vulnerabilities).map((c) => `${c.title} ${c.version} (${c.slug})`);
   }
 
   const emailData = {

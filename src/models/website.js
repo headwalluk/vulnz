@@ -117,7 +117,8 @@ const update = async (domain, website) => {
   const query = `UPDATE websites SET ${setClause} WHERE domain = ?`;
   const params = [...values, domain];
 
-  console.log( query, params );
+  // Diagnostics
+  // console.log( query, params );
 
   const result = await db.query(query, params);
   return result.affectedRows > 0;
