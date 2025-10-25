@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 2025-10-25
+
+- Added light/dark mode support to login, register, and password-reset pages.
+- Fixed alignment and loading spinner issues on auth pages.
+
 ## 1.1.0 2025-10-25
 
 - Added light/dark mode with automatic theme detection.
