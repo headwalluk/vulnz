@@ -44,8 +44,6 @@ async function sendSummaryEmail(userToSend) {
 }
 
 async function sendWeeklyReports() {
-  console.log( 'sendWeeklyReports: AAA');
-
   const reportingHour = parseInt(process.env.REPORTING_HOUR, 10);
   if (isNaN(reportingHour) || reportingHour < 0 || reportingHour > 23) {
     console.error('REPORTING_HOUR is not set or is invalid (must be 0-23). Skipping weekly report cron job.');
@@ -59,16 +57,11 @@ async function sendWeeklyReports() {
     return;
   }
 
-  console.log( 'sendWeeklyReports: BBB');
-
   const weekdays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
   const dayOfWeek = weekdays[now.getDay()];
 
   const batchSize = parseInt(process.env.REPORTING_BATCH_SIZE, 10) || 10;
   const users = await user.findUsersForWeeklyReport(dayOfWeek, batchSize);
-
-  console.log( `sendWeeklyReports: CCC': ${users.length} users to process` );
-  console.log( users );
 
   for (const userToSend of users) {
     // Diagnostics
