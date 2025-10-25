@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0 2025-10-25
+
+- Added light/dark mode with automatic theme detection.
+
 ## 1.0.0 2025-10-25
 
 - First stable release.
