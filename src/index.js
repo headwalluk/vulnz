@@ -216,8 +216,7 @@ async function startServer() {
         emailLog.purgeOldLogs();
       });
 
-      // cron.schedule('*/15 * * * *', () => {
-      cron.schedule('* * * * *', () => {
+      cron.schedule('*/15 * * * *', () => {
         process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to send weekly summary emails...');
         sendWeeklyReports();
       });
