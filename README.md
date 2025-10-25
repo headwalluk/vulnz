@@ -6,7 +6,7 @@ The application pulls from wordpress.org for plugin & theme meta data. We don't 
 
 This can best be thought of as a vulnerability metabase.
 
-![VULNZ search results](assets/v1.0.0/vulnz-search-results.png "VULNZ search results")
+![VULNZ search results](assets/v1.0.0/vulnz-search-results.png 'VULNZ search results')
 
 ## Who is this for?
 
@@ -54,17 +54,17 @@ The app is designed to help WordPress hosting providers collate and manage WP pl
     - You can also choose to disable new user registrations entirely by setting `REGISTRATION_ENABLED=false`.
 
 6.  **Restart the application:**
+
     ```bash
     npm run start
     ```
 
 7.  **Running with PM2 (Optional):**
     - For production environments, you can use PM2 to run the application in cluster mode.
-    - 
-      ```bash
+    - ```bash
       # Copy the sample configuration file:
       cp ecosystem.config-sample.js ecosystem.config.js
-      
+
       # Start the application with PM2:
       npm run pm2
       ```
