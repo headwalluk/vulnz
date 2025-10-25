@@ -11,6 +11,7 @@ $(document).ready(function () {
       return;
     }
 
+    $('#header-spinner').show();
     $.ajax({
       url: '/api/auth/register',
       method: 'POST',
@@ -23,6 +24,9 @@ $(document).ready(function () {
       },
       error: function (err) {
         $('#error-message').text(err.responseText).show();
+      },
+      complete: function () {
+        $('#header-spinner').hide();
       },
     });
   });
