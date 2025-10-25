@@ -161,6 +161,9 @@ async function findUsersForWeeklyReport(dayOfWeek, batchSize) {
     AND blocked = 0
     LIMIT ?
   `;
+
+  console.log( `findUsersForWeeklyReport: query=${query}, dayOfWeek=${dayOfWeek}, batchSize=${batchSize}` );
+  
   return db.query(query, [dayOfWeek, batchSize]);
 }
 
