@@ -174,8 +174,8 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
       websiteData.meta = meta;
     }
 
-    console.log( 'test' );
-    console.log( websiteData );
+    console.log('test');
+    console.log(websiteData);
 
     if (Object.keys(websiteData).length > 0) {
       await Website.update(req.params.domain, websiteData);

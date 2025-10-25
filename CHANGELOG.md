@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.50.0 2025-10-25
+
+- **Security Fix:** Implemented a middleware to prevent unauthenticated access to `.html` pages, resolving a critical security loophole.
+- **Dashboard UI Enhancements:**
+  - Vulnerable components are now sorted to the top of the list in the website info modal.
+  - The modal now displays website `meta` data instead of the owner's email, with special formatting for links and email addresses.
+  - Various styling improvements, such as removing bold from component slugs and adding icons to links.
+- **API Improvements:**
+  - The `/api/websites` endpoints now return an empty object `{}` for the `meta` field when it is `null`.
+- **Code Quality:**
+  - Fixed a linting error in `public/js/dashboard.js`.
+
 ## 0.45.0 2025-10-25
 
 - Fixed the report emails so administrators get ALL sites, whereas each user only gets their own sites.
