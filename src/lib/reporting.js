@@ -1,4 +1,5 @@
 const user = require('../models/user');
+const { getRoles } = require('../models/user');
 const website = require('../models/website');
 const websiteComponent = require('../models/websiteComponent');
 const emailer = require('../lib/email');
@@ -6,13 +7,18 @@ const emailLog = require('../models/emailLog');
 const { validateEmailAddress } = require('../lib/emailValidation');
 
 async function sendSummaryEmail(userToSend) {
-  const totalWebsites = await website.countAll(userToSend.id);
-  const vulnerableWebsites = await website.findAll(userToSend.id, 1000, 0, null, true);
+  const roles = await getRoles(userToSend.id);
+  const isAdministrator = roles.includes('administrator');
+
+  const totalWebsites = await website.countAll(isAdministrator ? null : userToSend.id);
+  const vulnerableWebsites = await website.findAll(isAdministrator ? null : userToSend.id, 1000, 0, null, true);
 
   for (const site of vulnerableWebsites) {
     const wordpressPlugins = await websiteComponent.getPlugins(site.id);
     const wordpressThemes = await websiteComponent.getThemes(site.id);
-    site.vulnerableComponents = [...wordpressPlugins, ...wordpressThemes].filter((c) => c.has_vulnerabilities).map((c) => c.slug);
+    site.vulnerableComponents = [...wordpressPlugins, ...wordpressThemes]
+      .filter((c) => c.has_vulnerabilities)
+      .map((c) => `${c.title} ${c.version} (${c.slug})`);
   }
 
   const emailData = {

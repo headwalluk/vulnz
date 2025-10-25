@@ -29,7 +29,7 @@ const deleteByType = async (websiteId, componentType) => {
 
 const getComponents = async (websiteId, componentType) => {
   const query = `
-        SELECT c.slug, r.version, v.url as vulnerability_url
+        SELECT c.slug, c.title, c.component_type_slug, r.version, v.url as vulnerability_url
         FROM website_components wc
         JOIN releases r ON wc.release_id = r.id
         JOIN components c ON r.component_id = c.id
@@ -42,6 +42,8 @@ const getComponents = async (websiteId, componentType) => {
     if (!components[row.slug]) {
       components[row.slug] = {
         slug: row.slug,
+        title: row.title,
+        component_type_slug: row.component_type_slug,
         version: row.version,
         vulnerabilities: [],
       };

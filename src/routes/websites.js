@@ -47,6 +47,7 @@ const tidyWebsite = (website) => {
     user_id: parseInt(website.user_id, 10),
     is_ssl: Boolean(website.is_ssl),
     is_dev: Boolean(website.is_dev),
+    meta: website.meta || {},
   };
 };
 
@@ -108,7 +109,7 @@ router.get('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
 
 router.post('/', apiOrSessionAuth, async (req, res) => {
   try {
-    const { domain, title, user_id, is_dev } = req.body;
+    const { domain, title, user_id, is_dev, meta } = req.body;
 
     if (!domain) {
       return res.status(400).send('The domain property must be specified.');
@@ -126,7 +127,7 @@ router.post('/', apiOrSessionAuth, async (req, res) => {
       websiteUserId = user_id;
     }
 
-    const website = await Website.create({ user_id: websiteUserId, domain, title: title || domain, is_dev: is_dev || false });
+    const website = await Website.create({ user_id: websiteUserId, domain, title: title || domain, is_dev: is_dev || false, meta });
 
     if (roles.includes('administrator')) {
       res.status(201).json({
@@ -161,7 +162,7 @@ const processComponents = async (components, componentType) => {
 
 router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
   try {
-    const { title, 'wordpress-plugins': wordpressPlugins, 'wordpress-themes': wordpressThemes, is_dev } = req.body;
+    const { title, 'wordpress-plugins': wordpressPlugins, 'wordpress-themes': wordpressThemes, is_dev, meta } = req.body;
     const websiteData = {};
     if (title) {
       websiteData.title = title;
@@ -169,6 +170,12 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
     if (is_dev !== undefined) {
       websiteData.is_dev = is_dev;
     }
+    if (meta) {
+      websiteData.meta = meta;
+    }
+
+    console.log( 'test' );
+    console.log( websiteData );
 
     if (Object.keys(websiteData).length > 0) {
       await Website.update(req.params.domain, websiteData);

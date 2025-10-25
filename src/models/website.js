@@ -9,6 +9,7 @@ const createTable = async () => {
       title VARCHAR(255) NOT NULL,
       is_ssl BOOLEAN DEFAULT TRUE,
       is_dev BOOLEAN NOT NULL DEFAULT FALSE,
+      meta JSON,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -93,8 +94,8 @@ const findByDomain = async (domain) => {
 };
 
 const create = async (website) => {
-  const { user_id, domain, title, is_dev } = website;
-  const result = await db.query('INSERT INTO websites (user_id, domain, title, is_dev) VALUES (?, ?, ?, ?)', [user_id, domain, title, is_dev]);
+  const { user_id, domain, title, is_dev, meta } = website;
+  const result = await db.query('INSERT INTO websites (user_id, domain, title, is_dev, meta) VALUES (?, ?, ?, ?, ?)', [user_id, domain, title, is_dev, JSON.stringify(meta)]);
   const insertId = result.insertId || result[0]?.insertId;
   return { id: insertId, ...website };
 };
@@ -102,6 +103,11 @@ const create = async (website) => {
 const update = async (domain, website) => {
   const fields = Object.keys(website);
   const values = Object.values(website);
+
+  if (website.meta) {
+    website.meta = JSON.stringify(website.meta);
+  }
+
   const setClause = fields.map((field) => `${field} = ?`).join(', ');
 
   if (fields.length === 0) {
@@ -110,6 +116,8 @@ const update = async (domain, website) => {
 
   const query = `UPDATE websites SET ${setClause} WHERE domain = ?`;
   const params = [...values, domain];
+
+  console.log( query, params );
 
   const result = await db.query(query, params);
   return result.affectedRows > 0;
