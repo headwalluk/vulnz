@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0 2025-10-25
+
+- First stable release.
+
 ## 0.50.0 2025-10-25
 
 - **Security Fix:** Implemented a middleware to prevent unauthenticated access to `.html` pages, resolving a critical security loophole.

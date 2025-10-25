@@ -1,7 +1,5 @@
 # VULNZ
 
-** PRE-RELEASE :: In Development **
-
 Self-hosted vulnerability database for WP plugins and themes. The database is primarlly accessed through an API, and there is a UI for basic admin tasks.
 
 The application pulls from wordpress.org for plugin & theme meta data. We don't store details about each vulnerability - only link(s) to the original disclosure URL(s).
@@ -16,50 +14,63 @@ The app is designed to help WordPress hosting providers collate and manage WP pl
 
 - MySQL/MariaDB: Any recent version should be fine.
 - BASH: Required if you want to use the tools to backup, restore and pull from wordfence.com.
-- Node: Any recent LTS should be fine. Tested with Node v22.14.0
+- Node: Any recent LTS should be fine. Tested with Node v22.21.0
 
-```bash
-# Clone the repo
-git clone Github https://github.com/headwalluk/vulnz
+## Self-Hosting
 
-```
+1.  **Clone the repository:**
 
-## Getting started
+    ```bash
+    git clone https://github.com/headwalluk/vulnz
+    cd vulnz
+    ```
 
-Copy `env.sample` to `.env` and configure it for your environment. Pay special attention to the following:
+2.  **Install dependencies:**
 
-- **Database Credentials:** Set up a MySQL/MariaDB database and add the credentials.
-- **`SERVER_MODE`:** Initially, run in `setup` mode to create the first administrator account. Once that's done, switch to `production`.
-- **`REGISTRATION_ENABLED`:** Set to `false` to prevent new user registrations.
-- **Rate Limiting:** Configure `UNAUTH_SEARCH_LIMIT_PER_SECOND` to control unauthenticated search requests.
-- **API Key Limits:** Set `MAX_API_KEYS_PER_USER` to define the maximum number of API keys a user can create.
-- **SMTP Details:** Add your SMTP server details for password reset emails.
-- **`SESSION_SECRET`:** Generate a long, random string for session security.
+    ```bash
+    npm install
+    ```
 
-```bash
-# Install Node packages.
-npm install
+3.  **Configure your environment:**
+    - Copy `env.sample` to `.env`:
+      ```bash
+      cp env.sample .env
+      ```
+    - Edit the `.env` file and set up your MySQL/MariaDB database credentials.
 
-# Start the server
-npm run start
+4.  **Initial Setup (Setup Mode):**
+    - In your `.env` file, set `SETUP_MODE=true`.
+    - Start the application:
+      ```bash
+      npm run start
+      ```
+    - Open your browser and navigate to the application (e.g., `http://localhost:3000`).
+    - Register a new user account. This first account will automatically be granted administrator privileges.
 
-# Point your browser at http://localhost:3000/ and register a user account.
-open http://localhost:3000/
-```
+5.  **Switch to Production Mode:**
+    - **IMPORTANT:** After creating your administrator account, stop the application and change `SETUP_MODE` to `false` in your `.env` file. This is a critical security step to ensure that subsequent user registrations do not receive administrator privileges.
+    - You can also choose to disable new user registrations entirely by setting `REGISTRATION_ENABLED=false`.
 
-## Populating the vulnerability meta data
+6.  **Restart the application:**
+    ```bash
+    npm run start
+    ```
 
-There's a script (to be written) that pulls in the Wordfence public vulnerability feed and adds the disclosure URLs to our database. Other vulnerability sources can be added, and its easy to write your own - all you need to do is POST an array of vulnerability URLs to the plugin's slug & version, to mark a release as being vulnerable. If you pass an empty array (or null) then the release is marked as having no known vulnerabilities.
+## Populating the Database
 
-### Example
+The database will be empty initially. You will need to use the API to add websites, components, and vulnerabilities.
+
+We will be adding scripts and tools to pull from several public vulnerability databases soon. We will also release a WordPress plugin in the near future, which will link to the app via the API to automate website and component tracking.
+
+### Example API Usage
 
 If you're running vulnz on a localhost on port 3000 (the defaults) and you have [HTTPie](https://httpie.io/) installed:
 
 ```bash
 # Our request body.
-BODY='{"urls": [ "https://a-security-website/news/security-hole-found-in-woo-1-2-3/ ] }'
+BODY='{"urls": [ "https://a-security-website/news/security-hole-found-in-woo-1-2-3/" ] }'
 
 # POST to our locally hosted VULNZ API.
-echo "${BODY}" | http://localhost:3000/api/components/wordpress-plugin/woocommerce/1.2.3 \
-   "X-API-Key: YOURAPIKEYINHERE"
+echo "${BODY}" | http POST http://localhost:3000/api/components/wordpress-plugin/woocommerce/1.2.3 \
+   "X-API-Key: YOUR_API_KEY"
 ```
