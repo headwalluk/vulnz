@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.45.0 2025-10-25
+
+- Fixed the report emails so administrators get ALL sites, whereas each user only gets their own sites.
+- Added a JSON meta property to the website model, so we can POST/PUT custom website meta data as key/value pairs (e.g. Login URL, host server, whatever).
+
 ## 0.38.0 2025-10-24
 
 - Added support for dev/staging sites.

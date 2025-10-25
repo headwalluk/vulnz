@@ -397,18 +397,53 @@ $(document).ready(function () {
     }
   });
 
+  function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  function isValidUrl(url) {
+    try {
+      new URL(url);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   $('#websites-list').on('click', '.view-components-btn', function () {
     const website = $(this).closest('li').data('website');
     const componentsList = $('#components-list');
+    const websiteUserInfo = $('#website-user-info');
     componentsList.empty();
+    websiteUserInfo.empty();
 
-    if (website.username) {
-      $('#website-user-info').html(`<a href="mailto:${website.username}" class="btn btn-sm btn-outline-primary"><i class="bi bi-envelope"></i> ${website.username}</a>`);
-    } else {
-      $('#website-user-info').empty();
+    if (website.meta && Object.keys(website.meta).length > 0) {
+      const metaList = $('<ul class="list-group mb-3"></ul>');
+      for (const [key, value] of Object.entries(website.meta)) {
+        let valueHtml = value;
+        if (isValidEmail(value)) {
+          valueHtml = `<a href="mailto:${value}" class="text-decoration-none"><i class="bi bi-envelope me-2"></i>${value}</a>`;
+        } else if (isValidUrl(value)) {
+          const linkText = value.replace(/^https?:\/\//, '');
+          valueHtml = `<a href="${value}" target="_blank" class="text-decoration-none">${linkText} <i class="bi bi-box-arrow-up-right"></i></a>`;
+        }
+        metaList.append(`<li class="list-group-item d-flex justify-content-between align-items-center"><strong>${key}</strong> <span>${valueHtml}</span></li>`);
+      }
+      websiteUserInfo.append(metaList);
     }
 
     const components = [...(website['wordpress-plugins'] || []), ...(website['wordpress-themes'] || [])];
+
+    components.sort((a, b) => {
+      if (a.has_vulnerabilities && !b.has_vulnerabilities) {
+        return -1;
+      }
+      if (!a.has_vulnerabilities && b.has_vulnerabilities) {
+        return 1;
+      }
+      return 0;
+    });
 
     if (components.length === 0) {
       componentsList.append('<li class="list-group-item">No plugins or themes found.</li>');
@@ -425,7 +460,7 @@ $(document).ready(function () {
             if (hostname.startsWith('www.')) {
               hostname = hostname.substring(4);
             }
-            vulnerabilitiesHtml += `<a href="${url}" target="_blank" class="d-block">${hostname} <i class="bi bi-box-arrow-up-right"></i></a>`;
+            vulnerabilitiesHtml += `<a href="${url}" target="_blank" class="d-block"><i class="bi bi-info-circle me-2"></i>${hostname} <i class="bi bi-box-arrow-up-right"></i></a>`;
           });
           vulnerabilitiesHtml += '</div>';
         }
@@ -436,7 +471,7 @@ $(document).ready(function () {
               <div class="d-flex align-items-start">
                 ${vulnerabilityIcon}
                 <div>
-                  <strong><a href="/?q=${component.slug}" class="text-decoration-none">${component.slug}</a></strong>
+                  <a href="/?q=${component.slug}" class="text-decoration-none">${component.slug}</a>
                   ${vulnerabilitiesHtml}
                 </div>
               </div>
