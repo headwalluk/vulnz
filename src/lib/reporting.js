@@ -65,7 +65,7 @@ async function sendWeeklyReports() {
 
   for (const userToSend of users) {
     // Diagnostics
-    console.log( `Sending emails to ${userToSend.username}`);
+    console.log(`Sending emails to ${userToSend.username}`);
 
     try {
       await sendSummaryEmail(userToSend);
