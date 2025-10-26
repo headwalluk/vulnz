@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.0 2025-10-26
+
+- Improved image assets and image caching to give better page-speed experience.
+
 ## 1.3.1 2025-10-26
 
 - Docs: Add swagger documentation for website routes.
