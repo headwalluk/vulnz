@@ -1,6 +1,6 @@
 # VULNZ
 
-Self-hosted vulnerability database for WP plugins and themes. The database is primarlly accessed through an API, and there is a UI for basic admin tasks.
+Self-hosted vulnerability database for WP plugins and themes. The database is primarily accessed through an API, and there is a UI for basic admin tasks.
 
 The application pulls from wordpress.org for plugin & theme meta data. We don't store details about each vulnerability - only link(s) to the original disclosure URL(s).
 
@@ -10,7 +10,7 @@ This can best be thought of as a vulnerability metabase.
 
 ## Who is this for?
 
-The app is designed to help WordPress hosting providers collate and manage WP plugin vulnerabilities across their clients' sites. If your VULNZ installation to be publically accessible, you can host it behind a reverse-proxy and manage your SSL in Apache/Nginx.
+The app is designed to help WordPress hosting providers collate and manage WP plugin vulnerabilities across their clients' sites. If you want your VULNZ installation to be publicly accessible, you can host it behind a reverse-proxy and manage your SSL in Apache/Nginx.
 
 ## Requirements
 
@@ -40,7 +40,38 @@ The app is designed to help WordPress hosting providers collate and manage WP pl
       ```
     - Edit the `.env` file and set up your MySQL/MariaDB database credentials.
 
-4.  **Initial Setup (Setup Mode):**
+4.  **Scripts (dev vs prod)**
+
+        - Development (serves `public/` with separate assets and automatic restarts):
+            ```bash
+            npm run dev
+            ```
+
+        - Build production artifacts (bundled/minified CSS/JS, validated/minified HTML into `dist/`):
+            ```bash
+            npm run build
+            ```
+
+            This generates:
+            - `dist/build/css/app.bundle.min.css`
+            - `dist/build/js/core.bundle.min.js`
+            - `dist/build/js/pages/*.bundle.min.js`
+            - Transformed HTML files in `dist/` referencing the bundles
+            - Copied static files like `partials/` and `favicon.png`
+
+            The server auto-selects `public` in development and `dist` in production based on `NODE_ENV`.
+
+        - Start in production (requires a prior build; will exit with a helpful error if `dist` is missing):
+            ```bash
+            npm run start
+            ```
+
+        - Clean the build output:
+            ```bash
+            npm run clean
+            ```
+
+5.  **Initial Setup (Setup Mode):**
     - In your `.env` file, set `SETUP_MODE=true`.
     - Start the application:
       ```bash
@@ -49,25 +80,53 @@ The app is designed to help WordPress hosting providers collate and manage WP pl
     - Open your browser and navigate to the application (e.g., `http://localhost:3000`).
     - Register a new user account. This first account will automatically be granted administrator privileges.
 
-5.  **Switch to Production Mode:**
+6.  **Switch to Production Mode:**
     - **IMPORTANT:** After creating your administrator account, stop the application and change `SETUP_MODE` to `false` in your `.env` file. This is a critical security step to ensure that subsequent user registrations do not receive administrator privileges.
     - You can also choose to disable new user registrations entirely by setting `REGISTRATION_ENABLED=false`.
 
-6.  **Restart the application:**
+7.  **Restart the application:**
 
     ```bash
     npm run start
     ```
 
-7.  **Running with PM2 (Optional):**
-    - For production environments, you can use PM2 to run the application in cluster mode.
-    - ```bash
-      # Copy the sample configuration file:
-      cp ecosystem.config-sample.js ecosystem.config.js
+8.  **Running with PM2 (Optional):**
 
-      # Start the application with PM2:
-      npm run pm2
-      ```
+## Rate limiting for unauthenticated requests
+
+The app applies a simple per-second cap on unauthenticated search requests. Configure this with the `UNAUTH_SEARCH_LIMIT_PER_SECOND` environment variable:
+
+- Default: `1` (safer default for new deployments)
+- Disable entirely: set to `0`
+- Any positive integer: maximum unauthenticated requests per second from a single IP
+
+Examples in your `.env`:
+
+```
+# Allow 5 unauthenticated searches per second per IP
+UNAUTH_SEARCH_LIMIT_PER_SECOND=5
+
+# Disable unauthenticated rate limiting entirely (not generally recommended)
+UNAUTH_SEARCH_LIMIT_PER_SECOND=0
+```
+
+Notes:
+
+- Authenticated users are not affected by this limiter and have separate handling.
+- If you run behind a reverse proxy, ensure the app sees the client IP (e.g., configure `trust proxy`).
+  - For production environments, you can use PM2 to run the application in cluster mode.
+  - Example flow:
+
+    ```bash
+    # Copy the sample configuration file
+    cp ecosystem-sample.config.js ecosystem.config.js
+
+    # Start in production (edit ecosystem as needed)
+    pm2 start ecosystem.config.js --env production
+
+    # Or run in development via
+    pm2 start ecosystem.config.js --env development
+    ```
 
 ## Populating the Database
 

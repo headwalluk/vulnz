@@ -1,4 +1,27 @@
 $(document).ready(function () {
+  // Make the Search button aware of Bootstrap's dark/light theme
+  function updateSearchBtnTheme() {
+    const btn = document.getElementById('search-button');
+    if (!btn) return;
+    const theme = document.documentElement.getAttribute('data-bs-theme') || 'light';
+    btn.classList.remove('btn-light', 'btn-dark', 'btn-outline-light', 'btn-outline-dark');
+    // Use outline variants to maintain contrast on the hero gradient background
+    if (theme === 'dark') {
+      btn.classList.add('btn-dark');
+    } else {
+      btn.classList.add('btn-light');
+    }
+  }
+
+  // Initial sync after DOM is ready
+  updateSearchBtnTheme();
+
+  // React to future theme changes triggered by the header theme switcher
+  new MutationObserver(() => updateSearchBtnTheme()).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-bs-theme'],
+  });
+
   $('#search-input').focus();
 
   let currentPage = 1;
