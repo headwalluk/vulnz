@@ -1,10 +1,14 @@
 # Changelog
 
+## 1.3.1 2025-10-26
+
+- Docs: Add swagger documentation for website routes.
+
 ## 1.3.0 2025-10-26
 
--   Feature: Add `Cache-Control` headers for static assets in production.
--   Fix: Theme switcher visibility and functionality.
--   Fix: Responsive layout issues on dashboard and admin pages.
+- Feature: Add `Cache-Control` headers for static assets in production.
+- Fix: Theme switcher visibility and functionality.
+- Fix: Responsive layout issues on dashboard and admin pages.
 
 ## 1.2.0 2025-10-26
 

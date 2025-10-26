@@ -51,6 +51,56 @@ const tidyWebsite = (website) => {
   };
 };
 
+/**
+ * @swagger
+ * /api/websites:
+ *   get:
+ *     summary: Retrieve a list of websites
+ *     description: Retrieve a list of websites for the authenticated user. Administrators can see all websites.
+ *     tags:
+ *       - Websites
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: The page number to retrieve.
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: The number of websites to retrieve per page.
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: A search query to filter websites by domain or title.
+ *       - in: query
+ *         name: only_vulnerable
+ *         schema:
+ *           type: boolean
+ *         description: If true, only websites with known vulnerabilities will be returned.
+ *     responses:
+ *       200:
+ *         description: A list of websites.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 websites:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 total:
+ *                   type: integer
+ *                 page:
+ *                   type: integer
+ *                 limit:
+ *                   type: integer
+ *       500:
+ *         description: Server error
+ */
 router.get('/', apiOrSessionAuth, async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
@@ -89,6 +139,31 @@ router.get('/', apiOrSessionAuth, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/websites/{domain}:
+ *   get:
+ *     summary: Retrieve a single website
+ *     description: Retrieve a single website by its domain name.
+ *     tags:
+ *       - Websites
+ *     parameters:
+ *       - in: path
+ *         name: domain
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The domain name of the website to retrieve.
+ *     responses:
+ *       200:
+ *         description: A single website.
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Website not found
+ *       500:
+ *         description: Server error
+ */
 router.get('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
   try {
     const user = await User.findUserById(req.website.user_id);
@@ -107,6 +182,42 @@ router.get('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/websites:
+ *   post:
+ *     summary: Create a new website
+ *     description: Create a new website for the authenticated user.
+ *     tags:
+ *       - Websites
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               domain:
+ *                 type: string
+ *                 required: true
+ *               title:
+ *                 type: string
+ *               user_id:
+ *                 type: integer
+ *               is_dev:
+ *                 type: boolean
+ *               meta:
+ *                 type: object
+ *     responses:
+ *       201:
+ *         description: The created website.
+ *       400:
+ *         description: Bad request
+ *       409:
+ *         description: Conflict - website already exists
+ *       500:
+ *         description: Server error
+ */
 router.post('/', apiOrSessionAuth, async (req, res) => {
   try {
     const { domain, title, user_id, is_dev, meta } = req.body;
@@ -160,6 +271,52 @@ const processComponents = async (components, componentType) => {
   return releaseIds;
 };
 
+/**
+ * @swagger
+ * /api/websites/{domain}:
+ *   put:
+ *     summary: Update a website
+ *     description: Update a website's properties and associated components.
+ *     tags:
+ *       - Websites
+ *     parameters:
+ *       - in: path
+ *         name: domain
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The domain name of the website to update.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               wordpress-plugins:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *               wordpress-themes:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *               is_dev:
+ *                 type: boolean
+ *               meta:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Website updated
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Website not found
+ *       500:
+ *         description: Server error
+ */
 router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
   try {
     const { title, 'wordpress-plugins': wordpressPlugins, 'wordpress-themes': wordpressThemes, is_dev, meta } = req.body;
@@ -205,6 +362,31 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/websites/{domain}:
+ *   delete:
+ *     summary: Delete a website
+ *     description: Delete a website by its domain name.
+ *     tags:
+ *       - Websites
+ *     parameters:
+ *       - in: path
+ *         name: domain
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The domain name of the website to delete.
+ *     responses:
+ *       200:
+ *         description: Website deleted
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Website not found
+ *       500:
+ *         description: Server error
+ */
 router.delete('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
   try {
     await Website.remove(req.params.domain);
