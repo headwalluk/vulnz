@@ -2,7 +2,7 @@
 
 Self-hosted vulnerability database for WP plugins and themes. The database is primarily accessed through an API, and there is a UI for basic admin tasks.
 
-The application pulls from wordpress.org for plugin & theme meta data. We don't store details about each vulnerability - only link(s) to the original disclosure URL(s).
+The application pulls from wordpress.org for plugin & theme metadata. We don't store details about each vulnerability - only link(s) to the original disclosure URL(s).
 
 This can best be thought of as a vulnerability metabase.
 
@@ -40,36 +40,36 @@ The app is designed to help WordPress hosting providers collate and manage WP pl
       ```
     - Edit the `.env` file and set up your MySQL/MariaDB database credentials.
 
-4.  **Scripts (dev vs prod)**
+4.  **Scripts (dev vs prod):**
 
-        - Development (serves `public/` with separate assets and automatic restarts):
-            ```bash
-            npm run dev
-            ```
+    - Development (serves `public/` with separate assets and automatic restarts):
+      ```bash
+      npm run dev
+      ```
 
-        - Build production artifacts (bundled/minified CSS/JS, validated/minified HTML into `dist/`):
-            ```bash
-            npm run build
-            ```
+    - Build production artifacts (bundled/minified CSS/JS, validated/minified HTML into `dist/`):
+      ```bash
+      npm run build
+      ```
 
-            This generates:
-            - `dist/build/css/app.bundle.min.css`
-            - `dist/build/js/core.bundle.min.js`
-            - `dist/build/js/pages/*.bundle.min.js`
-            - Transformed HTML files in `dist/` referencing the bundles
-            - Copied static files like `partials/` and `favicon.png`
+      This generates:
+      - `dist/build/css/app.bundle.min.css`
+      - `dist/build/js/core.bundle.min.js`
+      - `dist/build/js/pages/*.bundle.min.js`
+      - Transformed HTML files in `dist/` referencing the bundles
+      - Copied static files like `partials/` and `favicon.png`
 
-            The server auto-selects `public` in development and `dist` in production based on `NODE_ENV`.
+      The server auto-selects `public` in development and `dist` in production based on `NODE_ENV`.
 
-        - Start in production (requires a prior build; will exit with a helpful error if `dist` is missing):
-            ```bash
-            npm run start
-            ```
+    - Start in production (requires a prior build; will exit with a helpful error if `dist` is missing):
+      ```bash
+      npm run start
+      ```
 
-        - Clean the build output:
-            ```bash
-            npm run clean
-            ```
+    - Clean the build output:
+      ```bash
+      npm run clean
+      ```
 
 5.  **Initial Setup (Setup Mode):**
     - In your `.env` file, set `SETUP_MODE=true`.
@@ -91,6 +91,19 @@ The app is designed to help WordPress hosting providers collate and manage WP pl
     ```
 
 8.  **Running with PM2 (Optional):**
+
+    Example flow using the provided sample ecosystem file:
+
+    ```bash
+    # Copy the sample configuration file
+    cp ecosystem-sample.config.js ecosystem.config.js
+
+    # Start in production (edit ecosystem as needed)
+    pm2 start ecosystem.config.js --env production
+
+    # Or run in development
+    pm2 start ecosystem.config.js --env development
+    ```
 
 ## Rate limiting for unauthenticated requests
 
@@ -114,19 +127,6 @@ Notes:
 
 - Authenticated users are not affected by this limiter and have separate handling.
 - If you run behind a reverse proxy, ensure the app sees the client IP (e.g., configure `trust proxy`).
-  - For production environments, you can use PM2 to run the application in cluster mode.
-  - Example flow:
-
-    ```bash
-    # Copy the sample configuration file
-    cp ecosystem-sample.config.js ecosystem.config.js
-
-    # Start in production (edit ecosystem as needed)
-    pm2 start ecosystem.config.js --env production
-
-    # Or run in development via
-    pm2 start ecosystem.config.js --env development
-    ```
 
 ## Populating the Database
 
@@ -140,7 +140,7 @@ If you're running vulnz on a localhost on port 3000 (the defaults), all the API 
 
 `http://localhost:3000/doc`
 
-The following examples use (HTTPie)[https://httpie.io/] but will work just as well with cUrl.
+The following examples use [HTTPie](https://httpie.io/) but will work just as well with cURL.
 
 ### Example: Adding a vulnerability report to a plugin
 
@@ -157,7 +157,7 @@ echo "${BODY}" | http POST http://localhost:3000/api/components/wordpress-plugin
 ### Example: Adding a new website
 
 ```bash
-# Our website's meta data.
+# Our website's metadata.
 BODY='{"domain": "my-clients-website.com"}'
 
 # POST to our locally hosted VULNZ API.
