@@ -16,7 +16,7 @@ The app is designed to help WordPress hosting providers collate and manage WP pl
 
 - MySQL/MariaDB: Any recent version should be fine.
 - BASH: Required if you want to use the tools to backup, restore and pull from wordfence.com.
-- Node: Any recent LTS should be fine. Tested with Node v22.21.0
+- Node: v22+ recommended. Tested with Node v22.21.0
 
 ## Self-Hosting
 
