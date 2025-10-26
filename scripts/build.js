@@ -255,22 +255,25 @@ async function updateHtmlFiles(pageBundleMap) {
 }
 
 async function copyStatic() {
-  // Copy partials and other required static files like favicon
-  // Partials directory
-  const partialsSrc = path.join(PUBLIC, 'partials');
-  if (fs.existsSync(partialsSrc)) {
-    const files = fg.sync([path.join(partialsSrc, '**/*')], { dot: true });
-    for (const f of files) {
-      const rel = path.relative(PUBLIC, f);
-      const dest = path.join(DIST, rel);
-      if (fs.statSync(f).isDirectory()) {
-        await ensureDir(dest);
-      } else {
-        await ensureDir(path.dirname(dest));
-        await fsp.copyFile(f, dest);
+  // Copy partials, images, and other required static files
+  const dirsToCopy = ['partials', 'images'];
+  for (const dir of dirsToCopy) {
+    const srcDir = path.join(PUBLIC, dir);
+    if (fs.existsSync(srcDir)) {
+      const files = fg.sync([path.join(srcDir, '**/*')], { dot: true });
+      for (const f of files) {
+        const rel = path.relative(PUBLIC, f);
+        const dest = path.join(DIST, rel);
+        if (fs.statSync(f).isDirectory()) {
+          await ensureDir(dest);
+        } else {
+          await ensureDir(path.dirname(dest));
+          await fsp.copyFile(f, dest);
+        }
       }
     }
   }
+
   // Favicon
   const favSrc = path.join(PUBLIC, 'favicon.png');
   if (fs.existsSync(favSrc)) {
