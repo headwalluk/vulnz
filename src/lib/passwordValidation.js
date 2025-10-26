@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 function validatePassword(password) {
   const minLength = parseInt(process.env.PASSWORD_MIN_LENGTH, 10);

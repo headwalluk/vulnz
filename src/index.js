@@ -1,8 +1,18 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
+const { normalizeEnv } = require('./lib/env');
+normalizeEnv();
 
-if (typeof process.env.NODE_APP_INSTANCE === 'undefined') {
-  process.env.NODE_APP_INSTANCE = '0';
-}
+// Colorful startup banner for quick visibility
+(() => {
+  const RESET = '\x1b[0m';
+  const BOLD = '\x1b[1m';
+  const CYAN = '\x1b[36m';
+  const GREEN = '\x1b[32m';
+  const color = process.env.NODE_ENV === 'production' ? GREEN : CYAN;
+  const instance = process.env.NODE_APP_INSTANCE;
+  const env = process.env.NODE_ENV;
+  console.log(`${BOLD}${color}[vulnz] ${env} instance ${instance}${RESET}`);
+})();
 
 process.on('uncaughtException', (err) => {
   console.error('There was an uncaught error', err);
@@ -16,6 +26,7 @@ BigInt.prototype.toJSON = function () {
 
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const helmet = require('helmet');
 const app = express();
 const port = process.env.HTTP_LISTEN_PORT || 3000;
@@ -120,10 +131,21 @@ app.get('/api/ping', (req, res) => {
   res.send('pong');
 });
 
-// IMPORTANT: Leave this set to "../public2 (not "../dist") until we fix the
-// static asset paths in the production build.
-// const root = process.env.NODE_ENV === 'production' ? '../dist' : '../public';
-const root = process.env.NODE_ENV === 'production' ? '../public' : '../public';
+// Serve HTML from /public in development and /dist in production
+const root = process.env.NODE_ENV === 'production' ? '../dist' : '../public';
+
+// In production, verify the build artifacts exist before wiring routes
+if (process.env.NODE_ENV === 'production') {
+  const distRoot = path.join(__dirname, '../dist');
+  const required = [path.join(distRoot, 'index.html'), path.join(distRoot, 'build', 'css', 'app.bundle.min.css'), path.join(distRoot, 'build', 'js', 'core.bundle.min.js')];
+  const missing = required.filter((p) => !fs.existsSync(p));
+  if (missing.length) {
+    const rel = (p) => p.replace(path.join(__dirname, '..') + '/', '');
+    console.error('Production build artifacts not found. Please run "npm run build" first. Missing files:');
+    for (const m of missing) console.error(' - ' + rel(m));
+    process.exit(1);
+  }
+}
 
 app.get('/login', redirectIfAuthenticated, (req, res, next) => {
   versionAssets(req, res, next, path.join(__dirname, root, 'login.html'));
@@ -172,18 +194,13 @@ app.use('/api/websites', websiteRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/reports', reportRoutes);
 
-if (process.env.NODE_ENV === 'production') {
-  // IMPORTANT: Leave this set to /public (not /dist) until we fix the
-  // static asset paths in the production build.
-  app.use(express.static(path.join(__dirname, '../public')));
-} else {
-  app.use(express.static(path.join(__dirname, '../public')));
-}
+// Serve static assets from the same root
+app.use(express.static(path.join(__dirname, root)));
 
 // 404 handler
 app.use((req, res, next) => {
   res.status(404);
-  versionAssets(req, res, next, path.join(__dirname, '../public', '404.html'));
+  versionAssets(req, res, next, path.join(__dirname, root, '404.html'));
 });
 
 async function startServer() {

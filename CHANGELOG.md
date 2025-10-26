@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.2.0 2025-10-26
+
+- Build and deployment
+  - Added an optimized build pipeline that bundles and minifies CSS/JS, rewrites HTML to reference bundles, validates HTML, and minifies HTML output. Artifacts are written to `dist/`.
+  - Server now serves `public/` in development and `dist/` in production, selected via `NODE_ENV`.
+  - Added startup guard in production to ensure required build artifacts exist before booting.
+  - New scripts: `npm run dev` (development with nodemon), `npm run build` (produce `dist/`), `npm run start` (production).
+- UI/Theme
+  - Refined dark/light theme handling on the front page; the Search button now adapts to the active Bootstrap theme.
+- HTML quality
+  - Fixed malformed HTML in `public/dashboard.html` where the body content was inside the `<head>` tag.
+  - Integrated HTML validation and minification into the build.
+- Middleware
+  - Updated `redirectHtml` to special-case `index.html` (e.g., `/index.html` → `/`, `/admin/index.html` → `/admin`) and preserve query strings.
+- Configuration
+  - Centralized environment normalization (e.g., `SETUP_MODE`, `REGISTRATION_ENABLED`, `CRON_ENABLE`, `NODE_APP_INSTANCE`, `UNAUTH_SEARCH_LIMIT_PER_SECOND`).
+  - Added unauthenticated search rate-limiting with configurable per-second caps; `UNAUTH_SEARCH_LIMIT_PER_SECOND=0` disables.
+- Security/Dependencies
+  - Resolved npm audit moderates by updating `validator` to a patched version via overrides.
+
 ## 1.1.1 2025-10-25
 
 - Added light/dark mode support to login, register, and password-reset pages.

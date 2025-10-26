@@ -10,169 +10,169 @@
     <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap-icons.css" />
     <link rel="stylesheet" href="/css/app.css" />
     <!-- endbuild -->
-    <body class="authenticated">
-      <header id="header-placeholder"></header>
+  </head>
+  <body class="authenticated">
+    <header id="header-placeholder"></header>
 
-      <main class="container mt-5">
-        <div id="setup-alert" class="alert alert-warning" role="alert" style="display: none">
-          <strong>ALERT:</strong> When you've configured the amdinistrator account, change <code>SERVER_MODE</code> in your <code>.env</code> file to "production" and restart the
-          application.
+    <main class="container mt-5">
+      <div id="setup-alert" class="alert alert-warning" role="alert" style="display: none">
+        <strong>ALERT:</strong> When you've configured the administrator account, set <code>SETUP_MODE</code> to <code>false</code> in your <code>.env</code> file and restart the
+        application.
+      </div>
+      <h1 class="mb-4">Dashboard</h1>
+      <div class="card mb-4">
+        <div class="card-header">
+          <h2>Your Websites</h2>
         </div>
-        <h1 class="mb-4">Dashboard</h1>
-        <div class="card mb-4">
-          <div class="card-header">
-            <h2>Your Websites</h2>
-          </div>
-          <div class="card-body">
-            <div id="website-toolbar" class="d-flex justify-content-between align-items-center mb-3" style="display: none">
-              <div class="d-flex align-items-center">
-                <form id="website-search-form" class="d-flex me-3">
-                  <div class="input-group">
-                    <input type="search" id="website-search-input" class="form-control" placeholder="Search domains..." />
-                    <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i></button>
-                  </div>
-                </form>
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" id="vulnerable-toggle" />
-                  <label class="form-check-label" for="vulnerable-toggle" data-bs-toggle="tooltip" title="Only show vulnerable websites">VULNZ</label>
+        <div class="card-body">
+          <div id="website-toolbar" class="d-flex justify-content-between align-items-center mb-3" style="display: none">
+            <div class="d-flex align-items-center">
+              <form id="website-search-form" class="d-flex me-3">
+                <div class="input-group">
+                  <input type="search" id="website-search-input" class="form-control" placeholder="Search domains..." />
+                  <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i></button>
                 </div>
-              </div>
-              <div class="d-flex align-items-center">
-                <div id="website-list-spinner" class="spinner-border spinner-border-sm text-primary me-2" role="status" style="display: none">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-                <span id="website-page-count" class="me-2"></span>
-                <div class="btn-group" role="group">
-                  <button type="button" class="btn btn-outline-primary" id="first-page"><i class="bi bi-chevron-double-left"></i></button>
-                  <button type="button" class="btn btn-outline-primary" id="prev-page"><i class="bi bi-chevron-left"></i></button>
-                  <button type="button" class="btn btn-outline-primary" id="next-page"><i class="bi bi-chevron-right"></i></button>
-                  <button type="button" class="btn btn-outline-primary" id="last-page"><i class="bi bi-chevron-double-right"></i></button>
-                </div>
-                <div class="btn-group ms-2" role="group">
-                  <button type="button" class="btn btn-outline-primary" id="reload-page" title="Reload"><i class="bi bi-arrow-clockwise"></i></button>
-                </div>
+              </form>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="vulnerable-toggle" />
+                <label class="form-check-label" for="vulnerable-toggle" data-bs-toggle="tooltip" title="Only show vulnerable websites">VULNZ</label>
               </div>
             </div>
-            <ul id="websites-list" class="list-group mb-3"></ul>
-          </div>
-        </div>
-        <div class="card mb-4">
-          <div class="card-header">
-            <h2>Weekly Reports</h2>
-          </div>
-          <div class="card-body">
-            <p>Receive weekly digest reports about your websites' vulnerabilities.</p>
-            <form id="reporting-form">
-              <div class="mb-3">
-                <label for="reporting-weekday" class="form-label">Reporting Day</label>
-                <select class="form-select" id="reporting-weekday">
-                  <option value="">Disable Email Reports</option>
-                  <option value="MON">Monday</option>
-                  <option value="TUE">Tuesday</option>
-                  <option value="WED">Wednesday</option>
-                  <option value="THU">Thursday</option>
-                  <option value="FRI">Friday</option>
-                  <option value="SAT">Saturday</option>
-                  <option value="SUN">Sunday</option>
-                </select>
-              </div>
-              <div class="mb-3">
-                <label for="reporting-email" class="form-label">Reporting Email</label>
-                <input type="email" class="form-control" id="reporting-email" />
-              </div>
-              <button type="submit" class="btn btn-primary">Save Changes</button>
-              <button type="button" class="btn btn-secondary" id="send-report-now"><i class="bi bi-envelope"></i> Send now</button>
-              <div id="reporting-spinner" class="spinner-border spinner-border-sm text-primary ms-2" role="status" style="display: none">
+            <div class="d-flex align-items-center">
+              <div id="website-list-spinner" class="spinner-border spinner-border-sm text-primary me-2" role="status" style="display: none">
                 <span class="visually-hidden">Loading...</span>
               </div>
-            </form>
+              <span id="website-page-count" class="me-2"></span>
+              <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary" id="first-page"><i class="bi bi-chevron-double-left"></i></button>
+                <button type="button" class="btn btn-outline-primary" id="prev-page"><i class="bi bi-chevron-left"></i></button>
+                <button type="button" class="btn btn-outline-primary" id="next-page"><i class="bi bi-chevron-right"></i></button>
+                <button type="button" class="btn btn-outline-primary" id="last-page"><i class="bi bi-chevron-double-right"></i></button>
+              </div>
+              <div class="btn-group ms-2" role="group">
+                <button type="button" class="btn btn-outline-primary" id="reload-page" title="Reload"><i class="bi bi-arrow-clockwise"></i></button>
+              </div>
+            </div>
           </div>
+          <ul id="websites-list" class="list-group mb-3"></ul>
         </div>
-        <div class="card mt-4 mb-4">
-          <div class="card-header">
-            <h2>Your API Keys</h2>
-          </div>
-          <div class="card-body">
-            <ul id="api-keys-list" class="list-group mb-3"></ul>
-            <form id="create-api-key-form" class="mb-4">
-              <button type="submit" class="btn btn-primary">Create New API Key</button>
-            </form>
-            <div id="api-key-usage-section" style="display: none" class="mt-4">
-              <hr />
-              <h3>Using your API key</h3>
-              <div class="d-flex justify-content-between align-items-end mb-3">
-                <p class="mb-0">Here's an example of how to use your API key to fetch components:</p>
-                <div class="btn-group btn-group-sm" role="group" aria-label="Tool switcher">
-                  <input type="radio" class="btn-check" name="tool-switcher" id="curl-btn" autocomplete="off" checked />
-                  <label class="btn btn-outline-primary" for="curl-btn">cURL</label>
+      </div>
+      <div class="card mb-4">
+        <div class="card-header">
+          <h2>Weekly Reports</h2>
+        </div>
+        <div class="card-body">
+          <p>Receive weekly digest reports about your websites' vulnerabilities.</p>
+          <form id="reporting-form">
+            <div class="mb-3">
+              <label for="reporting-weekday" class="form-label">Reporting Day</label>
+              <select class="form-select" id="reporting-weekday">
+                <option value="">Disable Email Reports</option>
+                <option value="MON">Monday</option>
+                <option value="TUE">Tuesday</option>
+                <option value="WED">Wednesday</option>
+                <option value="THU">Thursday</option>
+                <option value="FRI">Friday</option>
+                <option value="SAT">Saturday</option>
+                <option value="SUN">Sunday</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="reporting-email" class="form-label">Reporting Email</label>
+              <input type="email" class="form-control" id="reporting-email" />
+            </div>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <button type="button" class="btn btn-secondary" id="send-report-now"><i class="bi bi-envelope"></i> Send now</button>
+            <div id="reporting-spinner" class="spinner-border spinner-border-sm text-primary ms-2" role="status" style="display: none">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="card mt-4 mb-4">
+        <div class="card-header">
+          <h2>Your API Keys</h2>
+        </div>
+        <div class="card-body">
+          <ul id="api-keys-list" class="list-group mb-3"></ul>
+          <form id="create-api-key-form" class="mb-4">
+            <button type="submit" class="btn btn-primary">Create New API Key</button>
+          </form>
+          <div id="api-key-usage-section" style="display: none" class="mt-4">
+            <hr />
+            <h3>Using your API key</h3>
+            <div class="d-flex justify-content-between align-items-end mb-3">
+              <p class="mb-0">Here's an example of how to use your API key to fetch components:</p>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Tool switcher">
+                <input type="radio" class="btn-check" name="tool-switcher" id="curl-btn" autocomplete="off" checked />
+                <label class="btn btn-outline-primary" for="curl-btn">cURL</label>
 
-                  <input type="radio" class="btn-check" name="tool-switcher" id="httpie-btn" autocomplete="off" />
-                  <label class="btn btn-outline-primary" for="httpie-btn">HTTPie</label>
-                </div>
-              </div>
-              <div class="code-container">
-                <pre><code id="curl-example" class="curl-example"></code></pre>
-                <i class="bi bi-clipboard copy-code-btn" title="Copy to clipboard"></i>
-              </div>
-              <div class="code-container mt-3">
-                <pre><code id="curl-search-example" class="curl-example"></code></pre>
-                <i class="bi bi-clipboard copy-code-btn" title="Copy to clipboard"></i>
-              </div>
-              <div class="mt-3">
-                <a href="/doc" class="btn btn-secondary">API Docs</a>
+                <input type="radio" class="btn-check" name="tool-switcher" id="httpie-btn" autocomplete="off" />
+                <label class="btn btn-outline-primary" for="httpie-btn">HTTPie</label>
               </div>
             </div>
-          </div>
-        </div>
-        <div class="card mb-4">
-          <div class="card-header">
-            <h2>Change Password</h2>
-          </div>
-          <div class="card-body">
-            <form id="change-password-form">
-              <div class="mb-3">
-                <label for="new-password" class="form-label">New Password</label>
-                <input type="password" class="form-control" id="new-password" name="new-password" required />
-              </div>
-              <div class="mb-3">
-                <label for="re-enter-password" class="form-label">Re-enter your password</label>
-                <input type="password" class="form-control" id="re-enter-password" name="re-enter-password" required />
-              </div>
-              <button type="submit" class="btn btn-primary">Change Password</button>
-            </form>
-          </div>
-        </div>
-        <div id="error-message" class="alert alert-danger alert-dismissible fade show mt-3" role="alert" style="display: none">
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-      </main>
-
-      <div class="modal fade" id="components-modal" tabindex="-1" aria-labelledby="components-modal-label" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-scrollable">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title" id="components-modal-label">Plugins & Themes</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="code-container">
+              <pre><code id="curl-example" class="curl-example"></code></pre>
+              <i class="bi bi-clipboard copy-code-btn" title="Copy to clipboard"></i>
             </div>
-            <div class="modal-body">
-              <div id="website-user-info" class="mb-3"></div>
-              <ul id="components-list" class="list-group"></ul>
+            <div class="code-container mt-3">
+              <pre><code id="curl-search-example" class="curl-example"></code></pre>
+              <i class="bi bi-clipboard copy-code-btn" title="Copy to clipboard"></i>
             </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <div class="mt-3">
+              <a href="/doc" class="btn btn-secondary">API Docs</a>
             </div>
           </div>
         </div>
       </div>
+      <div class="card mb-4">
+        <div class="card-header">
+          <h2>Change Password</h2>
+        </div>
+        <div class="card-body">
+          <form id="change-password-form">
+            <div class="mb-3">
+              <label for="new-password" class="form-label">New Password</label>
+              <input type="password" class="form-control" id="new-password" name="new-password" required />
+            </div>
+            <div class="mb-3">
+              <label for="re-enter-password" class="form-label">Re-enter your password</label>
+              <input type="password" class="form-control" id="re-enter-password" name="re-enter-password" required />
+            </div>
+            <button type="submit" class="btn btn-primary">Change Password</button>
+          </form>
+        </div>
+      </div>
+      <div id="error-message" class="alert alert-danger alert-dismissible fade show mt-3" role="alert" style="display: none">
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    </main>
 
-      <footer id="footer-placeholder"></footer>
+    <div class="modal fade" id="components-modal" tabindex="-1" aria-labelledby="components-modal-label" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="components-modal-label">Plugins & Themes</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div id="website-user-info" class="mb-3"></div>
+            <ul id="components-list" class="list-group"></ul>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-      <!-- build:js -->
-      <script src="/vendor/jquery/jquery.min.js"></script>
-      <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-      <script src="/js/app.js"></script>
-      <script src="/js/dashboard.js"></script>
-      <!-- endbuild -->
-    </body>
-  </head>
+    <footer id="footer-placeholder"></footer>
+
+    <!-- build:js -->
+    <script src="/vendor/jquery/jquery.min.js"></script>
+    <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/dashboard.js"></script>
+    <!-- endbuild -->
+  </body>
 </html>
