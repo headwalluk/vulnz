@@ -3,9 +3,16 @@ const router = express.Router();
 const db = require('../db');
 const { hasRole, apiOrSessionAuth, optionalApiOrSessionAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
-const { isUrl, sanitizeVersion, sanitizeSearchQuery } = require('../lib/sanitizer');
+const { isUrl, sanitizeVersion, sanitizeSearchQuery, sanitizeComponentSlug } = require('../lib/sanitizer');
 const { unauthenticatedSearchLimiter } = require('../middleware/rateLimit');
 const component = require('../models/component');
+
+function sanitiseComponentSlugMiddleware(req, res, next) {
+  if (req.params.componentSlug) {
+    req.params.componentSlug = sanitizeComponentSlug(req.params.componentSlug);
+  }
+  next();
+}
 
 /**
  * @swagger
@@ -137,7 +144,10 @@ router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
  */
 router.post('/', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (req, res) => {
   try {
-    const { slug, component_type_slug, title, description } = req.body;
+    let { slug, component_type_slug, title, description } = req.body;
+    if (slug) {
+      slug = sanitizeComponentSlug(slug);
+    }
     await db.query('INSERT INTO components (slug, component_type_slug, title, description) VALUES (?, ?, ?, ?)', [slug, component_type_slug, title, description]);
     res.status(201).json({ slug, component_type_slug, title, description });
   } catch (err) {
@@ -188,7 +198,7 @@ router.post('/', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (
  *       201:
  *         description: The created vulnerability.
  */
-router.post('/:componentTypeSlug/:componentSlug/:version', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.post('/:componentTypeSlug/:componentSlug/:version', apiOrSessionAuth, logApiCall, sanitiseComponentSlugMiddleware, async (req, res) => {
   try {
     const { componentTypeSlug, componentSlug } = req.params;
     const version = sanitizeVersion(req.params.version);
@@ -286,7 +296,7 @@ router.post('/:componentTypeSlug/:componentSlug/:version', apiOrSessionAuth, log
  *       404:
  *         description: The release was not found
  */
-router.get('/:componentTypeSlug/:componentSlug/:version', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.get('/:componentTypeSlug/:componentSlug/:version', apiOrSessionAuth, logApiCall, sanitiseComponentSlugMiddleware, async (req, res) => {
   try {
     const { componentTypeSlug, componentSlug } = req.params;
     const version = sanitizeVersion(req.params.version);
@@ -349,7 +359,7 @@ router.get('/:componentTypeSlug/:componentSlug/:version', apiOrSessionAuth, logA
  *       404:
  *         description: The component was not found
  */
-router.get('/:componentTypeSlug/:componentSlug', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.get('/:componentTypeSlug/:componentSlug', apiOrSessionAuth, logApiCall, sanitiseComponentSlugMiddleware, async (req, res) => {
   try {
     const { componentTypeSlug, componentSlug } = req.params;
 

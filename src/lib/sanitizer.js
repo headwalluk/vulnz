@@ -61,10 +61,23 @@ function sanitizeSearchQuery(str) {
     .join(' ');
 }
 
+function sanitizeComponentSlug(slug) {
+  if (typeof slug !== 'string') {
+    return '';
+  }
+  let sanitized = slug.toLowerCase();
+  const lastDotIndex = sanitized.lastIndexOf('.');
+  if (lastDotIndex > 0) {
+    sanitized = sanitized.substring(0, lastDotIndex);
+  }
+  return sanitized;
+}
+
 module.exports = {
   stripAll,
   isUrl,
   sanitizeVersion,
   stripNonAlphaNumeric,
   sanitizeSearchQuery,
+  sanitizeComponentSlug,
 };
