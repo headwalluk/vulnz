@@ -12,6 +12,10 @@ This can best be thought of as a vulnerability metabase.
 
 The app is designed to help WordPress hosting providers collate and manage WP plugin vulnerabilities across their clients' sites. If you want your VULNZ installation to be publicly accessible, you can host it behind a reverse-proxy and manage your SSL in Apache/Nginx.
 
+![List of websites](assets/v1.3.0/vulnz-dashboard-your-websites.png 'Websites managed in VULNZ')
+
+![Reporting and API Keys](assets/v1.3.0/vulnz-reporting-and-api-keys.png 'Reporting and API Key management')
+
 ## Requirements
 
 - MySQL/MariaDB: Any recent version should be fine.
