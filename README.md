@@ -134,7 +134,7 @@ The database will be empty initially. You will need to use the API to add websit
 
 We will be adding scripts and tools to pull from several public vulnerability databases soon. We will also release a WordPress plugin in the near future, which will link to the app via the API to automate website and component tracking.
 
-### API Usage
+## API Usage
 
 If you're running vulnz on a localhost on port 3000 (the defaults), all the API Docs are available via Swagger:
 
