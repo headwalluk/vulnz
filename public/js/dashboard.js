@@ -316,8 +316,7 @@ $(document).ready(function () {
                                     ${iconHtml}
                                     <div>
                                         <strong>${website.title || website.domain}${devBadge}</strong>
-                                        <br>
-                                        <small><a href="${website.url}" target="_blank" class="text-decoration-none">${website.domain} <i class="bi bi-box-arrow-up-right"></i></a></small>
+                                        <small class="d-none d-md-block"><a href="${website.url}" target="_blank" class="text-decoration-none">${website.domain} <i class="bi bi-box-arrow-up-right"></i></a></small>
                                     </div>
                                 </div>
                                 <div class="d-flex align-items-center">

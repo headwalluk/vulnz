@@ -60,6 +60,7 @@ const configRoutes = require('./routes/config');
 const reportRoutes = require('./routes/reports');
 const { redirectIfAuthenticated, isAuthenticatedPage, isAdminPage } = require('./middleware/auth');
 const { versionAssets } = require('./middleware/versionAssets');
+const { setCacheControl } = require('./middleware/cacheControl');
 const redirectHtml = require('./middleware/redirectHtml');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
@@ -195,6 +196,7 @@ app.use('/api/config', configRoutes);
 app.use('/api/reports', reportRoutes);
 
 // Serve static assets from the same root
+app.use(setCacheControl);
 app.use(express.static(path.join(__dirname, root)));
 
 // 404 handler

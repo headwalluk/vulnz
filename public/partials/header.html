@@ -25,9 +25,10 @@
       <img src="/favicon.png" alt="Favicon" style="height: 24px; margin-right: 8px" />
       <span class="text-uppercase fw-bold">vulnz</span>
     </a>
-    <div id="header-buttons" class="d-none d-lg-flex gap-2">
+    <div class="d-flex align-items-center ms-auto">
+      <div id="header-buttons" class="d-none d-lg-flex gap-2 me-lg-2"></div>
       <div class="dropdown">
-        <button class="btn btn-secondary dropdown-toggle" type="button" id="bd-theme" data-bs-toggle="dropdown" aria-expanded="false">
+        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="bd-theme" data-bs-toggle="dropdown" aria-expanded="false">
           <svg class="theme-icon-active" width="1em" height="1em"><use href="#circle-half"></use></svg>
           <span class="visually-hidden" id="bd-theme-text">Toggle theme</span>
         </button>
@@ -55,10 +56,10 @@
           </li>
         </ul>
       </div>
+      <button class="navbar-toggler ms-2" type="button" id="burger-menu">
+        <span class="navbar-toggler-icon"></span>
+      </button>
     </div>
-    <button class="navbar-toggler" type="button" id="burger-menu">
-      <span class="navbar-toggler-icon"></span>
-    </button>
   </div>
 </nav>
 <div class="fly-in-menu" id="fly-in-menu">

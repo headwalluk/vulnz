@@ -41,13 +41,14 @@ The app is designed to help WordPress hosting providers collate and manage WP pl
     - Edit the `.env` file and set up your MySQL/MariaDB database credentials.
 
 4.  **Scripts (dev vs prod):**
-
     - Development (serves `public/` with separate assets and automatic restarts):
+
       ```bash
       npm run dev
       ```
 
     - Build production artifacts (bundled/minified CSS/JS, validated/minified HTML into `dist/`):
+
       ```bash
       npm run build
       ```
@@ -62,6 +63,7 @@ The app is designed to help WordPress hosting providers collate and manage WP pl
       The server auto-selects `public` in development and `dist` in production based on `NODE_ENV`.
 
     - Start in production (requires a prior build; will exit with a helpful error if `dist` is missing):
+
       ```bash
       npm run start
       ```
