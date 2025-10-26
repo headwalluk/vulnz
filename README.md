@@ -137,7 +137,13 @@ Notes:
 
 The database will be empty initially. You will need to use the API to add websites, components, and vulnerabilities.
 
-We will be adding scripts and tools to pull from several public vulnerability databases soon. We will also release a WordPress plugin in the near future, which will link to the app via the API to automate website and component tracking.
+We will be adding scripts and tools to pull from several public vulnerability databases soon.
+
+## WordPress Plugin
+
+We have a WordPress plugin that you can install on your sites to link back to your VULNZ API. You can download a ready-to-go version of the plugin from its Github page, here: https://github.com/headwalluk/wp-vulnz
+
+Download the zip file from the dist/plugins directory, install it on your WordPress site(s) and configure the API key. It will automatically sync with your VULNZ back-end so it can track your plugins and their versions.
 
 ## API Usage
 
