@@ -8,6 +8,7 @@ async function syncNextPlugin() {
   const endpoint = process.env.WPORG_PLUGIN_INFO_ENDPOINT || '/plugins/info/1.0/';
   const timeout = process.env.WPORG_TIMEOUT_MS || 5000;
   const userAgent = process.env.WPORG_USER_AGENT || 'VULNZ/1.0';
+  const wordpressPluginPageUrlBase = 'https://wordpress.org/plugins/';
 
   try {
     const components = await db.query("SELECT * FROM components WHERE component_type_slug = 'wordpress-plugin' AND synced_from_wporg != 1 LIMIT ?", [parseInt(batchSize, 10)]);
@@ -49,9 +50,13 @@ async function syncNextPlugin() {
             const title = stripAll(data.name);
             await db.query('UPDATE components SET title = ? WHERE id = ?', [title, component.id]);
           }
-          if (data.homepage && isUrl(data.homepage)) {
-            await db.query('UPDATE components SET url = ? WHERE id = ?', [data.homepage, component.id]);
-          }
+
+          // User the wordpress.org plugin page as the canonical URL
+          // if (data.homepage && isUrl(data.homepage)) {
+          //   await db.query('UPDATE components SET url = ? WHERE id = ?', [data.homepage, component.id]);
+          // }
+          await db.query('UPDATE components SET url = ? WHERE id = ?', [`${wordpressPluginPageUrlBase}${component.slug}/`, component.id]);
+
           if (data.sections && typeof data.sections.description === 'string') {
             let description = stripAll(data.sections.description);
             description = description.substring(0, 4096); // Truncate
