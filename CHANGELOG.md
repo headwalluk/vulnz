@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.1 2025-10-27
+
+- Tweaked the styling on the login, register & reset-password pages for better vertical alignment.
+- Updated the html-validate package 10 10.x.x.
+
 ## 1.4.0 2025-10-26
 
 - Improved image assets and image caching to give better page-speed experience.
