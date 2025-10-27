@@ -27,9 +27,9 @@ backup_tables() {
   local tables=$1
   local filename=$2
   local metadata=$3
-  
+
   echo "Backing up tables: $metadata to $filename"
-  
+
   # Create backup directory if it doesn't exist
   mkdir -p "$BACKUP_DIR"
 
@@ -37,17 +37,17 @@ backup_tables() {
   echo "-- Backup of: $metadata" > "$BACKUP_DIR/$filename"
   echo "-- Date: $(date)" >> "$BACKUP_DIR/$filename"
   echo "" >> "$BACKUP_DIR/$filename"
-  
+
   # mysqldump command
   mysqldump --host="$DB_HOST" --port="$DB_PORT" --user="$DB_USER" --password="$DB_PASS" "$DB_NAME" $tables >> "$BACKUP_DIR/$filename"
-  
+
   if [ $? -eq 0 ]; then
     echo "Backup complete: $BACKUP_DIR/$filename"
   else
     echo "Error: mysqldump failed. Please check credentials and database status."
     # Clean up empty file on failure
     if [ ! -s "$BACKUP_DIR/$filename" ]; then
-        rm "$BACKUP_DIR/$filename"
+      rm "$BACKUP_DIR/$filename"
     fi
     exit 1
   fi
@@ -69,7 +69,7 @@ else
     # Remove single quotes from value, if present
     value="${value%\'}"
     value="${value#\'}"
-    
+
     # Assign values to script variables
     case "$key" in
       "DB_USER") DB_USER="$value" ;;

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.0 2025-10-27
+
+- New: Wordfence feed import script
+  - Added `scripts/process-wordfence-feed.sh` to download the public Wordfence Intelligence feed and insert vulnerabilities into VULNZ in batches.
+  - Configurable via a project-root `.env.wordfence` file (see `env.wordfence.sample`).
+  - Supports `BATCH_SIZE` to limit items processed per run (default 20) and a persistent `WORK_DIR` for caching/state.
+  - Suitable for cron; see README for prerequisites, setup, and a scheduling example.
+- Docs: README section describing setup, usage, and cron for the Wordfence importer.
+
 ## 1.4.1 2025-10-27
 
 - Tweaked the styling on the login, register & reset-password pages for better vertical alignment.
