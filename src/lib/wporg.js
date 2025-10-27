@@ -1,5 +1,6 @@
 const db = require('../db');
-const { stripAll, isUrl } = require('./sanitizer');
+// const { stripAll, isUrl } = require('./sanitizer');
+const { stripAll } = require('./sanitizer');
 
 async function syncNextPlugin() {
   const fetch = (await import('node-fetch')).default;
