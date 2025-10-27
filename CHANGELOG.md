@@ -4,6 +4,7 @@
 
 - Tweaked the styling on the login, register & reset-password pages for better vertical alignment.
 - Updated the html-validate package 10 10.x.x.
+- When syncing a pkugin with wordpress.org, use the wordpress.org plugin page as canonical, rather than the plugin author's specified homepage.
 
 ## 1.4.0 2025-10-26
 
