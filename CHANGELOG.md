@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.0 2025-11-03
+
+- Fixed a typo in the weekly report email.
+- Added a "success" message to the report email when the number of vulnerable websites is zero.
+
 ## 1.5.0 2025-10-27
 
 - New: Wordfence feed import script
