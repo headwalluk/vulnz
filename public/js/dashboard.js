@@ -289,7 +289,12 @@ $(document).ready(function () {
         const websitesList = $('#websites-list');
         websitesList.empty();
         if (data.websites.length === 0) {
-          websitesList.append('<div class="alert alert-info">You aren\'t monitoring any websites yet.</div>');
+          // This is rendered in renderWebsitePagination().
+          // if (onlyVulnerable) {
+          //   websitesList.append('<div class="alert alert-success">No vulnerable websites.</div>');
+          // } else {
+          //   websitesList.append('<div class="alert alert-info">You aren\'t monitoring any websites yet.</div>');
+          // }
         } else {
           data.websites.forEach(function (website) {
             const hasVulnerabilities = website.vulnerability_count > 0;
@@ -343,7 +348,12 @@ $(document).ready(function () {
       if (currentSearch) {
         $('#websites-list').html('<div class="alert alert-info">No websites found matching your search.</div>');
       } else {
-        $('#websites-list').html('<div class="alert alert-info">You aren\'t monitoring any websites yet.</div>');
+        const onlyVulnerable = $('#vulnerable-toggle').is(':checked');
+        if (onlyVulnerable) {
+          $('#websites-list').html('<div class="alert alert-success">No vulnerable websites.</div>');
+        } else {
+          $('#websites-list').html('<div class="alert alert-info">You aren\'t monitoring any websites yet.</div>');
+        }
       }
     }
 
