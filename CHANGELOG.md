@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.1 2025-11-03
+
+- Updated node dependencies. No issues with the audit.
+
 ## 1.6.0 2025-11-03
 
 - Fixed a typo in the weekly report email.
