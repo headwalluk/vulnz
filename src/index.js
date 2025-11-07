@@ -2,9 +2,6 @@ require('dotenv').config({ quiet: true });
 const { normalizeEnv } = require('./lib/env');
 normalizeEnv();
 
-// TODO: Remove this
-console.log(`test: ${process.env.EMAIL_LOG_MAX_AGE_DAYS}`);
-
 // Colorful startup banner for quick visibility
 (() => {
   const RESET = '\x1b[0m';
