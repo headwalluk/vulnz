@@ -98,6 +98,9 @@ function normalizeEnv() {
     }
   }
   process.env.UNAUTH_SEARCH_LIMIT_PER_SECOND = String(uslps);
+
+  // Additional environment variable normalizations...
+  process.env.EMAIL_LOG_MAX_AGE_DAYS = String(parseIntEnv('EMAIL_LOG_MAX_AGE_DAYS', { min: 0, default: 14 }));
 }
 
 module.exports = { normalizeEnv, parseBool, parseIntEnv, parseEnum };

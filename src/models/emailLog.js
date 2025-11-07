@@ -19,10 +19,10 @@ async function logEmail(recipientEmail, emailType, status) {
 }
 
 async function purgeOldLogs() {
-  const maxAgeDays = parseInt(process.env.EMAIL_LOG_MAX_AGE_DAYS, 7);
+  const maxAgeDays = parseInt(process.env.EMAIL_LOG_MAX_AGE_DAYS, 10);
 
   if (isNaN(maxAgeDays) || maxAgeDays <= 0) {
-    console.log('EMAIL_LOG_MAX_AGE_DAYS is not set or is invalid. Skipping log purge.');
+    console.log(`EMAIL_LOG_MAX_AGE_DAYS is not set or is invalid (${maxAgeDays}). Skipping log purge.`);
     return;
   }
 
@@ -32,8 +32,8 @@ async function purgeOldLogs() {
   `;
 
   try {
-    const [result] = await db.query(sql, [maxAgeDays]);
-    console.log(`Purged ${result.affectedRows} old email logs.`);
+    const result = await db.query(sql, [maxAgeDays]);
+    console.log(`Purged ${result.affectedRows} old email logs (days=${maxAgeDays}).`);
   } catch (err) {
     console.error('Failed to purge old email logs:', err);
   }
