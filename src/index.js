@@ -232,8 +232,7 @@ async function startServer() {
         apiCallLog.purgeOldLogs();
       });
 
-      // cron.schedule('0 0,12 * * *', () => {
-      cron.schedule('* * * * *', () => {
+      cron.schedule('0 0,12 * * *', () => {
         process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to purge old email logs...');
         emailLog.purgeOldLogs();
       });

@@ -129,7 +129,7 @@ fi
 WF_IDS=($(jq keys_unsorted[] -r "${WORDFENCE_PRODUCTION_FILE}" | grep -vxf "${WORDFENCE_PROCESSED_IDS}" | head -n ${BATCH_SIZE}))
 ADDED_RELEASE_COUNT=0
 for WF_ID in "${WF_IDS[@]}"; do
-  #   echo "Wordfence ID: ${WF_ID}"
+  # echo "Wordfence ID: ${WF_ID}"
 
   WF_META="$(jq ".\"${WF_ID}\"" "${WORDFENCE_PRODUCTION_FILE}")"
 
@@ -176,7 +176,6 @@ for WF_ID in "${WF_IDS[@]}"; do
       if [ "${COMPONENT_TYPE}" != 'plugin' ]; then
         echo "Skipping non-plugin component type: ${COMPONENT_TYPE}"
       else
-        # echo "Processing plugin component: ${COMPONENT_NAME}"
         echo "Processing plugin component: ${COMPONENT_SLUG}"
 
         VERSION_KEYS=("$(echo "${COMPONENT_META}" | jq .affected_versions | jq -r keys_unsorted[])")
