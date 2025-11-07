@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.2 2025-11-03
+
+- Fixed the report-email logs not being purged correctly at regular intervals. Default to 14 days.
+- Updated npm dependencies.
+
 ## 1.6.1 2025-11-03
 
 - Updated node dependencies. No issues with the audit.
@@ -110,7 +115,7 @@
 
 ## 0.12.0 2025-10-20
 
-- Fixed the saerch results by removing duplicates and apply a less aggressive sanitsation of the search query.
+- Fixed the search results by removing duplicates and apply a less aggressive sanitsation of the search query.
 - Added linting and formatting (prettier) and tidied up the code a bit.
 
 ## 0.9.0- 2025-10-19

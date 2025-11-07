@@ -2,6 +2,9 @@ require('dotenv').config({ quiet: true });
 const { normalizeEnv } = require('./lib/env');
 normalizeEnv();
 
+// TODO: Remove this
+console.log(`test: ${process.env.EMAIL_LOG_MAX_AGE_DAYS}`);
+
 // Colorful startup banner for quick visibility
 (() => {
   const RESET = '\x1b[0m';
@@ -232,7 +235,8 @@ async function startServer() {
         apiCallLog.purgeOldLogs();
       });
 
-      cron.schedule('0 0,12 * * *', () => {
+      // cron.schedule('0 0,12 * * *', () => {
+      cron.schedule('* * * * *', () => {
         process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to purge old email logs...');
         emailLog.purgeOldLogs();
       });
