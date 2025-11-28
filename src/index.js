@@ -1,6 +1,7 @@
 require('dotenv').config({ quiet: true });
-const { normalizeEnv } = require('./lib/env');
+const { normalizeEnv, checkEnvFilePermissions } = require('./lib/env');
 normalizeEnv();
+checkEnvFilePermissions();
 
 // Colorful startup banner for quick visibility
 (() => {

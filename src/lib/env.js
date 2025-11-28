@@ -103,4 +103,63 @@ function normalizeEnv() {
   process.env.EMAIL_LOG_MAX_AGE_DAYS = String(parseIntEnv('EMAIL_LOG_MAX_AGE_DAYS', { min: 0, default: 14 }));
 }
 
-module.exports = { normalizeEnv, parseBool, parseIntEnv, parseEnum };
+/**
+ * Check that the .env file has secure permissions (0600).
+ * This prevents other users on the system from reading secrets.
+ * Can be skipped by setting SKIP_STARTUP_FILEMODE_CHECKS=true
+ */
+function checkEnvFilePermissions() {
+  // Allow skipping this check if explicitly requested
+  if (parseBool('SKIP_STARTUP_FILEMODE_CHECKS', false)) {
+    return;
+  }
+
+  const fs = require('fs');
+  const path = require('path');
+
+  // Find .env file in project root (one level up from src/)
+  const envPath = path.join(__dirname, '../../.env');
+
+  // Check if .env exists
+  if (!fs.existsSync(envPath)) {
+    // .env doesn't exist - this is fine (might be using env vars directly)
+    return;
+  }
+
+  try {
+    const stats = fs.statSync(envPath);
+    const mode = stats.mode & 0o777; // Get permission bits
+
+    // Check if file is 0600 (owner read/write only)
+    if (mode !== 0o600) {
+      const octalMode = mode.toString(8);
+      console.error('');
+      console.error('═══════════════════════════════════════════════════════════════');
+      console.error('⚠️  SECURITY WARNING: .env file has insecure permissions!');
+      console.error('═══════════════════════════════════════════════════════════════');
+      console.error('');
+      console.error(`  Current permissions: 0${octalMode}`);
+      console.error('  Required permissions: 0600 (owner read/write only)');
+      console.error('');
+      console.error('  The .env file contains sensitive secrets that should not be');
+      console.error('  readable by other users on the system.');
+      console.error('');
+      console.error('  To fix this, run:');
+      console.error(`    chmod 0600 ${envPath}`);
+      console.error('');
+      console.error('  To skip this check (NOT RECOMMENDED), set:');
+      console.error('    SKIP_STARTUP_FILEMODE_CHECKS=true');
+      console.error('');
+      console.error('═══════════════════════════════════════════════════════════════');
+      console.error('');
+
+      // Exit with error code to prevent startup
+      process.exit(1);
+    }
+  } catch (err) {
+    // If we can't read the file stats, warn but don't fail
+    console.warn(`Warning: Could not check .env file permissions: ${err.message}`);
+  }
+}
+
+module.exports = { normalizeEnv, checkEnvFilePermissions, parseBool, parseIntEnv, parseEnum };
