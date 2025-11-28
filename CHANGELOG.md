@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.7.0 2025-11-28
+
+### Documentation
+- **Major restructure:** Split comprehensive README.md into organized docs/ directory
+  - Created `docs/development.md` - Local development setup guide
+  - Created `docs/deployment.md` - Production deployment guide
+  - Created `docs/reverse-proxy.md` - Apache/Nginx configuration with SSL/TLS
+  - Created `docs/wordfence-importer.md` - Wordfence feed import documentation
+  - Created `docs/api-usage.md` - REST API examples and Swagger reference
+  - Created `docs/wordpress-plugin.md` - WordPress plugin integration info
+  - Created `docs/roadmap.md` - Planned features and security enhancements
+- Transformed README.md into concise landing page with badges and quick start
+- Added badges for Node.js version, MIT license, database requirements, and security features
+- Rate limiting documentation moved from development to deployment guide
+
+### Security
+- **New:** Startup check for .env file permissions (must be 0600)
+  - Prevents accidental world-readable secrets
+  - Clear error messaging with fix instructions
+  - Can be bypassed with `SKIP_STARTUP_FILEMODE_CHECKS=true` if needed
+- **New:** `scripts/generate-session-secret.sh` - Automated SESSION_SECRET generation
+  - Generates cryptographically secure 48-character random strings
+  - Automatically detects and updates placeholder values
+  - Prevents accidental overwrites of existing secrets
+  - Cross-platform support (Linux/macOS)
+- Enhanced SESSION_SECRET documentation in env.sample with generation instructions
+- Security analysis documented in roadmap with prioritized improvements
+
+### License
+- Changed from ISC to MIT license
+- Updated copyright to Paul Faulkner
+
 ## 1.6.2 2025-11-03
 
 - Fixed the report-email logs not being purged correctly at regular intervals. Default to 14 days.
