@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.8.0 2025-12-04
+
+### Features
+- Added search functionality to admin components page (`/admin/components`)
+  - Search box with Bootstrap styling matching users page design
+  - Real-time search filtering using existing `/api/components/search` endpoint
+  - Pagination preserved during search
+  - Empty state messages for no results
+  - Search state maintained across pagination and reload
+
 ## 1.7.1 2025-12-04
 
 ### Security

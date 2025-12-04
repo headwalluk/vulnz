@@ -3,6 +3,7 @@ $(document).ready(function () {
   const limit = 10;
   let editComponentId = null;
   let totalPages = 1;
+  let currentSearch = '';
 
   // Check if the user is authenticated and an administrator
   $.ajax({
@@ -13,7 +14,7 @@ $(document).ready(function () {
         window.location.href = '/';
         return;
       }
-      loadComponents(currentPage);
+      loadComponents(1, '');
       loadComponentTypes();
     },
     error: function () {
@@ -21,12 +22,26 @@ $(document).ready(function () {
     },
   });
 
-  $('#first-page').on('click', () => loadComponents(1));
-  $('#prev-page').on('click', () => loadComponents(currentPage - 1));
-  $('#next-page').on('click', () => loadComponents(currentPage + 1));
-  $('#last-page').on('click', () => loadComponents(totalPages));
+  $('#component-search-form').on('submit', function (e) {
+    e.preventDefault();
+    const searchTerm = $('#component-search-input').val();
+    currentSearch = searchTerm;
+    loadComponents(1, searchTerm);
+  });
+
+  $('#component-search-input').on('input', function () {
+    if ($(this).val() === '') {
+      currentSearch = '';
+      loadComponents(1, '');
+    }
+  });
+
+  $('#first-page').on('click', () => loadComponents(1, currentSearch));
+  $('#prev-page').on('click', () => loadComponents(currentPage - 1, currentSearch));
+  $('#next-page').on('click', () => loadComponents(currentPage + 1, currentSearch));
+  $('#last-page').on('click', () => loadComponents(totalPages, currentSearch));
   $('#reload-page')
-    .on('click', () => loadComponents(currentPage))
+    .on('click', () => loadComponents(currentPage, currentSearch))
     .tooltip();
 
   $('#create-component-form').on('submit', function (e) {
@@ -46,7 +61,7 @@ $(document).ready(function () {
       data: JSON.stringify({ slug, component_type_slug, title, description }),
       success: function () {
         resetComponentForm();
-        loadComponents(currentPage);
+        loadComponents(currentPage, currentSearch);
       },
       error: function (err) {
         $('#error-message').text(err.responseText).show();
@@ -80,10 +95,16 @@ $(document).ready(function () {
     });
   }
 
-  function loadComponents(page) {
+  function loadComponents(page, search = '') {
     $('#component-list-spinner').show();
+    let url;
+    if (search) {
+      url = `/api/components/search?page=${page}&limit=${limit}&query=${encodeURIComponent(search)}`;
+    } else {
+      url = `/api/components?page=${page}&limit=${limit}`;
+    }
     $.ajax({
-      url: `/api/components?page=${page}&limit=${limit}`,
+      url,
       method: 'GET',
       success: function (data) {
         const { components, totalPages: newTotalPages } = data;
@@ -93,14 +114,21 @@ $(document).ready(function () {
         componentsList.empty();
 
         if (components.length === 0) {
-          return;
+          if (currentSearch) {
+            componentsList.append('<div class="alert alert-info">No components found matching your search.</div>');
+          } else {
+            componentsList.append('<div class="alert alert-info">No components found.</div>');
+          }
+          $('#component-page-count').hide();
+        } else {
+          $('#component-page-count').text(`Page ${currentPage} of ${totalPages}`).show();
         }
 
-        $('#component-page-count').text(`Page ${currentPage} of ${totalPages}`);
-        $('#first-page').prop('disabled', currentPage === 1);
-        $('#prev-page').prop('disabled', currentPage === 1);
-        $('#next-page').prop('disabled', currentPage === totalPages);
-        $('#last-page').prop('disabled', currentPage === totalPages);
+        const noPages = totalPages === 0;
+        $('#first-page').prop('disabled', currentPage === 1 || noPages);
+        $('#prev-page').prop('disabled', currentPage === 1 || noPages);
+        $('#next-page').prop('disabled', currentPage === totalPages || noPages);
+        $('#last-page').prop('disabled', currentPage === totalPages || noPages);
 
         components.forEach(function (component) {
           let icon = '';
@@ -135,7 +163,7 @@ $(document).ready(function () {
       url: `/api/components/${componentId}`,
       method: 'DELETE',
       success: function () {
-        loadComponents();
+        loadComponents(currentPage, currentSearch);
       },
     });
   });
