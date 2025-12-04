@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.1 2025-12-04
+
+### Bug Fixes
+- Fixed Edit and Delete buttons not working on filtered search results in admin components page
+  - Updated event handlers to use `.attr('data-id')` instead of `.data('id')` for dynamically injected HTML
+  - Added `id` field to component search API response to match list endpoint structure
+- Auto-cancel component editing when searching or paginating to prevent stale edit state
+
 ## 1.8.0 2025-12-04
 
 ### Features

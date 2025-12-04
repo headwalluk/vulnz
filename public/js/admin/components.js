@@ -96,6 +96,7 @@ $(document).ready(function () {
   }
 
   function loadComponents(page, search = '') {
+    resetComponentForm();
     $('#component-list-spinner').show();
     let url;
     if (search) {
@@ -108,7 +109,7 @@ $(document).ready(function () {
       method: 'GET',
       success: function (data) {
         const { components, totalPages: newTotalPages } = data;
-        totalPages = newTotalPages;
+        totalPages = newTotalPages || 1;
         currentPage = page;
         const componentsList = $('#components-list');
         componentsList.empty();
@@ -121,6 +122,26 @@ $(document).ready(function () {
           }
           $('#component-page-count').hide();
         } else {
+          components.forEach(function (component) {
+            let icon = '';
+            if (component.component_type_slug === 'wordpress-plugin') {
+              icon = '<i class="bi bi-puzzle-fill me-2"></i>';
+            } else if (component.component_type_slug === 'wordpress-theme') {
+              icon = '<i class="bi bi-palette-fill me-2"></i>';
+            }
+            componentsList.append(`
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>
+                                ${icon}
+                                ${component.title}
+                            </span>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-warning edit-component-btn" data-id="${component.id}"><i class="bi bi-pencil"></i></button>
+                                <button class="btn btn-sm btn-danger delete-component-btn" data-id="${component.id}"><i class="bi bi-trash"></i></button>
+                            </div>
+                        </li>
+                    `);
+          });
           $('#component-page-count').text(`Page ${currentPage} of ${totalPages}`).show();
         }
 
@@ -129,27 +150,6 @@ $(document).ready(function () {
         $('#prev-page').prop('disabled', currentPage === 1 || noPages);
         $('#next-page').prop('disabled', currentPage === totalPages || noPages);
         $('#last-page').prop('disabled', currentPage === totalPages || noPages);
-
-        components.forEach(function (component) {
-          let icon = '';
-          if (component.component_type_slug === 'wordpress-plugin') {
-            icon = '<i class="bi bi-puzzle-fill me-2"></i>';
-          } else if (component.component_type_slug === 'wordpress-theme') {
-            icon = '<i class="bi bi-palette-fill me-2"></i>';
-          }
-          componentsList.append(`
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span>
-                                ${icon}
-                                ${component.title}
-                            </span>
-                            <div class="d-flex gap-2">
-                                <button class="btn btn-sm btn-warning" data-id="${component.id}"><i class="bi bi-pencil"></i></button>
-                                <button class="btn btn-sm btn-danger" data-id="${component.id}"><i class="bi bi-trash"></i></button>
-                            </div>
-                        </li>
-                    `);
-        });
       },
       complete: function () {
         $('#component-list-spinner').hide();
@@ -157,19 +157,21 @@ $(document).ready(function () {
     });
   }
 
-  $('#components-list').on('click', '.btn-danger', function () {
-    const componentId = $(this).data('id');
-    $.ajax({
-      url: `/api/components/${componentId}`,
-      method: 'DELETE',
-      success: function () {
-        loadComponents(currentPage, currentSearch);
-      },
-    });
+  $('#components-list').on('click', '.delete-component-btn', function () {
+    const componentId = $(this).attr('data-id');
+    if (confirm('Are you sure you want to delete this component?')) {
+      $.ajax({
+        url: `/api/components/${componentId}`,
+        method: 'DELETE',
+        success: function () {
+          loadComponents(currentPage, currentSearch);
+        },
+      });
+    }
   });
 
-  $('#components-list').on('click', '.btn-warning', function () {
-    const componentId = $(this).data('id');
+  $('#components-list').on('click', '.edit-component-btn', function () {
+    const componentId = $(this).attr('data-id');
     editComponentId = componentId;
     $.ajax({
       url: `/api/components/${componentId}`,
