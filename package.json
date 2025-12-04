@@ -16,9 +16,20 @@
     "type": "git",
     "url": "https://github.com/headwalluk/vulnz.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "wordpress",
+    "vulnerability",
+    "security",
+    "plugin",
+    "theme",
+    "scanner",
+    "cve",
+    "database",
+    "wordfence",
+    "api"
+  ],
+  "author": "Paul Faulkner",
+  "license": "MIT",
   "type": "commonjs",
   "overrides": {
     "validator": "13.15.23",
