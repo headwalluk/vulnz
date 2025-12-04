@@ -71,6 +71,7 @@ async function search(query, page = 1, limit = 10) {
   for (const row of rows) {
     if (!componentsMap.has(row.component_id)) {
       componentsMap.set(row.component_id, {
+        id: row.component_id,
         slug: row.slug,
         component_type_slug: row.component_type_slug,
         title: row.title,
