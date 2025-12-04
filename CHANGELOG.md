@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.1 2025-12-04
+
+### Security
+- Updated `validator` dependency override from 13.15.20 to 13.15.23 to address high severity vulnerability (GHSA-vghf-hv5q-vc2g)
+- npm audit now reports 0 vulnerabilities
+
 ## 1.7.0 2025-11-28
 
 ### Documentation
