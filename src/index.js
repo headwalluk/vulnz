@@ -247,6 +247,21 @@ async function startServer() {
         process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to sync plugin data from wporg...');
         syncNextPlugin();
       });
+
+      if (process.env.WEBSITE_AUTO_DELETE_ENABLED === 'true') {
+        const days = parseInt(process.env.WEBSITE_AUTO_DELETE_DAYS, 10) || 30;
+        cron.schedule('0 0 * * *', async () => {
+          console.log(`Running cron job to delete stale websites (older than ${days} days)...`);
+          try {
+            const deletedCount = await website.removeStaleWebsites(days);
+            console.log(`Deleted ${deletedCount} stale website(s).`);
+          } catch (err) {
+            console.error('Error deleting stale websites:', err);
+          }
+        });
+      } else {
+        console.log('Stale website deletion is disabled (WEBSITE_AUTO_DELETE_ENABLED=false).');
+      }
     }
 
     await role.createTable();

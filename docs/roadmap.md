@@ -43,6 +43,39 @@ This document tracks planned improvements and enhancements for VULNZ.
 - [ ] Similar to existing email log and API log cleanup
 - [ ] Configurable retention period via environment variable
 
+### Automatic Stale Website Deletion (High Priority)
+
+**Goal**: Automatically remove websites that haven't been updated in a configurable number of days to keep the database clean.
+
+**Background**: When clients decommission infrastructure or stop using VULNZ, orphaned website records remain in the database. Since clients typically manage websites via API, auto-deleted websites will be re-added automatically if still active.
+
+**Implementation Tasks**:
+- [ ] Add `touch()` method to Website model (`src/models/website.js`)
+  - Updates `updated_at` timestamp without changing other fields
+  - Uses `UPDATE websites SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+- [ ] Call `Website.touch(websiteId)` after component updates in `PUT /api/websites/{domain}` route
+  - After `WebsiteComponent.create()` calls for plugins
+  - After `WebsiteComponent.create()` calls for themes
+- [ ] Add `removeStaleWebsites(days)` method to Website model
+  - Deletes websites where `updated_at < NOW() - INTERVAL ? DAY`
+  - Returns count of deleted websites for logging
+- [ ] Add new cron job in `src/index.js` (initially disabled)
+  - Schedule: Daily at midnight (`0 0 * * *`)
+  - Reads `WEBSITE_AUTO_DELETE_ENABLED` and `WEBSITE_AUTO_DELETE_DAYS` from env
+  - Calls `Website.removeStaleWebsites()` when enabled
+  - Logs number of websites deleted
+- [ ] Add environment variables to `env.sample`
+  - `WEBSITE_AUTO_DELETE_ENABLED=false` (default: disabled for safety)
+  - `WEBSITE_AUTO_DELETE_DAYS=30` (default: 30 days)
+- [ ] Update `docs/deployment.md` with stale website deletion documentation
+  - Explain the feature and safety considerations
+  - Document environment variables
+  - Note that API-managed websites will be re-added if still active
+- [ ] Monitor `websites.updated_at` behavior in production before enabling
+- [ ] Enable cron job after verifying `updated_at` is working correctly
+
+**Testing Strategy**: Run with cron disabled initially, monitor database for several days to confirm `updated_at` timestamps update correctly when components change.
+
 ### CORS Configuration (As Needed)
 
 - [ ] Evaluate if CORS is needed for API access patterns

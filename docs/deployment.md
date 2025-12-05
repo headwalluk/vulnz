@@ -130,3 +130,60 @@ Notes:
 - Authenticated users are not affected by this limiter and have separate handling.
 - If you run behind a reverse proxy, ensure the app sees the client IP (e.g., configure `trust proxy`).
 - This is particularly important for production deployments to prevent abuse of public-facing instances.
+
+## Automatic Stale Website Deletion
+
+VULNZ can automatically delete websites that haven't been updated in a configurable number of days. This feature helps maintain a clean database when clients decommission infrastructure or stop using VULNZ.
+
+### How It Works
+
+- The `websites.updated_at` timestamp is automatically updated by MySQL whenever website properties change
+- When components (plugins/themes) are added, removed, or modified, VULNZ explicitly updates the `updated_at` timestamp
+- A daily cron job checks for websites older than the configured threshold and deletes them
+- Deleted websites will be automatically re-added if they're still active and managed via API
+
+### Configuration
+
+Add these environment variables to your `.env` file:
+
+```bash
+# Enable/disable automatic deletion (default: false for safety)
+WEBSITE_AUTO_DELETE_ENABLED=false
+
+# Number of days before a website is considered stale (default: 30)
+WEBSITE_AUTO_DELETE_DAYS=30
+```
+
+### Important Safety Notes
+
+1. **Start with monitoring disabled**: Leave `WEBSITE_AUTO_DELETE_ENABLED=false` initially
+2. **Monitor timestamps**: Watch the `websites.updated_at` column for several days to ensure it updates correctly when:
+   - Website properties change (title, meta, is_dev, etc.)
+   - Components are added/removed/changed via API
+3. **Enable carefully**: Only set `WEBSITE_AUTO_DELETE_ENABLED=true` after confirming the behavior
+4. **No user notification**: Users are NOT notified when websites are auto-deleted
+5. **API safety**: If clients manage websites via API, deleted websites will be re-added automatically on the next sync
+
+### Monitoring
+
+Check the application logs for deletion activity:
+
+```bash
+# With PM2
+pm2 logs vulnz | grep "stale website"
+
+# Direct logs
+grep "stale website" /path/to/logs
+```
+
+The cron job runs daily at midnight and logs:
+- When it starts: `Running cron job to delete stale websites (older than N days)...`
+- How many deleted: `Deleted N stale website(s).`
+- Any errors encountered
+
+### Recommendation
+
+For most deployments:
+- Keep `WEBSITE_AUTO_DELETE_DAYS=30` (or longer, like 60-90 days)
+- Monitor for at least 1-2 weeks before enabling
+- Review deletion logs regularly after enabling
