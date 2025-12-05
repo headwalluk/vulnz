@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.9.0 2025-12-05
+
+### Features
+- **Automatic Stale Website Deletion**: New cron job to automatically remove inactive websites
+  - Added `Website.touch(websiteId)` method to update `updated_at` timestamp when components change
+  - Added `Website.removeStaleWebsites(days)` method to delete websites older than threshold
+  - Daily cron job runs at midnight to remove stale websites (disabled by default)
+  - New environment variables: `WEBSITE_AUTO_DELETE_ENABLED` (default: false), `WEBSITE_AUTO_DELETE_DAYS` (default: 30)
+  - `updated_at` timestamp now updates when website components (plugins/themes) are modified
+  - Comprehensive documentation added to deployment guide with safety notes and monitoring instructions
+  - Designed for API-managed deployments where deleted websites are automatically re-added if still active
+
 ## 1.8.1 2025-12-04
 
 ### Bug Fixes

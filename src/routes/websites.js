@@ -345,6 +345,7 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
       for (const releaseId of pluginReleaseIds) {
         await WebsiteComponent.create(req.website.id, releaseId);
       }
+      await Website.touch(req.website.id);
     }
 
     if (wordpressThemes) {
@@ -353,6 +354,7 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
       for (const releaseId of themeReleaseIds) {
         await WebsiteComponent.create(req.website.id, releaseId);
       }
+      await Website.touch(req.website.id);
     }
 
     res.send('Website updated');

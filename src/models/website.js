@@ -129,6 +129,16 @@ const remove = async (domain) => {
   return result.affectedRows > 0;
 };
 
+const touch = async (websiteId) => {
+  const result = await db.query('UPDATE websites SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [websiteId]);
+  return result.affectedRows > 0;
+};
+
+const removeStaleWebsites = async (days) => {
+  const result = await db.query('DELETE FROM websites WHERE updated_at < NOW() - INTERVAL ? DAY', [days]);
+  return result.affectedRows || 0;
+};
+
 module.exports = {
   createTable,
   findAll,
@@ -137,4 +147,6 @@ module.exports = {
   create,
   update,
   remove,
+  touch,
+  removeStaleWebsites,
 };
