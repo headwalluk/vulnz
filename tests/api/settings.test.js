@@ -122,6 +122,7 @@ describe('Settings API', () => {
     app.use('/api/settings', settingsRoutes);
 
     // Error handler
+    // eslint-disable-next-line no-unused-vars
     app.use((err, req, res, next) => {
       res.status(err.status || 500).json({ error: err.message });
     });

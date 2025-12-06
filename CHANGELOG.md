@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.11.4 - 2025-12-06
+
+### Code Quality
+- **ESLint**: Fixed all 127 linting errors across the codebase
+  - Configured Jest globals for test files (eslint.config.js)
+  - Fixed missing middleware parameter (`next` in `canAccessWebsite`)
+  - Removed unused variables and imports
+  - Added inline disable for Express error handler signature
+  - All tests passing (28/28)
+
 ## 1.11.3 - 2025-12-06
 
 ### Security Events

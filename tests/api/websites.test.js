@@ -39,7 +39,6 @@ jest.mock('../../src/lib/geoip');
 
 // Import routes and middleware after mocking
 const websitesRoutes = require('../../src/routes/websites');
-const { apiOrSessionAuth } = require('../../src/middleware/auth');
 const Website = require('../../src/models/website');
 const User = require('../../src/models/user');
 

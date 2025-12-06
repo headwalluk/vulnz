@@ -541,7 +541,6 @@ router.delete('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) =
  *         description: Server error
  */
 router.post('/:domain/security-events', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
-    console.log( 'POST security-events' );
 
   try {
     const { events } = req.body;
@@ -550,7 +549,6 @@ router.post('/:domain/security-events', apiOrSessionAuth, canAccessWebsite, asyn
       return res.status(400).json({ error: 'Events array is required and must not be empty' });
     }
 
-    console.log( 'Received events:', events.length );
 
     // Validate and prepare events for bulk insert
     const preparedEvents = [];
@@ -793,7 +791,7 @@ router.put('/:domain/versions', apiOrSessionAuth, canAccessWebsite, async (req, 
  */
 router.post('/:domain/security-scan', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
   try {
-    const { scan_datetime, scanner, scanner_version, files } = req.body;
+    const { files } = req.body;
 
     if (!files || !Array.isArray(files)) {
       return res.status(400).json({ error: 'Files array is required' });

@@ -14,7 +14,7 @@ async function initializeGeoIP() {
       cityLookup = await maxmind.open(cityDbPath);
       console.log('GeoIP City database loaded successfully');
       return;
-    } catch (err) {
+    } catch {
       console.warn('GeoIP City database not found, trying Country database');
     }
 
@@ -24,7 +24,7 @@ async function initializeGeoIP() {
       countryLookup = await maxmind.open(countryDbPath);
       console.log('GeoIP Country database loaded successfully');
       return;
-    } catch (err) {
+    } catch {
       console.warn('GeoIP Country database not found');
     }
 
