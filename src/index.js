@@ -59,6 +59,7 @@ const logRoutes = require('./routes/logs');
 const websiteRoutes = require('./routes/websites');
 const configRoutes = require('./routes/config');
 const reportRoutes = require('./routes/reports');
+const settingsRoutes = require('./routes/settings');
 const { redirectIfAuthenticated, isAuthenticatedPage, isAdminPage } = require('./middleware/auth');
 const { versionAssets } = require('./middleware/versionAssets');
 const { setCacheControl } = require('./middleware/cacheControl');
@@ -70,10 +71,12 @@ const { syncNextPlugin } = require('./lib/wporg');
 const { sendWeeklyReports } = require('./lib/reporting');
 const migrations = require('./migrations');
 const { initializeGeoIP } = require('./lib/geoip');
+const { updateFromReference } = require('./lib/referenceData');
 const securityEvent = require('./models/securityEvent');
 const securityEventType = require('./models/securityEventType');
 const fileSecurityIssue = require('./models/fileSecurityIssue');
 const componentChange = require('./models/componentChange');
+const appSetting = require('./models/appSetting');
 
 // Swagger definition
 const swaggerOptions = {
@@ -200,6 +203,7 @@ app.use('/api/logs', logRoutes);
 app.use('/api/websites', websiteRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Serve static assets from the same root
 app.use(setCacheControl);
@@ -217,6 +221,8 @@ async function startServer() {
       await migrations.run();
       console.log('Migrations complete.');
       await initializeGeoIP();
+      // Update reference data on startup
+      await updateFromReference();
     }
 
     if (process.env.CRON_ENABLE !== 'true') {
@@ -270,8 +276,12 @@ async function startServer() {
       }
 
       // Purge old security events
-      const securityEventsRetentionDays = parseInt(process.env.SECURITY_EVENTS_RETENTION_DAYS, 10) || 30;
       cron.schedule('0 1 * * *', async () => {
+        const securityEventsRetentionDays = await appSetting.getWithFallback(
+          'retention.security_events_days',
+          'SECURITY_EVENTS_RETENTION_DAYS',
+          30
+        );
         console.log(`Running cron job to purge old security events (older than ${securityEventsRetentionDays} days)...`);
         try {
           const deletedCount = await securityEvent.removeOldEvents(securityEventsRetentionDays);
@@ -282,8 +292,12 @@ async function startServer() {
       });
 
       // Purge stale file security issues
-      const fileIssuesRetentionDays = parseInt(process.env.FILE_SECURITY_ISSUES_RETENTION_DAYS, 10) || 30;
       cron.schedule('0 2 * * *', async () => {
+        const fileIssuesRetentionDays = await appSetting.getWithFallback(
+          'retention.file_security_issues_days',
+          'FILE_SECURITY_ISSUES_RETENTION_DAYS',
+          30
+        );
         console.log(`Running cron job to purge stale file security issues (older than ${fileIssuesRetentionDays} days)...`);
         try {
           const deletedCount = await fileSecurityIssue.removeStaleIssues(fileIssuesRetentionDays);
@@ -294,14 +308,29 @@ async function startServer() {
       });
 
       // Purge old component changes (runs weekly on Sunday at 3 AM)
-      const componentChangesRetentionDays = parseInt(process.env.COMPONENT_CHANGES_RETENTION_DAYS, 10) || 365;
       cron.schedule('0 3 * * 0', async () => {
+        const componentChangesRetentionDays = await appSetting.getWithFallback(
+          'retention.component_changes_days',
+          'COMPONENT_CHANGES_RETENTION_DAYS',
+          365
+        );
         console.log(`Running cron job to purge old component changes (older than ${componentChangesRetentionDays} days)...`);
         try {
           const deletedCount = await componentChange.removeOldChanges(componentChangesRetentionDays);
           console.log(`Purged ${deletedCount} old component change(s).`);
         } catch (err) {
           console.error('Error purging old component changes:', err);
+        }
+      });
+
+      // Update reference data twice daily (11am and 11pm)
+      // WordPress updates typically happen around 9pm GMT
+      cron.schedule('0 11,23 * * *', async () => {
+        console.log('Running reference data update...');
+        try {
+          await updateFromReference();
+        } catch (err) {
+          console.error('Error updating reference data:', err);
         }
       });
     }

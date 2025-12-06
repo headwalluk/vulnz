@@ -1,5 +1,68 @@
 # Changelog
 
+## 1.11.0 - 2025-12-06
+
+### Features
+- **App Settings System**: Database-backed configuration management
+  - New `app_settings` table with typed key-value storage (string, integer, float, boolean)
+  - REST API for settings management: GET/PUT/DELETE endpoints with admin-only write protection
+  - 23 seeded default settings covering versions, retention periods, limits, and feature flags
+  - System settings protection prevents accidental deletion of critical configuration
+  - Automatic type casting on retrieval for type safety
+  - Backward compatibility with environment variables via `getWithFallback()` method
+
+- **Reference Data Updates**: Automated version threshold management
+  - Automatic updates from trusted reference source (vulnz.net/reference.json)
+  - Twice-daily cron job (11am/11pm GMT) aligned with WordPress release schedules
+  - Semver validation for version strings
+  - Graceful error handling with short timeouts (5 seconds)
+  - Supports URL, local file, or disabled modes via configuration
+  - Updates on server startup to ensure latest thresholds
+  - Ignores unknown settings for backward compatibility with older VULNZ versions
+  - Created `src/lib/referenceData.js` for centralized version management
+
+- **Configuration Migration**: Moved settings from environment variables to database
+  - WordPress version thresholds (current, minimum)
+  - PHP version thresholds (minimum, recommended, EOL)
+  - Database version minimums (MySQL, MariaDB)
+  - Data retention periods (security events, file issues, component changes, email logs)
+  - Batch processing sizes and rate limits
+  - Feature flags (GeoIP, version tracking, component changes)
+  - Report configuration options
+  - All migrations maintain backward compatibility with `.env` files
+
+### API Changes
+- Added `GET /api/settings` - List all settings with optional category filtering
+- Added `GET /api/settings?grouped=true` - Get settings grouped by category
+- Added `GET /api/settings/:key` - Get single setting with type casting
+- Added `PUT /api/settings/:key` - Create/update setting (admin only)
+- Added `DELETE /api/settings/:key` - Delete non-system setting (admin only)
+- All endpoints documented with Swagger/OpenAPI annotations
+
+### Infrastructure
+- New environment variables:
+  - `REFERENCE_UPDATE_METHOD` (url|file|disabled)
+  - `REFERENCE_UPDATE_LOCATION` (URL or file path)
+- Created `data/reference.json` for development/testing
+- Added app settings migration (20251206140000-create-app-settings-table.js)
+- Cron job for reference data updates (twice daily)
+- Updated reporting and purge cron jobs to use app settings
+
+### Documentation
+- Added docs/app-settings.md - Comprehensive app settings documentation
+- Added "Upgrading" section to README.md with production deployment steps
+- Documented reference data update system
+- Listed future settings migration candidates
+- Added Swagger documentation for all settings endpoints
+
+### Notes
+- Settings updates take effect immediately without application restart
+- Reference data system provides centralized version management for all VULNZ installations
+- System settings cannot be deleted but can be updated
+- All version comparisons now use database-backed thresholds instead of hardcoded values
+
+---
+
 ## 1.10.0 2025-12-06
 
 ### Features

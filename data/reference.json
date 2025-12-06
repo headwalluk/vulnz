@@ -1,0 +1,13 @@
+{
+  "app_settings": {
+    "wordpress.current_version": "6.7.1",
+    "wordpress.minimum_version": "6.4",
+    "php.minimum_version": "8.1",
+    "php.recommended_version": "8.3",
+    "php.eol_version": "7.4",
+    "database.mysql_minimum_version": "8.0",
+    "database.mariadb_minimum_version": "10.5",
+    "unknown.test_setting": "should_be_ignored",
+    "wordpress.invalid_version": "not-a-version"
+  }
+}
