@@ -6,6 +6,9 @@ const { apiOrSessionAuth } = require('../middleware/auth');
 const Component = require('../models/component');
 const Release = require('../models/release');
 const WebsiteComponent = require('../models/websiteComponent');
+const SecurityEvent = require('../models/securityEvent');
+const SecurityEventType = require('../models/securityEventType');
+const { lookupIp } = require('../lib/geoip');
 
 const getWebsiteComponents = async (website) => {
   const wordpressPlugins = await WebsiteComponent.getPlugins(website.id);
@@ -393,6 +396,135 @@ router.delete('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) =
   try {
     await Website.remove(req.params.domain);
     res.send('Website deleted');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+/**
+ * @swagger
+ * /api/websites/{domain}/security-events:
+ *   post:
+ *     summary: Record security events for a website
+ *     description: Record one or more security events for a website. Events include failed logins, vulnerability probes, etc.
+ *     tags:
+ *       - Websites
+ *       - Security Events
+ *     parameters:
+ *       - in: path
+ *         name: domain
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The domain name of the website.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               events:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     event_type:
+ *                       type: string
+ *                       description: The slug of the event type (e.g., 'failed-login', 'brute-force')
+ *                     source_ip:
+ *                       type: string
+ *                       description: The source IP address of the event
+ *                     event_datetime:
+ *                       type: string
+ *                       format: date-time
+ *                       description: When the event occurred (ISO 8601 format)
+ *                     details:
+ *                       type: object
+ *                       description: Additional event-specific details (JSON)
+ *     responses:
+ *       201:
+ *         description: Events created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 events_created:
+ *                   type: integer
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Website not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:domain/security-events', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
+  try {
+    const { events } = req.body;
+
+    if (!events || !Array.isArray(events) || events.length === 0) {
+      return res.status(400).json({ error: 'Events array is required and must not be empty' });
+    }
+
+    // Validate and prepare events for bulk insert
+    const preparedEvents = [];
+    const eventTypeCache = new Map();
+
+    for (const event of events) {
+      if (!event.event_type || !event.source_ip || !event.event_datetime) {
+        return res.status(400).json({ 
+          error: 'Each event must have event_type, source_ip, and event_datetime' 
+        });
+      }
+
+      // Look up event type (with caching to avoid repeated DB queries)
+      let eventType;
+      if (eventTypeCache.has(event.event_type)) {
+        eventType = eventTypeCache.get(event.event_type);
+      } else {
+        eventType = await SecurityEventType.findBySlug(event.event_type);
+        if (!eventType) {
+          return res.status(400).json({ 
+            error: `Unknown event type: ${event.event_type}` 
+          });
+        }
+        if (!eventType.enabled) {
+          continue; // Skip disabled event types
+        }
+        eventTypeCache.set(event.event_type, eventType);
+      }
+
+      // GeoIP lookup
+      const { continentCode, countryCode } = lookupIp(event.source_ip);
+
+      preparedEvents.push({
+        websiteId: req.website.id,
+        eventTypeId: eventType.id,
+        sourceIp: event.source_ip,
+        eventDatetime: event.event_datetime,
+        continentCode,
+        countryCode,
+        details: event.details || null
+      });
+    }
+
+    if (preparedEvents.length === 0) {
+      return res.status(400).json({ error: 'No valid events to record' });
+    }
+
+    // Bulk insert events
+    await SecurityEvent.bulkCreate(preparedEvents);
+
+    res.status(201).json({
+      success: true,
+      events_created: preparedEvents.length
+    });
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
