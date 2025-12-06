@@ -72,6 +72,7 @@ const migrations = require('./migrations');
 const { initializeGeoIP } = require('./lib/geoip');
 const securityEvent = require('./models/securityEvent');
 const securityEventType = require('./models/securityEventType');
+const fileSecurityIssue = require('./models/fileSecurityIssue');
 
 // Swagger definition
 const swaggerOptions = {
@@ -268,14 +269,26 @@ async function startServer() {
       }
 
       // Purge old security events
-      const retentionDays = parseInt(process.env.SECURITY_EVENTS_RETENTION_DAYS, 10) || 30;
+      const securityEventsRetentionDays = parseInt(process.env.SECURITY_EVENTS_RETENTION_DAYS, 10) || 30;
       cron.schedule('0 1 * * *', async () => {
-        console.log(`Running cron job to purge old security events (older than ${retentionDays} days)...`);
+        console.log(`Running cron job to purge old security events (older than ${securityEventsRetentionDays} days)...`);
         try {
-          const deletedCount = await securityEvent.removeOldEvents(retentionDays);
+          const deletedCount = await securityEvent.removeOldEvents(securityEventsRetentionDays);
           console.log(`Purged ${deletedCount} old security event(s).`);
         } catch (err) {
           console.error('Error purging old security events:', err);
+        }
+      });
+
+      // Purge stale file security issues
+      const fileIssuesRetentionDays = parseInt(process.env.FILE_SECURITY_ISSUES_RETENTION_DAYS, 10) || 30;
+      cron.schedule('0 2 * * *', async () => {
+        console.log(`Running cron job to purge stale file security issues (older than ${fileIssuesRetentionDays} days)...`);
+        try {
+          const deletedCount = await fileSecurityIssue.removeStaleIssues(fileIssuesRetentionDays);
+          console.log(`Purged ${deletedCount} stale file security issue(s).`);
+        } catch (err) {
+          console.error('Error purging stale file security issues:', err);
         }
       });
     }
@@ -298,6 +311,7 @@ async function startServer() {
     await websiteComponent.createTable();
     await securityEventType.createTable();
     await securityEvent.createTable();
+    await fileSecurityIssue.createTable();
     console.log('Database tables created or already exist.');
     app.listen(port, () => {
       console.log(`Server accessible at ${process.env.BASE_URL} in ${process.env.NODE_ENV || 'development'} mode`);
