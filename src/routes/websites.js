@@ -6,6 +6,11 @@ const { apiOrSessionAuth } = require('../middleware/auth');
 const Component = require('../models/component');
 const Release = require('../models/release');
 const WebsiteComponent = require('../models/websiteComponent');
+const SecurityEvent = require('../models/securityEvent');
+const SecurityEventType = require('../models/securityEventType');
+const FileSecurityIssue = require('../models/fileSecurityIssue');
+const ComponentChange = require('../models/componentChange');
+const { lookupIp } = require('../lib/geoip');
 
 const getWebsiteComponents = async (website) => {
   const wordpressPlugins = await WebsiteComponent.getPlugins(website.id);
@@ -48,6 +53,11 @@ const tidyWebsite = (website) => {
     is_ssl: Boolean(website.is_ssl),
     is_dev: Boolean(website.is_dev),
     meta: website.meta || {},
+    wordpress_version: website.wordpress_version || null,
+    php_version: website.php_version || null,
+    db_server_type: website.db_server_type || 'unknown',
+    db_server_version: website.db_server_version || null,
+    versions_last_checked_at: website.versions_last_checked_at || null,
   };
 };
 
@@ -339,21 +349,60 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
       await Website.update(req.params.domain, websiteData);
     }
 
-    if (wordpressPlugins) {
-      await WebsiteComponent.deleteByType(req.website.id, 'wordpress-plugin');
-      const pluginReleaseIds = await processComponents(wordpressPlugins, 'wordpress-plugin');
-      for (const releaseId of pluginReleaseIds) {
-        await WebsiteComponent.create(req.website.id, releaseId);
-      }
-      await Website.touch(req.website.id);
-    }
+    let componentChangeSummary = null;
 
-    if (wordpressThemes) {
-      await WebsiteComponent.deleteByType(req.website.id, 'wordpress-theme');
-      const themeReleaseIds = await processComponents(wordpressThemes, 'wordpress-theme');
-      for (const releaseId of themeReleaseIds) {
-        await WebsiteComponent.create(req.website.id, releaseId);
+    if (wordpressPlugins || wordpressThemes) {
+      // Get current components before making changes (for change tracking)
+      const oldComponents = await WebsiteComponent.getComponentsForChangeTracking(req.website.id);
+
+      // Process new components
+      const newComponents = [];
+
+      if (wordpressPlugins) {
+        await WebsiteComponent.deleteByType(req.website.id, 'wordpress-plugin');
+        const pluginReleaseIds = await processComponents(wordpressPlugins, 'wordpress-plugin');
+        for (const releaseId of pluginReleaseIds) {
+          await WebsiteComponent.create(req.website.id, releaseId);
+          // Get component info for change tracking
+          const release = await Release.findById(releaseId);
+          if (release) {
+            newComponents.push({
+              component_id: release.component_id,
+              release_id: releaseId
+            });
+          }
+        }
       }
+
+      if (wordpressThemes) {
+        await WebsiteComponent.deleteByType(req.website.id, 'wordpress-theme');
+        const themeReleaseIds = await processComponents(wordpressThemes, 'wordpress-theme');
+        for (const releaseId of themeReleaseIds) {
+          await WebsiteComponent.create(req.website.id, releaseId);
+          // Get component info for change tracking
+          const release = await Release.findById(releaseId);
+          if (release) {
+            newComponents.push({
+              component_id: release.component_id,
+              release_id: releaseId
+            });
+          }
+        }
+      }
+
+      // Record component changes
+      console.log('Recording component changes...');
+      console.log('Old components:', oldComponents.length);
+      console.log('New components:', newComponents.length);
+      componentChangeSummary = await ComponentChange.recordChanges(
+        req.website.id,
+        oldComponents,
+        newComponents,
+        req.user?.id,
+        'api'
+      );
+      console.log('Component changes recorded:', componentChangeSummary);
+
       await Website.touch(req.website.id);
     }
 
@@ -393,6 +442,368 @@ router.delete('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) =
   try {
     await Website.remove(req.params.domain);
     res.send('Website deleted');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+/**
+ * @swagger
+ * /api/websites/{domain}/security-events:
+ *   post:
+ *     summary: Record security events for a website
+ *     description: Record one or more security events for a website. Events include failed logins, vulnerability probes, etc.
+ *     tags:
+ *       - Websites
+ *       - Security Events
+ *     parameters:
+ *       - in: path
+ *         name: domain
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The domain name of the website.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               events:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     event_type:
+ *                       type: string
+ *                       description: The slug of the event type (e.g., 'failed-login', 'brute-force')
+ *                     source_ip:
+ *                       type: string
+ *                       description: The source IP address of the event
+ *                     event_datetime:
+ *                       type: string
+ *                       format: date-time
+ *                       description: When the event occurred (ISO 8601 format)
+ *                     details:
+ *                       type: object
+ *                       description: Additional event-specific details (JSON)
+ *     responses:
+ *       201:
+ *         description: Events created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 events_created:
+ *                   type: integer
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Website not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:domain/security-events', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
+  try {
+    const { events } = req.body;
+
+    if (!events || !Array.isArray(events) || events.length === 0) {
+      return res.status(400).json({ error: 'Events array is required and must not be empty' });
+    }
+
+    // Validate and prepare events for bulk insert
+    const preparedEvents = [];
+    const eventTypeCache = new Map();
+
+    for (const event of events) {
+      if (!event.event_type || !event.source_ip || !event.event_datetime) {
+        return res.status(400).json({ 
+          error: 'Each event must have event_type, source_ip, and event_datetime' 
+        });
+      }
+
+      // Look up event type (with caching to avoid repeated DB queries)
+      let eventType;
+      if (eventTypeCache.has(event.event_type)) {
+        eventType = eventTypeCache.get(event.event_type);
+      } else {
+        eventType = await SecurityEventType.findBySlug(event.event_type);
+        if (!eventType) {
+          return res.status(400).json({ 
+            error: `Unknown event type: ${event.event_type}` 
+          });
+        }
+        if (!eventType.enabled) {
+          continue; // Skip disabled event types
+        }
+        eventTypeCache.set(event.event_type, eventType);
+      }
+
+      // GeoIP lookup
+      const { continentCode, countryCode } = lookupIp(event.source_ip);
+
+      preparedEvents.push({
+        websiteId: req.website.id,
+        eventTypeId: eventType.id,
+        sourceIp: event.source_ip,
+        eventDatetime: event.event_datetime,
+        continentCode,
+        countryCode,
+        details: event.details || null
+      });
+    }
+
+    if (preparedEvents.length === 0) {
+      return res.status(400).json({ error: 'No valid events to record' });
+    }
+
+    // Bulk insert events
+    await SecurityEvent.bulkCreate(preparedEvents);
+
+    res.status(201).json({
+      success: true,
+      events_created: preparedEvents.length
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+/**
+ * @swagger
+ * /api/websites/{domain}/versions:
+ *   put:
+ *     summary: Update software versions for a website
+ *     description: Update WordPress, PHP, and database server version information for a website.
+ *     tags:
+ *       - Websites
+ *       - Versions
+ *     parameters:
+ *       - in: path
+ *         name: domain
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The domain name of the website.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               wordpress_version:
+ *                 type: string
+ *                 example: "6.4.2"
+ *               php_version:
+ *                 type: string
+ *                 example: "8.2.14"
+ *               db_server_type:
+ *                 type: string
+ *                 enum: [mysql, mariadb, unknown]
+ *                 example: "mariadb"
+ *               db_server_version:
+ *                 type: string
+ *                 example: "10.11.6"
+ *     responses:
+ *       200:
+ *         description: Versions updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Website not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/:domain/versions', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
+  try {
+    const { wordpress_version, php_version, db_server_type, db_server_version } = req.body;
+
+    // Validate at least one version field is provided
+    if (!wordpress_version && !php_version && !db_server_type && !db_server_version) {
+      return res.status(400).json({ 
+        error: 'At least one version field must be provided' 
+      });
+    }
+
+    // Validate db_server_type if provided
+    if (db_server_type && !['mysql', 'mariadb', 'unknown'].includes(db_server_type)) {
+      return res.status(400).json({ 
+        error: 'db_server_type must be one of: mysql, mariadb, unknown' 
+      });
+    }
+
+    const versions = {};
+    if (wordpress_version !== undefined) versions.wordpress_version = wordpress_version;
+    if (php_version !== undefined) versions.php_version = php_version;
+    if (db_server_type !== undefined) versions.db_server_type = db_server_type;
+    if (db_server_version !== undefined) versions.db_server_version = db_server_version;
+
+    const updated = await Website.updateVersions(req.website.id, versions);
+
+    if (!updated) {
+      return res.status(500).json({ 
+        error: 'Failed to update versions' 
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Versions updated successfully'
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+/**
+ * @swagger
+ * /api/websites/{domain}/security-scan:
+ *   post:
+ *     summary: Submit static analysis scan results for a website
+ *     description: Submit security scan results from PHP_CodeSniffer or similar tools. Automatically handles touch-based purging.
+ *     tags:
+ *       - Websites
+ *       - Static Analysis
+ *     parameters:
+ *       - in: path
+ *         name: domain
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The domain name of the website.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               scan_datetime:
+ *                 type: string
+ *                 format: date-time
+ *               scanner:
+ *                 type: string
+ *                 example: "phpcs-wordpress-security"
+ *               scanner_version:
+ *                 type: string
+ *                 example: "3.7.2"
+ *               files:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     path:
+ *                       type: string
+ *                       example: "wp-content/plugins/myplugin/admin.php"
+ *                     issues:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           line:
+ *                             type: integer
+ *                           type:
+ *                             type: string
+ *                           severity:
+ *                             type: string
+ *                             enum: [info, warning, error]
+ *                           message:
+ *                             type: string
+ *     responses:
+ *       201:
+ *         description: Scan results processed successfully
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Website not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:domain/security-scan', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
+  try {
+    const { scan_datetime, scanner, scanner_version, files } = req.body;
+
+    if (!files || !Array.isArray(files)) {
+      return res.status(400).json({ error: 'Files array is required' });
+    }
+
+    const results = {
+      processed: 0,
+      issues_created: 0,
+      issues_updated: 0,
+      issues_deleted: 0,
+      summary: {
+        error: 0,
+        warning: 0,
+        info: 0
+      }
+    };
+
+    // Process each file
+    for (const file of files) {
+      if (!file.path) {
+        continue;
+      }
+
+      results.processed++;
+
+      if (!file.issues || file.issues.length === 0) {
+        // File has zero issues - delete any existing issues for this file
+        const deleted = await FileSecurityIssue.deleteByFilePath(req.website.id, file.path);
+        results.issues_deleted += deleted;
+      } else {
+        // File has issues - upsert them
+        const issues = file.issues.map(issue => ({
+          websiteId: req.website.id,
+          filePath: file.path,
+          lineNumber: issue.line || null,
+          issueType: issue.type,
+          severity: issue.severity || 'warning',
+          message: issue.message
+        }));
+
+        for (const issue of issues) {
+          await FileSecurityIssue.upsertIssue(
+            issue.websiteId,
+            issue.filePath,
+            issue.lineNumber,
+            issue.issueType,
+            issue.severity,
+            issue.message
+          );
+          results.issues_created++;
+          results.summary[issue.severity]++;
+        }
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      ...results
+    });
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');

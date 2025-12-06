@@ -2,6 +2,9 @@ const user = require('../models/user');
 const { getRoles } = require('../models/user');
 const website = require('../models/website');
 const websiteComponent = require('../models/websiteComponent');
+const securityEvent = require('../models/securityEvent');
+const fileSecurityIssue = require('../models/fileSecurityIssue');
+const componentChange = require('../models/componentChange');
 const emailer = require('../lib/email');
 const emailLog = require('../models/emailLog');
 const { validateEmailAddress } = require('../lib/emailValidation');
@@ -19,6 +22,32 @@ async function sendSummaryEmail(userToSend) {
     site.vulnerableComponents = [...wordpressPlugins, ...wordpressThemes].filter((c) => c.has_vulnerabilities).map((c) => `${c.title} ${c.version} (${c.slug})`);
   }
 
+  // Get date range for the past 7 days
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - 7);
+
+  // Gather security events summary (past 7 days)
+  const securityEventsSummary = await securityEvent.getSummaryByDateRange(startDate, endDate);
+  const topAttackCountries = await securityEvent.getTopCountries(startDate, endDate, 5);
+
+  // Get outdated software websites
+  const outdatedWordPress = await website.findOutdatedWordPress(
+    process.env.WORDPRESS_STABLE_VERSION || '6.7.1',
+    isAdministrator ? null : userToSend.id
+  );
+  const outdatedPhp = await website.findOutdatedPhp(
+    process.env.PHP_MINIMUM_VERSION || '8.0',
+    isAdministrator ? null : userToSend.id
+  );
+
+  // Get static analysis issues summary
+  const fileIssuesSummary = await fileSecurityIssue.getSummaryByWebsite(isAdministrator ? null : userToSend.id);
+  const topIssueFiles = await fileSecurityIssue.getTopFilesByIssueCount(isAdministrator ? null : userToSend.id, 10);
+
+  // Get component changes summary (past 7 days)
+  const componentChangesSummary = await componentChange.getChangeSummary(startDate, endDate, isAdministrator ? null : userToSend.id);
+
   const emailData = {
     username: userToSend.username,
     totalWebsites,
@@ -28,6 +57,33 @@ async function sendSummaryEmail(userToSend) {
       domain: site.domain,
       vulnerableComponents: site.vulnerableComponents,
     })),
+    securityEvents: {
+      summary: securityEventsSummary,
+      topCountries: topAttackCountries,
+    },
+    outdatedSoftware: {
+      wordpress: outdatedWordPress.map((site) => ({
+        title: site.title,
+        domain: site.domain,
+        version: site.wordpress_version,
+      })),
+      php: outdatedPhp.map((site) => ({
+        title: site.title,
+        domain: site.domain,
+        version: site.php_version,
+      })),
+    },
+    staticAnalysis: {
+      summary: fileIssuesSummary,
+      topFiles: topIssueFiles.map((f) => ({
+        domain: f.domain,
+        filePath: f.file_path,
+        issueCount: f.issue_count,
+        criticalCount: f.critical_count,
+        highCount: f.high_count,
+      })),
+    },
+    componentChanges: componentChangesSummary,
   };
 
   let targetEmail = userToSend.username;
