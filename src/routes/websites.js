@@ -352,10 +352,8 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
     let componentChangeSummary = null;
 
     if (wordpressPlugins || wordpressThemes) {
-      // Get current components before making changes
-      const currentPlugins = await WebsiteComponent.getPlugins(req.website.id);
-      const currentThemes = await WebsiteComponent.getThemes(req.website.id);
-      const oldComponents = [...currentPlugins, ...currentThemes];
+      // Get current components before making changes (for change tracking)
+      const oldComponents = await WebsiteComponent.getComponentsForChangeTracking(req.website.id);
 
       // Process new components
       const newComponents = [];
@@ -374,14 +372,6 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
             });
           }
         }
-      } else {
-        // Keep existing plugins
-        for (const plugin of currentPlugins) {
-          newComponents.push({
-            component_id: plugin.component_id,
-            release_id: plugin.release_id
-          });
-        }
       }
 
       if (wordpressThemes) {
@@ -398,17 +388,12 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
             });
           }
         }
-      } else {
-        // Keep existing themes
-        for (const theme of currentThemes) {
-          newComponents.push({
-            component_id: theme.component_id,
-            release_id: theme.release_id
-          });
-        }
       }
 
       // Record component changes
+      console.log('Recording component changes...');
+      console.log('Old components:', oldComponents.length);
+      console.log('New components:', newComponents.length);
       componentChangeSummary = await ComponentChange.recordChanges(
         req.website.id,
         oldComponents,
@@ -416,6 +401,7 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
         req.user?.id,
         'api'
       );
+      console.log('Component changes recorded:', componentChangeSummary);
 
       await Website.touch(req.website.id);
     }

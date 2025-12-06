@@ -31,13 +31,29 @@ async function bulkCreate(events) {
     return [];
   }
 
+  // For single event, use simple insert
+  if (events.length === 1) {
+    const event = events[0];
+    return await create(
+      event.websiteId,
+      event.eventTypeId,
+      event.sourceIp,
+      event.eventDatetime,
+      event.continentCode,
+      event.countryCode,
+      event.details
+    );
+  }
+
+  // For multiple events, build proper VALUES clause
+  const placeholders = events.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
   const sql = `
     INSERT INTO security_events 
     (website_id, event_type_id, source_ip, event_datetime, continent_code, country_code, details)
-    VALUES ?
+    VALUES ${placeholders}
   `;
 
-  const values = events.map(event => [
+  const values = events.flatMap(event => [
     event.websiteId,
     event.eventTypeId,
     event.sourceIp,
@@ -47,7 +63,7 @@ async function bulkCreate(events) {
     event.details ? JSON.stringify(event.details) : null
   ]);
 
-  const result = await db.query(sql, [values]);
+  const result = await db.query(sql, values);
   return result.insertId;
 }
 
@@ -57,11 +73,11 @@ async function findByWebsite(websiteId, options = {}) {
   let sql = `
     SELECT 
       se.*,
-      set.slug as event_type_slug,
-      set.title as event_type_title,
-      set.severity
+      evt.slug as event_type_slug,
+      evt.title as event_type_title,
+      evt.severity
     FROM security_events se
-    JOIN security_event_types set ON se.event_type_id = set.id
+    JOIN security_event_types evt ON se.event_type_id = evt.id
     WHERE se.website_id = ?
   `;
   
@@ -94,76 +110,77 @@ async function findByWebsite(websiteId, options = {}) {
   }));
 }
 
-async function getSummaryByDateRange(websiteIds, startDate, endDate) {
-  if (!websiteIds || websiteIds.length === 0) {
-    return [];
-  }
-
-  const sql = `
+async function getSummaryByDateRange(startDate, endDate, websiteIds = null) {
+  let sql = `
     SELECT 
-      se.website_id,
-      set.id as event_type_id,
-      set.slug as event_type_slug,
-      set.title as event_type_title,
-      set.severity,
-      se.country_code,
-      se.continent_code,
-      COUNT(*) as event_count
+      evt.slug as event_type,
+      COUNT(*) as event_count,
+      COUNT(DISTINCT se.source_ip) as unique_ips
     FROM security_events se
-    JOIN security_event_types set ON se.event_type_id = set.id
-    WHERE se.website_id IN (?)
-      AND se.event_datetime >= ?
+    JOIN security_event_types evt ON se.event_type_id = evt.id
+    WHERE se.event_datetime >= ?
       AND se.event_datetime < ?
-    GROUP BY se.website_id, set.id, se.country_code, se.continent_code
-    ORDER BY event_count DESC
   `;
+  
+  const params = [startDate, endDate];
+  
+  if (websiteIds && websiteIds.length > 0) {
+    sql += ' AND se.website_id IN (?)';
+    params.push(websiteIds);
+  }
+  
+  sql += ' GROUP BY evt.id ORDER BY event_count DESC';
 
-  return await db.query(sql, [websiteIds, startDate, endDate]);
+  return await db.query(sql, params);
 }
 
-async function getTopCountries(websiteIds, startDate, endDate, limit = 10) {
-  if (!websiteIds || websiteIds.length === 0) {
-    return [];
-  }
-
-  const sql = `
+async function getTopCountries(startDate, endDate, limit = 10, websiteIds = null) {
+  let sql = `
     SELECT 
       country_code,
       COUNT(*) as event_count
     FROM security_events
-    WHERE website_id IN (?)
-      AND event_datetime >= ?
+    WHERE event_datetime >= ?
       AND event_datetime < ?
       AND country_code IS NOT NULL
-    GROUP BY country_code
-    ORDER BY event_count DESC
-    LIMIT ?
   `;
+  
+  const params = [startDate, endDate];
+  
+  if (websiteIds && websiteIds.length > 0) {
+    sql += ' AND website_id IN (?)';
+    params.push(websiteIds);
+  }
+  
+  sql += ' GROUP BY country_code ORDER BY event_count DESC LIMIT ?';
+  params.push(limit);
 
-  return await db.query(sql, [websiteIds, startDate, endDate, limit]);
+  return await db.query(sql, params);
 }
 
-async function getEventsByType(websiteIds, startDate, endDate) {
-  if (!websiteIds || websiteIds.length === 0) {
-    return [];
-  }
-
-  const sql = `
+async function getEventsByType(startDate, endDate, websiteIds = null) {
+  let sql = `
     SELECT 
-      set.slug as event_type_slug,
-      set.title as event_type_title,
-      set.severity,
+      evt.slug as event_type_slug,
+      evt.title as event_type_title,
+      evt.severity,
       COUNT(*) as event_count
     FROM security_events se
-    JOIN security_event_types set ON se.event_type_id = set.id
-    WHERE se.website_id IN (?)
-      AND se.event_datetime >= ?
+    JOIN security_event_types evt ON se.event_type_id = evt.id
+    WHERE se.event_datetime >= ?
       AND se.event_datetime < ?
-    GROUP BY set.id
-    ORDER BY set.severity DESC, event_count DESC
   `;
+  
+  const params = [startDate, endDate];
+  
+  if (websiteIds && websiteIds.length > 0) {
+    sql += ' AND se.website_id IN (?)';
+    params.push(websiteIds);
+  }
+  
+  sql += ' GROUP BY evt.id ORDER BY evt.severity DESC, event_count DESC';
 
-  return await db.query(sql, [websiteIds, startDate, endDate]);
+  return await db.query(sql, params);
 }
 
 async function removeOldEvents(retentionDays = 30) {

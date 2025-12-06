@@ -73,12 +73,12 @@ Track security-relevant events from monitored websites including failed logins, 
 
 **Documentation**: [docs/security-events.md](docs/security-events.md)
 
-- [ ] Create `security_event_types` model and table
-- [ ] Create `security_events` model and table
-- [ ] Implement GeoIP integration (MaxMind GeoLite2)
-- [ ] Add `POST /api/websites/:id/security-events` endpoint
-- [ ] Add security events retention/purge cron job
-- [ ] Add environment variables for configuration
+- [x] Create `security_event_types` model and table
+- [x] Create `security_events` model and table
+- [x] Implement GeoIP integration (MaxMind GeoLite2)
+- [x] Add `POST /api/websites/:id/security-events` endpoint
+- [x] Add security events retention/purge cron job
+- [x] Add environment variables for configuration
 - [ ] Write tests for security event recording
 - [ ] Document API endpoints
 
@@ -87,13 +87,13 @@ Monitor WordPress core, PHP, and database server versions across all websites. A
 
 **Documentation**: [docs/version-tracking.md](docs/version-tracking.md)
 
-- [ ] Add version fields to `websites` table (ALTER TABLE)
-- [ ] Update `Website` model with version methods
-- [ ] Add `PUT /api/websites/:id/versions` endpoint
-- [ ] Update `GET /api/websites/:id` to include versions
-- [ ] Implement version comparison logic (semver)
-- [ ] Add version status queries for reporting
-- [ ] Add environment variables for current/recommended versions
+- [x] Add version fields to `websites` table (ALTER TABLE)
+- [x] Update `Website` model with version methods
+- [x] Add `PUT /api/websites/:id/versions` endpoint
+- [x] Update `GET /api/websites/:id` to include versions
+- [x] Implement version comparison logic (semver)
+- [x] Add version status queries for reporting
+- [x] Add environment variables for current/recommended versions
 - [ ] Write tests for version tracking
 - [ ] Document API endpoints
 
@@ -102,13 +102,13 @@ Store results from PHP security scanning tools (PHP_CodeSniffer, etc.) to identi
 
 **Documentation**: [docs/static-analysis.md](docs/static-analysis.md)
 
-- [ ] Create `file_security_issues` model and table
-- [ ] Implement touch-based purging logic
-- [ ] Add `POST /api/websites/:id/security-scan` endpoint
+- [x] Create `file_security_issues` model and table
+- [x] Implement touch-based purging logic
+- [x] Add `POST /api/websites/:id/security-scan` endpoint
 - [ ] Add `GET /api/websites/:id/security-issues` endpoint (future)
-- [ ] Create sample scanner script (`scripts/scan-website.sh`)
+- [x] Create sample scanner script (`scripts/scan-website.sh`)
 - [ ] Create results parser script (`scripts/post-analysis-results.js`)
-- [ ] Add retention/purge cron job for stale issues
+- [x] Add retention/purge cron job for stale issues
 - [ ] Write tests for scan result processing
 - [ ] Document sample script setup and usage
 
@@ -117,12 +117,12 @@ Audit trail of plugin/theme additions, removals, and version updates with securi
 
 **Documentation**: [docs/component-changes.md](docs/component-changes.md)
 
-- [ ] Create `component_changes` model and table
-- [ ] Implement `ComponentChange.recordChanges()` method
-- [ ] Update `processComponents()` in websites route to record changes
-- [ ] Add component change queries for reporting
-- [ ] Add retention/purge cron job
-- [ ] Include change summary in API responses
+- [x] Create `component_changes` model and table
+- [x] Implement `ComponentChange.recordChanges()` method
+- [x] Update `processComponents()` in websites route to record changes
+- [x] Add component change queries for reporting
+- [x] Add retention/purge cron job
+- [x] Include change summary in API responses
 - [ ] Write tests for change detection
 - [ ] Document change tracking behavior
 
@@ -131,26 +131,26 @@ Comprehensive weekly security reports including all new data sources with action
 
 **Documentation**: [docs/enhanced-reporting.md](docs/enhanced-reporting.md)
 
-- [ ] Update report data collection in `src/lib/reporting.js`
-- [ ] Add queries for security events summary
-- [ ] Add queries for version status
-- [ ] Add queries for static analysis results
-- [ ] Add queries for component changes
-- [ ] Create/update Handlebars email templates
-- [ ] Add system-level report configuration
-- [ ] Implement color coding and severity indicators
+- [x] Update report data collection in `src/lib/reporting.js`
+- [x] Add queries for security events summary
+- [x] Add queries for version status
+- [x] Add queries for static analysis results
+- [x] Add queries for component changes
+- [x] Create/update Handlebars email templates
+- [x] Add system-level report configuration
+- [x] Implement color coding and severity indicators
 - [ ] Add error handling for partial report generation
-- [ ] Test with sample data
-- [ ] Update report sending logic
+- [x] Test with sample data
+- [x] Update report sending logic
 
 ##### 6. Database & Infrastructure
-- [ ] Create database migration script for new tables
-- [ ] Add indexes for performance optimization
-- [ ] Update cron jobs in `src/lib/cron.js`
-- [ ] Add new environment variables to `.env.sample`
-- [ ] Update documentation with new config options
-- [ ] Test database migrations on fresh install
-- [ ] Test database migrations on existing data
+- [x] Create database migration script for new tables
+- [x] Add indexes for performance optimization
+- [x] Update cron jobs in `src/lib/cron.js`
+- [x] Add new environment variables to `.env.sample`
+- [x] Update documentation with new config options
+- [x] Test database migrations on fresh install
+- [x] Test database migrations on existing data
 
 ##### 7. Testing & Documentation
 - [ ] Write unit tests for new models

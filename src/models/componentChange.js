@@ -30,13 +30,29 @@ async function bulkCreate(changes) {
     return [];
   }
 
+  // For single change, use simple insert
+  if (changes.length === 1) {
+    const change = changes[0];
+    return await create(
+      change.websiteId,
+      change.componentId,
+      change.changeType,
+      change.oldReleaseId,
+      change.newReleaseId,
+      change.changedByUserId,
+      change.changedVia
+    );
+  }
+
+  // For multiple changes, build proper VALUES clause
+  const placeholders = changes.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
   const sql = `
     INSERT INTO component_changes 
     (website_id, component_id, change_type, old_release_id, new_release_id, changed_by_user_id, changed_via)
-    VALUES ?
+    VALUES ${placeholders}
   `;
 
-  const values = changes.map(change => [
+  const values = changes.flatMap(change => [
     change.websiteId,
     change.componentId,
     change.changeType,
@@ -46,7 +62,7 @@ async function bulkCreate(changes) {
     change.changedVia || 'api'
   ]);
 
-  const result = await db.query(sql, [values]);
+  const result = await db.query(sql, values);
   return result.insertId;
 }
 
@@ -178,26 +194,36 @@ async function getChangesByDateRange(websiteIds, startDate, endDate) {
   return await db.query(sql, [websiteIds, startDate, endDate]);
 }
 
-async function getChangeSummary(websiteIds, startDate, endDate) {
-  if (!websiteIds || websiteIds.length === 0) {
-    return [];
-  }
-
-  const sql = `
+async function getChangeSummary(startDate, endDate, userId = null) {
+  let sql = `
     SELECT 
+      cc.changed_at,
+      cc.change_type,
       w.domain,
-      COUNT(CASE WHEN cc.change_type = 'added' THEN 1 END) as added,
-      COUNT(CASE WHEN cc.change_type = 'removed' THEN 1 END) as removed,
-      COUNT(CASE WHEN cc.change_type = 'updated' THEN 1 END) as updated
+      w.title as website_title,
+      c.title as component_title,
+      c.component_type_slug,
+      r_old.version as old_version,
+      r_new.version as new_version
     FROM component_changes cc
     JOIN websites w ON cc.website_id = w.id
-    WHERE cc.website_id IN (?)
-      AND cc.changed_at >= ?
+    JOIN components c ON cc.component_id = c.id
+    LEFT JOIN releases r_old ON cc.old_release_id = r_old.id
+    LEFT JOIN releases r_new ON cc.new_release_id = r_new.id
+    WHERE cc.changed_at >= ?
       AND cc.changed_at < ?
-    GROUP BY w.id, w.domain
   `;
+  
+  const params = [startDate, endDate];
+  
+  if (userId !== null) {
+    sql += ' AND w.user_id = ?';
+    params.push(userId);
+  }
+  
+  sql += ' ORDER BY cc.changed_at DESC';
 
-  return await db.query(sql, [websiteIds, startDate, endDate]);
+  return await db.query(sql, params);
 }
 
 async function removeOldChanges(retentionDays = 365) {
