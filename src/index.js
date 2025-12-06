@@ -73,6 +73,7 @@ const { initializeGeoIP } = require('./lib/geoip');
 const securityEvent = require('./models/securityEvent');
 const securityEventType = require('./models/securityEventType');
 const fileSecurityIssue = require('./models/fileSecurityIssue');
+const componentChange = require('./models/componentChange');
 
 // Swagger definition
 const swaggerOptions = {
@@ -291,6 +292,18 @@ async function startServer() {
           console.error('Error purging stale file security issues:', err);
         }
       });
+
+      // Purge old component changes
+      const componentChangesRetentionDays = parseInt(process.env.COMPONENT_CHANGES_RETENTION_DAYS, 10) || 365;
+      cron.schedule('0 3 0 * *', async () => {
+        console.log(`Running cron job to purge old component changes (older than ${componentChangesRetentionDays} days)...`);
+        try {
+          const deletedCount = await componentChange.removeOldChanges(componentChangesRetentionDays);
+          console.log(`Purged ${deletedCount} old component change(s).`);
+        } catch (err) {
+          console.error('Error purging old component changes:', err);
+        }
+      });
     }
 
     await role.createTable();
@@ -312,6 +325,7 @@ async function startServer() {
     await securityEventType.createTable();
     await securityEvent.createTable();
     await fileSecurityIssue.createTable();
+    await componentChange.createTable();
     console.log('Database tables created or already exist.');
     app.listen(port, () => {
       console.log(`Server accessible at ${process.env.BASE_URL} in ${process.env.NODE_ENV || 'development'} mode`);

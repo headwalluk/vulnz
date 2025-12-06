@@ -9,6 +9,7 @@ const WebsiteComponent = require('../models/websiteComponent');
 const SecurityEvent = require('../models/securityEvent');
 const SecurityEventType = require('../models/securityEventType');
 const FileSecurityIssue = require('../models/fileSecurityIssue');
+const ComponentChange = require('../models/componentChange');
 const { lookupIp } = require('../lib/geoip');
 
 const getWebsiteComponents = async (website) => {
@@ -348,21 +349,74 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
       await Website.update(req.params.domain, websiteData);
     }
 
-    if (wordpressPlugins) {
-      await WebsiteComponent.deleteByType(req.website.id, 'wordpress-plugin');
-      const pluginReleaseIds = await processComponents(wordpressPlugins, 'wordpress-plugin');
-      for (const releaseId of pluginReleaseIds) {
-        await WebsiteComponent.create(req.website.id, releaseId);
-      }
-      await Website.touch(req.website.id);
-    }
+    let componentChangeSummary = null;
 
-    if (wordpressThemes) {
-      await WebsiteComponent.deleteByType(req.website.id, 'wordpress-theme');
-      const themeReleaseIds = await processComponents(wordpressThemes, 'wordpress-theme');
-      for (const releaseId of themeReleaseIds) {
-        await WebsiteComponent.create(req.website.id, releaseId);
+    if (wordpressPlugins || wordpressThemes) {
+      // Get current components before making changes
+      const currentPlugins = await WebsiteComponent.getPlugins(req.website.id);
+      const currentThemes = await WebsiteComponent.getThemes(req.website.id);
+      const oldComponents = [...currentPlugins, ...currentThemes];
+
+      // Process new components
+      const newComponents = [];
+
+      if (wordpressPlugins) {
+        await WebsiteComponent.deleteByType(req.website.id, 'wordpress-plugin');
+        const pluginReleaseIds = await processComponents(wordpressPlugins, 'wordpress-plugin');
+        for (const releaseId of pluginReleaseIds) {
+          await WebsiteComponent.create(req.website.id, releaseId);
+          // Get component info for change tracking
+          const release = await Release.findById(releaseId);
+          if (release) {
+            newComponents.push({
+              component_id: release.component_id,
+              release_id: releaseId
+            });
+          }
+        }
+      } else {
+        // Keep existing plugins
+        for (const plugin of currentPlugins) {
+          newComponents.push({
+            component_id: plugin.component_id,
+            release_id: plugin.release_id
+          });
+        }
       }
+
+      if (wordpressThemes) {
+        await WebsiteComponent.deleteByType(req.website.id, 'wordpress-theme');
+        const themeReleaseIds = await processComponents(wordpressThemes, 'wordpress-theme');
+        for (const releaseId of themeReleaseIds) {
+          await WebsiteComponent.create(req.website.id, releaseId);
+          // Get component info for change tracking
+          const release = await Release.findById(releaseId);
+          if (release) {
+            newComponents.push({
+              component_id: release.component_id,
+              release_id: releaseId
+            });
+          }
+        }
+      } else {
+        // Keep existing themes
+        for (const theme of currentThemes) {
+          newComponents.push({
+            component_id: theme.component_id,
+            release_id: theme.release_id
+          });
+        }
+      }
+
+      // Record component changes
+      componentChangeSummary = await ComponentChange.recordChanges(
+        req.website.id,
+        oldComponents,
+        newComponents,
+        req.user?.id,
+        'api'
+      );
+
       await Website.touch(req.website.id);
     }
 
