@@ -2,7 +2,7 @@ const db = require('../db');
 
 const up = async () => {
   const query = `
-    CREATE TABLE security_event_types (
+    CREATE TABLE IF NOT EXISTS security_event_types (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       slug VARCHAR(100) NOT NULL UNIQUE,
       title VARCHAR(255) NOT NULL,
@@ -82,7 +82,7 @@ const up = async () => {
   ];
 
   const insertQuery = `
-    INSERT INTO security_event_types (slug, title, description, severity)
+    INSERT IGNORE INTO security_event_types (slug, title, description, severity)
     VALUES (?, ?, ?, ?)
   `;
 

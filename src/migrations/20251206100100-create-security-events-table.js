@@ -2,9 +2,9 @@ const db = require('../db');
 
 const up = async () => {
   const query = `
-    CREATE TABLE security_events (
-      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      website_id INT UNSIGNED NOT NULL,
+    CREATE TABLE IF NOT EXISTS security_events (
+      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      website_id BIGINT UNSIGNED NOT NULL,
       event_type_id INT UNSIGNED NOT NULL,
       source_ip VARCHAR(45) NOT NULL,
       event_datetime TIMESTAMP NOT NULL,
