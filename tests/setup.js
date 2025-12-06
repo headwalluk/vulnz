@@ -124,16 +124,20 @@ async function initializeSchema(db) {
     CREATE TABLE IF NOT EXISTS websites (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
-      name VARCHAR(255) NOT NULL,
-      url VARCHAR(500) NOT NULL,
+      domain VARCHAR(255) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      is_ssl INTEGER DEFAULT 1,
+      is_dev INTEGER NOT NULL DEFAULT 0,
+      meta TEXT,
       wordpress_version VARCHAR(20),
       php_version VARCHAR(20),
-      mysql_version VARCHAR(20),
-      is_active INTEGER NOT NULL DEFAULT 1,
-      last_checked_at DATETIME,
+      db_server_type TEXT DEFAULT 'unknown',
+      db_server_version VARCHAR(20),
+      versions_last_checked_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(user_id, domain)
     )
   `);
 
@@ -274,28 +278,29 @@ async function createTestApiKey(db, userId, name = 'Test Key') {
  * @param {Object} websiteData - Website data
  * @returns {Promise<Object>} Created website with ID
  */
-async function createTestWebsite(db, userId, websiteData = {}) {
+async function createTestWebsite(db, options = {}) {
   const defaultData = {
-    name: 'Test Website',
-    url: 'https://example.com',
+    domain: 'test.example.com',
+    title: 'Test Website',
+    is_ssl: 1,
+    is_dev: 0,
     wordpress_version: '6.4.2',
-    php_version: '8.2',
-    mysql_version: '8.0.35',
-    is_active: 1
+    php_version: '8.2.0',
+    db_server_type: 'mariadb',
+    db_server_version: '10.11.6'
   };
   
-  const website = { ...defaultData, ...websiteData };
+  const website = { ...defaultData, ...options };
   
   const result = await db.query(
-    `INSERT INTO websites (user_id, name, url, wordpress_version, php_version, mysql_version, is_active) 
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [userId, website.name, website.url, website.wordpress_version, 
-     website.php_version, website.mysql_version, website.is_active]
+    `INSERT INTO websites (user_id, domain, title, is_ssl, is_dev, wordpress_version, php_version, db_server_type, db_server_version) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [website.user_id, website.domain, website.title, website.is_ssl, website.is_dev,
+     website.wordpress_version, website.php_version, website.db_server_type, website.db_server_version]
   );
   
   return {
     id: result.insertId,
-    userId,
     ...website
   };
 }

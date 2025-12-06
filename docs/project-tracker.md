@@ -4,6 +4,57 @@ Active development tracking for VULNZ features and releases.
 
 ---
 
+## Version 1.11.2 - API Consolidation
+
+**Status**: Released  
+**Release Date**: December 6, 2025
+
+### Overview
+Streamlined API endpoints by consolidating version update functionality into the main website update endpoint, reducing API call overhead for external integrations.
+
+### Changes
+
+#### API Improvements
+- [x] Enhanced `PUT /api/websites/:domain` to accept optional `versions` object
+- [x] Added validation for `db_server_type` field (mysql|mariadb|unknown)
+- [x] Maintained backward compatibility with existing integrations
+- [x] Deprecated `PUT /api/websites/:domain/versions` endpoint (still functional)
+- [x] Updated Swagger documentation with deprecation notices
+
+#### Testing
+- [x] Created `tests/api/websites.test.js` with 7 comprehensive tests
+- [x] Fixed test database schema to match production
+- [x] Updated `createTestWebsite()` helper in test setup
+- [x] All 28 tests passing (21 Settings + 7 Websites)
+
+#### Documentation
+- [x] Updated CHANGELOG.md with v1.11.2 changes
+- [x] Updated README.md test badge (28 passing)
+- [x] Enhanced Swagger API documentation
+
+---
+
+## Version 1.11.1 - Testing Infrastructure
+
+**Status**: Released  
+**Release Date**: December 6, 2025
+
+### Overview
+Established comprehensive automated testing infrastructure with Jest and Supertest, including full test suite for Settings API.
+
+### Completed
+- [x] Jest + Supertest test infrastructure
+- [x] In-memory SQLite database for test isolation
+- [x] MySQL→SQLite compatibility layer
+- [x] 21 tests for Settings API (100% passing)
+- [x] Authentication and authorization testing
+- [x] Type casting validation tests
+- [x] Comprehensive testing documentation
+- [x] Restructured README.md (333→156 lines)
+- [x] Created docs/project-tracker.md
+
+---
+
 ## Version 1.10.0 - Security Monitoring & Enhanced Reporting
 
 **Status**: Released  
