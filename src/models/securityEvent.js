@@ -27,31 +27,39 @@ async function create(websiteId, eventTypeId, sourceIp, eventDatetime, continent
 }
 
 async function bulkCreate(events) {
+  console.log('DEBUG SQL: AAA');
   if (!events || events.length === 0) {
-    return [];
+    return { inserted: 0, duplicates: 0 };
   }
 
-  // For single event, use simple insert
+  console.log('DEBUG SQL: BBB');
+
+  // For single event, use simple insert with duplicate handling
   if (events.length === 1) {
+  console.log('DEBUG SQL: CCC');
     const event = events[0];
-    return await create(
-      event.websiteId,
-      event.eventTypeId,
-      event.sourceIp,
-      event.eventDatetime,
-      event.continentCode,
-      event.countryCode,
-      event.details
-    );
+    try {
+      await create(
+        event.websiteId,
+        event.eventTypeId,
+        event.sourceIp,
+        event.eventDatetime,
+        event.continentCode,
+        event.countryCode,
+        event.details
+      );
+      return { inserted: 1, duplicates: 0 };
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY' || err.errno === 1062 || err.message.includes('Duplicate entry')) {
+        return { inserted: 0, duplicates: 1 };
+      }
+      throw err;
+    }
   }
 
-  // For multiple events, build proper VALUES clause
+  // For multiple events, use INSERT IGNORE to skip duplicates
   const placeholders = events.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
-  const sql = `
-    INSERT INTO security_events 
-    (website_id, event_type_id, source_ip, event_datetime, continent_code, country_code, details)
-    VALUES ${placeholders}
-  `;
+  const sql = 'INSERT IGNORE INTO security_events (website_id, event_type_id, source_ip, event_datetime, continent_code, country_code, details) VALUES ' + placeholders;
 
   const values = events.flatMap(event => [
     event.websiteId,
@@ -64,7 +72,10 @@ async function bulkCreate(events) {
   ]);
 
   const result = await db.query(sql, values);
-  return result.insertId;
+  const inserted = result.affectedRows;
+  const duplicates = events.length - inserted;
+  
+  return { inserted, duplicates };
 }
 
 async function findByWebsite(websiteId, options = {}) {

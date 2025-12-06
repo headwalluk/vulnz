@@ -541,12 +541,16 @@ router.delete('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) =
  *         description: Server error
  */
 router.post('/:domain/security-events', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
+    console.log( 'POST security-events' );
+
   try {
     const { events } = req.body;
 
     if (!events || !Array.isArray(events) || events.length === 0) {
       return res.status(400).json({ error: 'Events array is required and must not be empty' });
     }
+
+    console.log( 'Received events:', events.length );
 
     // Validate and prepare events for bulk insert
     const preparedEvents = [];
@@ -595,14 +599,25 @@ router.post('/:domain/security-events', apiOrSessionAuth, canAccessWebsite, asyn
     }
 
     // Bulk insert events
-    await SecurityEvent.bulkCreate(preparedEvents);
+    const result = await SecurityEvent.bulkCreate(preparedEvents);
 
     res.status(201).json({
       success: true,
-      events_created: preparedEvents.length
+      events_created: result.inserted,
+      events_duplicate: result.duplicates
     });
   } catch (err) {
     console.error(err);
+    
+    // Check if error is due to duplicate key constraint
+    if (err.code === 'ER_DUP_ENTRY' || err.errno === 1062 || err.message.includes('Duplicate entry')) {
+      return res.status(409).json({
+        success: false,
+        error: 'Duplicate event(s) detected',
+        message: 'One or more events already exist with the same website, event type, IP, and timestamp'
+      });
+    }
+    
     res.status(500).send('Server error');
   }
 });
