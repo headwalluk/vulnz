@@ -114,17 +114,30 @@ async function findByWebsite(websiteId, options = {}) {
   return await db.query(sql, params);
 }
 
-async function getSummaryByWebsite(websiteId) {
-  const sql = `
+async function getSummaryByWebsite(userId = null) {
+  let sql = `
     SELECT 
-      severity,
-      COUNT(*) as count
-    FROM file_security_issues
-    WHERE website_id = ?
-    GROUP BY severity
+      w.id as website_id,
+      w.domain,
+      w.title,
+      COUNT(*) as total_issues,
+      SUM(CASE WHEN fsi.severity = 'error' THEN 1 ELSE 0 END) as critical_count,
+      SUM(CASE WHEN fsi.severity = 'warning' THEN 1 ELSE 0 END) as high_count,
+      SUM(CASE WHEN fsi.severity = 'info' THEN 1 ELSE 0 END) as info_count
+    FROM file_security_issues fsi
+    JOIN websites w ON fsi.website_id = w.id
   `;
   
-  return await db.query(sql, [websiteId]);
+  const params = [];
+  
+  if (userId !== null) {
+    sql += ' WHERE w.user_id = ?';
+    params.push(userId);
+  }
+  
+  sql += ' GROUP BY w.id ORDER BY critical_count DESC, high_count DESC, total_issues DESC';
+  
+  return await db.query(sql, params);
 }
 
 async function getSummaryByDateRange(websiteIds, startDate, endDate) {
@@ -149,27 +162,30 @@ async function getSummaryByDateRange(websiteIds, startDate, endDate) {
   return await db.query(sql, [websiteIds, startDate, endDate]);
 }
 
-async function getTopFilesByIssueCount(websiteIds, limit = 10) {
-  if (!websiteIds || websiteIds.length === 0) {
-    return [];
-  }
-
-  const sql = `
+async function getTopFilesByIssueCount(userId = null, limit = 10) {
+  let sql = `
     SELECT 
-      website_id,
-      file_path,
+      w.domain,
+      fsi.file_path,
       COUNT(*) as issue_count,
-      SUM(CASE WHEN severity = 'error' THEN 1 ELSE 0 END) as error_count,
-      SUM(CASE WHEN severity = 'warning' THEN 1 ELSE 0 END) as warning_count,
-      SUM(CASE WHEN severity = 'info' THEN 1 ELSE 0 END) as info_count
-    FROM file_security_issues
-    WHERE website_id IN (?)
-    GROUP BY website_id, file_path
-    ORDER BY error_count DESC, warning_count DESC, issue_count DESC
-    LIMIT ?
+      SUM(CASE WHEN fsi.severity = 'error' THEN 1 ELSE 0 END) as critical_count,
+      SUM(CASE WHEN fsi.severity = 'warning' THEN 1 ELSE 0 END) as high_count,
+      SUM(CASE WHEN fsi.severity = 'info' THEN 1 ELSE 0 END) as info_count
+    FROM file_security_issues fsi
+    JOIN websites w ON fsi.website_id = w.id
   `;
+  
+  const params = [];
+  
+  if (userId !== null) {
+    sql += ' WHERE w.user_id = ?';
+    params.push(userId);
+  }
+  
+  sql += ' GROUP BY w.domain, fsi.file_path ORDER BY critical_count DESC, high_count DESC, issue_count DESC LIMIT ?';
+  params.push(limit);
 
-  return await db.query(sql, [websiteIds, limit]);
+  return await db.query(sql, params);
 }
 
 async function removeStaleIssues(retentionDays = 30) {

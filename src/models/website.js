@@ -173,24 +173,38 @@ const updateVersions = async (websiteId, versions) => {
   return result.affectedRows > 0;
 };
 
-const findOutdatedWordPress = async (minVersion) => {
-  const query = `
+const findOutdatedWordPress = async (minVersion, userId = null) => {
+  let query = `
     SELECT * FROM websites 
     WHERE wordpress_version IS NOT NULL 
     AND wordpress_version < ?
-    ORDER BY wordpress_version ASC
   `;
-  return await db.query(query, [minVersion]);
+  const params = [minVersion];
+  
+  if (userId !== null) {
+    query += ' AND user_id = ?';
+    params.push(userId);
+  }
+  
+  query += ' ORDER BY wordpress_version ASC';
+  return await db.query(query, params);
 };
 
-const findOutdatedPhp = async (minVersion) => {
-  const query = `
+const findOutdatedPhp = async (minVersion, userId = null) => {
+  let query = `
     SELECT * FROM websites 
     WHERE php_version IS NOT NULL 
     AND php_version < ?
-    ORDER BY php_version ASC
   `;
-  return await db.query(query, [minVersion]);
+  const params = [minVersion];
+  
+  if (userId !== null) {
+    query += ' AND user_id = ?';
+    params.push(userId);
+  }
+  
+  query += ' ORDER BY php_version ASC';
+  return await db.query(query, params);
 };
 
 const getVersionDistribution = async (userId = null) => {
