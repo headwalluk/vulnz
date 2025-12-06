@@ -51,6 +51,11 @@ const tidyWebsite = (website) => {
     is_ssl: Boolean(website.is_ssl),
     is_dev: Boolean(website.is_dev),
     meta: website.meta || {},
+    wordpress_version: website.wordpress_version || null,
+    php_version: website.php_version || null,
+    db_server_type: website.db_server_type || 'unknown',
+    db_server_version: website.db_server_version || null,
+    versions_last_checked_at: website.versions_last_checked_at || null,
   };
 };
 
@@ -524,6 +529,105 @@ router.post('/:domain/security-events', apiOrSessionAuth, canAccessWebsite, asyn
     res.status(201).json({
       success: true,
       events_created: preparedEvents.length
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+/**
+ * @swagger
+ * /api/websites/{domain}/versions:
+ *   put:
+ *     summary: Update software versions for a website
+ *     description: Update WordPress, PHP, and database server version information for a website.
+ *     tags:
+ *       - Websites
+ *       - Versions
+ *     parameters:
+ *       - in: path
+ *         name: domain
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The domain name of the website.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               wordpress_version:
+ *                 type: string
+ *                 example: "6.4.2"
+ *               php_version:
+ *                 type: string
+ *                 example: "8.2.14"
+ *               db_server_type:
+ *                 type: string
+ *                 enum: [mysql, mariadb, unknown]
+ *                 example: "mariadb"
+ *               db_server_version:
+ *                 type: string
+ *                 example: "10.11.6"
+ *     responses:
+ *       200:
+ *         description: Versions updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Website not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/:domain/versions', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
+  try {
+    const { wordpress_version, php_version, db_server_type, db_server_version } = req.body;
+
+    // Validate at least one version field is provided
+    if (!wordpress_version && !php_version && !db_server_type && !db_server_version) {
+      return res.status(400).json({ 
+        error: 'At least one version field must be provided' 
+      });
+    }
+
+    // Validate db_server_type if provided
+    if (db_server_type && !['mysql', 'mariadb', 'unknown'].includes(db_server_type)) {
+      return res.status(400).json({ 
+        error: 'db_server_type must be one of: mysql, mariadb, unknown' 
+      });
+    }
+
+    const versions = {};
+    if (wordpress_version !== undefined) versions.wordpress_version = wordpress_version;
+    if (php_version !== undefined) versions.php_version = php_version;
+    if (db_server_type !== undefined) versions.db_server_type = db_server_type;
+    if (db_server_version !== undefined) versions.db_server_version = db_server_version;
+
+    const updated = await Website.updateVersions(req.website.id, versions);
+
+    if (!updated) {
+      return res.status(500).json({ 
+        error: 'Failed to update versions' 
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Versions updated successfully'
     });
   } catch (err) {
     console.error(err);
