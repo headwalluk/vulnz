@@ -8,6 +8,7 @@ const Release = require('../models/release');
 const WebsiteComponent = require('../models/websiteComponent');
 const SecurityEvent = require('../models/securityEvent');
 const SecurityEventType = require('../models/securityEventType');
+const FileSecurityIssue = require('../models/fileSecurityIssue');
 const { lookupIp } = require('../lib/geoip');
 
 const getWebsiteComponents = async (website) => {
@@ -628,6 +629,140 @@ router.put('/:domain/versions', apiOrSessionAuth, canAccessWebsite, async (req, 
     res.json({
       success: true,
       message: 'Versions updated successfully'
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+/**
+ * @swagger
+ * /api/websites/{domain}/security-scan:
+ *   post:
+ *     summary: Submit static analysis scan results for a website
+ *     description: Submit security scan results from PHP_CodeSniffer or similar tools. Automatically handles touch-based purging.
+ *     tags:
+ *       - Websites
+ *       - Static Analysis
+ *     parameters:
+ *       - in: path
+ *         name: domain
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The domain name of the website.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               scan_datetime:
+ *                 type: string
+ *                 format: date-time
+ *               scanner:
+ *                 type: string
+ *                 example: "phpcs-wordpress-security"
+ *               scanner_version:
+ *                 type: string
+ *                 example: "3.7.2"
+ *               files:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     path:
+ *                       type: string
+ *                       example: "wp-content/plugins/myplugin/admin.php"
+ *                     issues:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           line:
+ *                             type: integer
+ *                           type:
+ *                             type: string
+ *                           severity:
+ *                             type: string
+ *                             enum: [info, warning, error]
+ *                           message:
+ *                             type: string
+ *     responses:
+ *       201:
+ *         description: Scan results processed successfully
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Website not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:domain/security-scan', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
+  try {
+    const { scan_datetime, scanner, scanner_version, files } = req.body;
+
+    if (!files || !Array.isArray(files)) {
+      return res.status(400).json({ error: 'Files array is required' });
+    }
+
+    const results = {
+      processed: 0,
+      issues_created: 0,
+      issues_updated: 0,
+      issues_deleted: 0,
+      summary: {
+        error: 0,
+        warning: 0,
+        info: 0
+      }
+    };
+
+    // Process each file
+    for (const file of files) {
+      if (!file.path) {
+        continue;
+      }
+
+      results.processed++;
+
+      if (!file.issues || file.issues.length === 0) {
+        // File has zero issues - delete any existing issues for this file
+        const deleted = await FileSecurityIssue.deleteByFilePath(req.website.id, file.path);
+        results.issues_deleted += deleted;
+      } else {
+        // File has issues - upsert them
+        const issues = file.issues.map(issue => ({
+          websiteId: req.website.id,
+          filePath: file.path,
+          lineNumber: issue.line || null,
+          issueType: issue.type,
+          severity: issue.severity || 'warning',
+          message: issue.message
+        }));
+
+        for (const issue of issues) {
+          await FileSecurityIssue.upsertIssue(
+            issue.websiteId,
+            issue.filePath,
+            issue.lineNumber,
+            issue.issueType,
+            issue.severity,
+            issue.message
+          );
+          results.issues_created++;
+          results.summary[issue.severity]++;
+        }
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      ...results
     });
   } catch (err) {
     console.error(err);
