@@ -50,6 +50,20 @@ async function sendPasswordResetEmail(to, token) {
   await transporter.sendMail(mailOptions);
 }
 
+// Helper to convert country code to flag emoji
+handlebars.registerHelper('countryFlag', function(countryCode) {
+  if (!countryCode || countryCode.length !== 2) {
+    return '';
+  }
+  // Convert country code to flag emoji using Regional Indicator Symbols
+  // A=🇦(U+1F1E6), B=🇧(U+1F1E7), etc.
+  const codePoints = countryCode
+    .toUpperCase()
+    .split('')
+    .map(char => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+});
+
 async function sendVulnerabilityReport(to, data) {
   const templatePath = path.join(__dirname, '../emails/vulnerability-report.hbs');
   const template = fs.readFileSync(templatePath, 'utf8');

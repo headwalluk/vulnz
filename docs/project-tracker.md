@@ -4,6 +4,36 @@ Active development tracking for VULNZ features and releases.
 
 ---
 
+## Version 1.11.3 - Security Event Deduplication
+
+**Status**: Released  
+**Release Date**: December 6, 2025
+
+### Overview
+Enhanced security event tracking with database-level deduplication and improved reporting with country flag emojis.
+
+### Changes
+
+#### Security Events Deduplication
+- [x] Added unique constraint on `(website_id, event_type_id, source_ip, event_datetime)`
+- [x] Implemented `INSERT IGNORE` for bulk event submissions
+- [x] Added duplicate event counting in API responses
+- [x] Handles single and bulk submissions (tested up to 1,000 events)
+- [x] Second-level precision prevents duplicate submissions
+
+#### Reporting Enhancements
+- [x] Added Unicode flag emojis to country code display
+- [x] Implemented `countryFlag` Handlebars helper
+- [x] Updated vulnerability report template with flags
+- [x] Graceful degradation for email clients
+
+#### Infrastructure
+- [x] Created migration for deduplication constraint
+- [x] Updated `SecurityEvent.bulkCreate()` to return counts
+- [x] Enhanced error handling for duplicate detection
+
+---
+
 ## Version 1.11.2 - API Consolidation
 
 **Status**: Released  

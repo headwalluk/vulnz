@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.11.3 - 2025-12-06
+
+### Security Events
+- **Deduplication**: Added database-level deduplication for security events
+  - Unique constraint on `(website_id, event_type_id, source_ip, event_datetime)`
+  - Second-level precision prevents duplicate events from same IP
+  - `INSERT IGNORE` automatically skips duplicates in bulk operations
+  - API returns `events_created` and `events_duplicate` counts
+  - Supports single and bulk event submissions (tested up to 1,000 events)
+
+### Reporting
+- **Country Flags**: Added Unicode flag emojis to security event reports
+  - Top Attack Sources now display country flags (e.g., 🇨🇳 CN, 🇩🇪 DE)
+  - Regional Indicator Symbol conversion for all country codes
+  - Graceful degradation in email clients without emoji support
+
+### Infrastructure
+- **Migration**: `20251206190000-add-security-events-dedup-constraint.js`
+  - Adds unique key constraint for event deduplication
+  - Idempotent migration (safe to re-run)
+
 ## 1.11.2 - 2025-12-06
 
 ### API Improvements
