@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.11.2 - 2025-12-06
+
+### API Improvements
+- **Consolidated Version Updates**: Enhanced `PUT /api/websites/:domain` endpoint
+  - Now accepts optional `versions` object for updating WordPress, PHP, and database versions
+  - Eliminates need for separate API call to `/api/websites/:domain/versions`
+  - Supports partial updates (update only specified version fields)
+  - Validates `db_server_type` (mysql|mariadb|unknown)
+  - Maintains backward compatibility with existing integrations
+  - Deprecated `PUT /api/websites/:domain/versions` endpoint (still functional)
+
+### Testing
+- **Websites API Tests**: Added 7 new tests for version update functionality
+  - Tests version updates via consolidated endpoint
+  - Tests validation and error handling
+  - Tests partial updates and backward compatibility
+  - All 28 tests passing (21 Settings + 7 Websites)
+
+### Documentation
+- **Swagger Documentation**: Updated API documentation
+  - Added `versions` parameter to main PUT endpoint
+  - Marked `/versions` endpoint as deprecated
+  - Enhanced parameter descriptions and examples
+
+### Infrastructure
+- **Test Schema Updates**: Fixed test database schema
+  - Updated websites table to match production (domain/title fields)
+  - Added all version-related fields for comprehensive testing
+  - Fixed `createTestWebsite()` helper to use correct schema
+
 ## 1.11.1 - 2025-12-06
 
 ### Testing Infrastructure

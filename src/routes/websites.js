@@ -286,7 +286,7 @@ const processComponents = async (components, componentType) => {
  * /api/websites/{domain}:
  *   put:
  *     summary: Update a website
- *     description: Update a website's properties and associated components.
+ *     description: Update a website's properties, associated components, and version information.
  *     tags:
  *       - Websites
  *     parameters:
@@ -317,9 +317,23 @@ const processComponents = async (components, componentType) => {
  *                 type: boolean
  *               meta:
  *                 type: object
+ *               versions:
+ *                 type: object
+ *                 properties:
+ *                   wordpress_version:
+ *                     type: string
+ *                   php_version:
+ *                     type: string
+ *                   db_server_type:
+ *                     type: string
+ *                     enum: [mysql, mariadb, unknown]
+ *                   db_server_version:
+ *                     type: string
  *     responses:
  *       200:
  *         description: Website updated
+ *       400:
+ *         description: Bad request (invalid db_server_type)
  *       401:
  *         description: Unauthorized
  *       404:
@@ -329,7 +343,7 @@ const processComponents = async (components, componentType) => {
  */
 router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
   try {
-    const { title, 'wordpress-plugins': wordpressPlugins, 'wordpress-themes': wordpressThemes, is_dev, meta } = req.body;
+    const { title, 'wordpress-plugins': wordpressPlugins, 'wordpress-themes': wordpressThemes, is_dev, meta, versions } = req.body;
     const websiteData = {};
     if (title) {
       websiteData.title = title;
@@ -404,6 +418,22 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
       console.log('Component changes recorded:', componentChangeSummary);
 
       await Website.touch(req.website.id);
+    }
+
+    // Handle version updates if provided
+    if (versions) {
+      // Validate db_server_type if provided
+      if (versions.db_server_type !== undefined) {
+        const validTypes = ['mysql', 'mariadb', 'unknown'];
+        if (!validTypes.includes(versions.db_server_type)) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid db_server_type. Must be one of: ${validTypes.join(', ')}`
+          });
+        }
+      }
+
+      await Website.updateVersions(req.website.id, versions);
     }
 
     res.send('Website updated');
@@ -582,7 +612,11 @@ router.post('/:domain/security-events', apiOrSessionAuth, canAccessWebsite, asyn
  * /api/websites/{domain}/versions:
  *   put:
  *     summary: Update software versions for a website
- *     description: Update WordPress, PHP, and database server version information for a website.
+ *     deprecated: true
+ *     description: |
+ *       **DEPRECATED**: Use PUT /api/websites/{domain} with a `versions` object instead.
+ *       
+ *       Update WordPress, PHP, and database server version information for a website.
  *     tags:
  *       - Websites
  *       - Versions
