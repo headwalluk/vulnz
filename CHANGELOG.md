@@ -1,5 +1,65 @@
 # Changelog
 
+## 1.10.0 2025-12-06
+
+### Features
+- **Security Events Logging**: Track security-relevant events from monitored websites
+  - New `security_event_types` and `security_events` tables with 10 pre-seeded event types
+  - Geographic context via MaxMind GeoIP integration (continent/country codes)
+  - `POST /api/websites/:domain/security-events` endpoint for bulk event recording
+  - Automatic purge cron job with configurable retention (default: 30 days)
+  - Event types: failed-login, brute-force, SQL injection, XSS, user enumeration, plugin/theme enumeration, etc.
+
+- **Version Tracking**: Monitor software versions across all websites
+  - Added WordPress, PHP, and database server version fields to websites table
+  - `PUT /api/websites/:domain/versions` endpoint to update version information
+  - Query methods for finding outdated WordPress and PHP installations
+  - Version comparison using SQL string comparison
+  - Configurable minimum/recommended versions via environment variables
+
+- **Static Analysis Integration**: Store PHP security scan results
+  - New `file_security_issues` table with touch-based purging strategy
+  - `POST /api/websites/:domain/security-scan` endpoint for phpcs/security scanner results
+  - Severity levels: error, warning, info
+  - Sample scanner script (`scripts/scan-website.sh`) demonstrating PHP_CodeSniffer integration
+  - Issues not seen in recent scans are automatically purged (default: 30 days)
+
+- **Component Changes Tracking**: Comprehensive audit trail for plugins/themes
+  - New `component_changes` table tracking additions, removals, and updates
+  - Automatic change detection when website components are modified via API
+  - Records old/new release versions, change type, user, and source (api/ui/sync/plugin)
+  - Long-term retention for audit purposes (default: 365 days)
+  - Weekly purge cron job for old changes
+
+- **Enhanced Weekly Reports**: Dramatically improved security reporting
+  - Security events summary with attack source countries (past 7 days)
+  - Outdated software detection (WordPress/PHP versions below minimum)
+  - Static analysis issues grouped by website with severity counts
+  - Component changes with detailed version information and timestamps
+  - All sections properly filtered by user ownership for non-admin users
+  - Improved email template with structured, actionable information
+
+### Bug Fixes
+- Fixed SQL syntax errors in bulk insert operations (security events, component changes)
+- Changed SQL alias from 'set' to 'evt' to avoid reserved keyword conflict
+- Fixed user filtering in fileSecurityIssue and componentChange queries
+- Added proper userId parameter support to findOutdatedWordPress/Php functions
+- Fixed component change tracking to use proper component_id and release_id
+- Removed debug logging from component change tracking
+
+### Infrastructure
+- Added 4 new database migrations for v1.10.0 features
+- Added 3 new cron jobs (security events purge, file issues purge, component changes purge)
+- New environment variables: GEOIP_DATABASE_PATH, SECURITY_EVENTS_RETENTION_DAYS, FILE_SECURITY_ISSUES_RETENTION_DAYS, COMPONENT_CHANGES_RETENTION_DAYS, WORDPRESS_STABLE_VERSION, PHP_MINIMUM_VERSION, etc.
+- Created comprehensive documentation for all new features
+
+### Documentation
+- Added docs/security-events.md - Security events logging guide
+- Added docs/version-tracking.md - Version monitoring documentation
+- Added docs/static-analysis.md - Static analysis integration guide
+- Added docs/component-changes.md - Component change tracking documentation
+- Added docs/enhanced-reporting.md - Enhanced reporting overview
+
 ## 1.9.0 2025-12-05
 
 ### Features

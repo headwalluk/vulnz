@@ -67,10 +67,23 @@ const getThemes = async (websiteId) => {
   return getComponents(websiteId, 'wordpress-theme');
 };
 
+const getComponentsForChangeTracking = async (websiteId) => {
+  const query = `
+    SELECT 
+      r.component_id,
+      wc.release_id
+    FROM website_components wc
+    JOIN releases r ON wc.release_id = r.id
+    WHERE wc.website_id = ?
+  `;
+  return await db.query(query, [websiteId]);
+};
+
 module.exports = {
   createTable,
   create,
   deleteByType,
   getPlugins,
   getThemes,
+  getComponentsForChangeTracking,
 };

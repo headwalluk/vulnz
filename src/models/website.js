@@ -139,6 +139,96 @@ const removeStaleWebsites = async (days) => {
   return result.affectedRows || 0;
 };
 
+const updateVersions = async (websiteId, versions) => {
+  const fields = [];
+  const values = [];
+
+  if (versions.wordpress_version !== undefined) {
+    fields.push('wordpress_version = ?');
+    values.push(versions.wordpress_version);
+  }
+  if (versions.php_version !== undefined) {
+    fields.push('php_version = ?');
+    values.push(versions.php_version);
+  }
+  if (versions.db_server_type !== undefined) {
+    fields.push('db_server_type = ?');
+    values.push(versions.db_server_type);
+  }
+  if (versions.db_server_version !== undefined) {
+    fields.push('db_server_version = ?');
+    values.push(versions.db_server_version);
+  }
+
+  if (fields.length === 0) {
+    return false;
+  }
+
+  // Always update the versions_last_checked_at timestamp
+  fields.push('versions_last_checked_at = CURRENT_TIMESTAMP');
+
+  values.push(websiteId);
+  const query = `UPDATE websites SET ${fields.join(', ')} WHERE id = ?`;
+  const result = await db.query(query, values);
+  return result.affectedRows > 0;
+};
+
+const findOutdatedWordPress = async (minVersion, userId = null) => {
+  let query = `
+    SELECT * FROM websites 
+    WHERE wordpress_version IS NOT NULL 
+    AND wordpress_version < ?
+  `;
+  const params = [minVersion];
+  
+  if (userId !== null) {
+    query += ' AND user_id = ?';
+    params.push(userId);
+  }
+  
+  query += ' ORDER BY wordpress_version ASC';
+  return await db.query(query, params);
+};
+
+const findOutdatedPhp = async (minVersion, userId = null) => {
+  let query = `
+    SELECT * FROM websites 
+    WHERE php_version IS NOT NULL 
+    AND php_version < ?
+  `;
+  const params = [minVersion];
+  
+  if (userId !== null) {
+    query += ' AND user_id = ?';
+    params.push(userId);
+  }
+  
+  query += ' ORDER BY php_version ASC';
+  return await db.query(query, params);
+};
+
+const getVersionDistribution = async (userId = null) => {
+  let query = `
+    SELECT 
+      wordpress_version,
+      php_version,
+      db_server_type,
+      db_server_version,
+      COUNT(*) as count
+    FROM websites
+  `;
+  const params = [];
+
+  if (userId) {
+    query += ' WHERE user_id = ?';
+    params.push(userId);
+  }
+
+  query += ' GROUP BY wordpress_version, php_version, db_server_type, db_server_version';
+
+  return await db.query(query, params);
+};
+
 module.exports = {
   createTable,
   findAll,
@@ -149,4 +239,8 @@ module.exports = {
   remove,
   touch,
   removeStaleWebsites,
+  updateVersions,
+  findOutdatedWordPress,
+  findOutdatedPhp,
+  getVersionDistribution,
 };
