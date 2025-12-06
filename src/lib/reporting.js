@@ -5,6 +5,7 @@ const websiteComponent = require('../models/websiteComponent');
 const securityEvent = require('../models/securityEvent');
 const fileSecurityIssue = require('../models/fileSecurityIssue');
 const componentChange = require('../models/componentChange');
+const appSetting = require('../models/appSetting');
 const emailer = require('../lib/email');
 const emailLog = require('../models/emailLog');
 const { validateEmailAddress } = require('../lib/emailValidation');
@@ -32,12 +33,23 @@ async function sendSummaryEmail(userToSend) {
   const topAttackCountries = await securityEvent.getTopCountries(startDate, endDate, 5);
 
   // Get outdated software websites
+  const wordpressCurrentVersion = await appSetting.getWithFallback(
+    'wordpress.current_version',
+    'WORDPRESS_STABLE_VERSION',
+    '6.7.1'
+  );
+  const phpMinimumVersion = await appSetting.getWithFallback(
+    'php.minimum_version',
+    'PHP_MINIMUM_VERSION',
+    '8.0'
+  );
+  
   const outdatedWordPress = await website.findOutdatedWordPress(
-    process.env.WORDPRESS_STABLE_VERSION || '6.7.1',
+    wordpressCurrentVersion,
     isAdministrator ? null : userToSend.id
   );
   const outdatedPhp = await website.findOutdatedPhp(
-    process.env.PHP_MINIMUM_VERSION || '8.0',
+    phpMinimumVersion,
     isAdministrator ? null : userToSend.id
   );
 
