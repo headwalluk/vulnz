@@ -22,4 +22,13 @@ module.exports = [
       'no-console': 'off',
     },
   },
+  {
+    // Jest test files
+    files: ['tests/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+      },
+    },
+  },
 ];

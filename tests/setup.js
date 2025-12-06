@@ -6,8 +6,6 @@
 
 const sqlite3 = require('sqlite3');
 const { promisify } = require('util');
-const fs = require('fs').promises;
-const path = require('path');
 const bcrypt = require('bcryptjs');
 
 /**
