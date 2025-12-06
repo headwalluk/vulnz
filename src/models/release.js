@@ -26,7 +26,13 @@ const findOrCreate = async (componentId, version) => {
   return release;
 };
 
+const findById = async (id) => {
+  const rows = await db.query('SELECT * FROM releases WHERE id = ?', [id]);
+  return Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
+};
+
 module.exports = {
   createTable,
   findOrCreate,
+  findById,
 };
