@@ -100,7 +100,16 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 app.set('trust proxy', 1);
 app.use(redirectHtml);
+
+// Swagger UI
 app.use('/doc', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// OpenAPI JSON endpoint
+app.get('/openapi.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
 app.use(helmet());
 app.use(express.json());
 
