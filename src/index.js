@@ -69,6 +69,9 @@ const cron = require('node-cron');
 const { syncNextPlugin } = require('./lib/wporg');
 const { sendWeeklyReports } = require('./lib/reporting');
 const migrations = require('./migrations');
+const { initializeGeoIP } = require('./lib/geoip');
+const securityEvent = require('./models/securityEvent');
+const securityEventType = require('./models/securityEventType');
 
 // Swagger definition
 const swaggerOptions = {
@@ -211,6 +214,7 @@ async function startServer() {
     if (process.env.NODE_APP_INSTANCE === '0') {
       await migrations.run();
       console.log('Migrations complete.');
+      await initializeGeoIP();
     }
 
     if (process.env.CRON_ENABLE !== 'true') {
@@ -262,6 +266,18 @@ async function startServer() {
       } else {
         console.log('Stale website deletion is disabled (WEBSITE_AUTO_DELETE_ENABLED=false).');
       }
+
+      // Purge old security events
+      const retentionDays = parseInt(process.env.SECURITY_EVENTS_RETENTION_DAYS, 10) || 30;
+      cron.schedule('0 1 * * *', async () => {
+        console.log(`Running cron job to purge old security events (older than ${retentionDays} days)...`);
+        try {
+          const deletedCount = await securityEvent.removeOldEvents(retentionDays);
+          console.log(`Purged ${deletedCount} old security event(s).`);
+        } catch (err) {
+          console.error('Error purging old security events:', err);
+        }
+      });
     }
 
     await role.createTable();
@@ -280,6 +296,8 @@ async function startServer() {
     await vulnerability.createTable();
     await website.createTable();
     await websiteComponent.createTable();
+    await securityEventType.createTable();
+    await securityEvent.createTable();
     console.log('Database tables created or already exist.');
     app.listen(port, () => {
       console.log(`Server accessible at ${process.env.BASE_URL} in ${process.env.NODE_ENV || 'development'} mode`);
