@@ -293,9 +293,9 @@ async function startServer() {
         }
       });
 
-      // Purge old component changes
+      // Purge old component changes (runs weekly on Sunday at 3 AM)
       const componentChangesRetentionDays = parseInt(process.env.COMPONENT_CHANGES_RETENTION_DAYS, 10) || 365;
-      cron.schedule('0 3 0 * *', async () => {
+      cron.schedule('0 3 * * 0', async () => {
         console.log(`Running cron job to purge old component changes (older than ${componentChangesRetentionDays} days)...`);
         try {
           const deletedCount = await componentChange.removeOldChanges(componentChangesRetentionDays);
