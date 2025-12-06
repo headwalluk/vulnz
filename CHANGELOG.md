@@ -1,5 +1,48 @@
 # Changelog
 
+## 1.11.1 - 2025-12-06
+
+### Testing Infrastructure
+- **Comprehensive Test Suite**: Added automated testing with Jest and Supertest
+  - 21/21 tests passing for Settings API endpoints
+  - In-memory SQLite database for test isolation
+  - Full authentication and authorization testing
+  - Type casting validation tests
+  - Admin-only endpoint protection verification
+  - Created `tests/setup.js` with test utilities and MySQL→SQLite compatibility layer
+  - Added `jest.config.js` with coverage thresholds (50% baseline)
+  - Created comprehensive testing documentation in `tests/README.md`
+
+- **Test Coverage**:
+  - GET /api/settings - 5 tests (list, filter, group, auth)
+  - GET /api/settings/:key - 3 tests (retrieve, 404, auth)
+  - PUT /api/settings/:key - 5 tests (create, update, admin-only, validation)
+  - DELETE /api/settings/:key - 5 tests (delete, protection, admin-only, 404)
+  - Type Casting - 3 tests (integer, boolean, float)
+
+### Documentation
+- **Restructured README.md**: Streamlined from 333 to 156 lines
+  - Moved project tracking to `docs/project-tracker.md`
+  - Improved organization with clear sections for installation, configuration, and documentation links
+  - Added tests badge showing current test status
+  - Better focus on getting started vs diving deep
+
+- **New Documentation**:
+  - `tests/README.md` - Comprehensive testing guide with examples and best practices
+  - `docs/project-tracker.md` - Centralized project tracking for all releases
+
+### Dependencies
+- Added dev dependencies:
+  - `jest` - Test framework
+  - `supertest` - HTTP API testing
+  - `sqlite3` - In-memory test database
+  - `bcryptjs` - Password hashing for tests
+
+### Scripts
+- Added `npm test` - Run all tests
+- Added `npm run test:watch` - Watch mode for development
+- Added `npm run test:coverage` - Generate coverage report
+
 ## 1.11.0 - 2025-12-06
 
 ### Features
