@@ -27,16 +27,13 @@ async function create(websiteId, eventTypeId, sourceIp, eventDatetime, continent
 }
 
 async function bulkCreate(events) {
-  console.log('DEBUG SQL: AAA');
   if (!events || events.length === 0) {
     return { inserted: 0, duplicates: 0 };
   }
 
-  console.log('DEBUG SQL: BBB');
 
   // For single event, use simple insert with duplicate handling
   if (events.length === 1) {
-  console.log('DEBUG SQL: CCC');
     const event = events[0];
     try {
       await create(

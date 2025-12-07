@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.12.0 - 2025-12-07
+
+### Reporting
+- **Security Events Filtering**: Fixed weekly reports to only show security events from user's websites
+  - Security events summary now filtered by user's website IDs
+  - Top attack sources now filtered by user's website IDs
+  - Consistent with existing filtering in Vulnerable Components, Outdated Software, Static Analysis, and Component Changes sections
+  - Administrators continue to see all websites when generating reports
+
 ## 1.11.4 - 2025-12-06
 
 ### Code Quality
