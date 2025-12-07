@@ -28,9 +28,13 @@ async function sendSummaryEmail(userToSend) {
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - 7);
 
-  // Gather security events summary (past 7 days)
-  const securityEventsSummary = await securityEvent.getSummaryByDateRange(startDate, endDate);
-  const topAttackCountries = await securityEvent.getTopCountries(startDate, endDate, 5);
+  // Get website IDs for filtering security events
+  const userWebsites = await website.findAll(isAdministrator ? null : userToSend.id, 10000, 0);
+  const websiteIds = userWebsites.map(site => site.id);
+
+  // Gather security events summary (past 7 days) - filtered by user's websites
+  const securityEventsSummary = await securityEvent.getSummaryByDateRange(startDate, endDate, websiteIds);
+  const topAttackCountries = await securityEvent.getTopCountries(startDate, endDate, 5, websiteIds);
 
   // Get outdated software websites
   const wordpressCurrentVersion = await appSetting.getWithFallback(
