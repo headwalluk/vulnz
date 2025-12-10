@@ -5,7 +5,7 @@ const up = async () => {
     ALTER TABLE security_events 
     ADD UNIQUE KEY dedup_constraint (website_id, event_type_id, source_ip, event_datetime)
   `;
-  
+
   try {
     await db.query(query);
   } catch (err) {

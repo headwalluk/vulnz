@@ -1,6 +1,6 @@
 /**
  * Websites API Tests
- * 
+ *
  * Tests for /api/websites endpoints, focusing on version updates
  */
 
@@ -8,19 +8,12 @@ const request = require('supertest');
 const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
-const {
-  createTestDatabase,
-  initializeSchema,
-  createTestUser,
-  createTestApiKey,
-  createTestWebsite,
-  cleanupTestDatabase
-} = require('../setup');
+const { createTestDatabase, initializeSchema, createTestUser, createTestApiKey, createTestWebsite, cleanupTestDatabase } = require('../setup');
 
 // Mock the db module
 const mockDb = {
   query: jest.fn(),
-  getConnection: jest.fn()
+  getConnection: jest.fn(),
 };
 
 jest.mock('../../src/db', () => mockDb);
@@ -52,17 +45,17 @@ describe('Websites API - Version Updates', () => {
   beforeAll(async () => {
     // Create test database
     db = await createTestDatabase();
-    
+
     // Update mock to use our test database
     mockDb.query.mockImplementation((...args) => db.query(...args));
-    
+
     await initializeSchema(db);
 
     // Create admin user
     adminUser = await createTestUser(db, {
       username: 'admin',
       email: 'admin@example.com',
-      role: 'admin'
+      role: 'admin',
     });
     adminApiKey = await createTestApiKey(db, adminUser.id, 'Admin Test Key');
 
@@ -70,7 +63,7 @@ describe('Websites API - Version Updates', () => {
     testWebsite = await createTestWebsite(db, {
       domain: 'test.example.com',
       user_id: adminUser.id,
-      title: 'Test Website'
+      title: 'Test Website',
     });
 
     // Setup mocks for Website and User models
@@ -82,17 +75,17 @@ describe('Websites API - Version Updates', () => {
     Website.update = jest.fn().mockImplementation(async (domain, data) => {
       const fields = Object.keys(data);
       const values = Object.values(data);
-      
+
       if (data.meta && typeof data.meta === 'object') {
         data.meta = JSON.stringify(data.meta);
       }
-      
+
       const setClause = fields.map((field) => `${field} = ?`).join(', ');
-      
+
       if (fields.length === 0) {
         return false;
       }
-      
+
       const query = `UPDATE websites SET ${setClause} WHERE domain = ?`;
       const params = [...values, domain];
       await db.query(query, params);
@@ -134,59 +127,54 @@ describe('Websites API - Version Updates', () => {
     Website.touch = jest.fn().mockResolvedValue(true);
 
     User.getRoles = jest.fn().mockImplementation(async (userId) => {
-      const userRoles = await db.query(
-        'SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?',
-        [userId]
-      );
-      return userRoles.map(row => row.name);
+      const userRoles = await db.query('SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?', [userId]);
+      return userRoles.map((row) => row.name);
     });
 
     // Configure Passport strategies for testing
     const HeaderAPIKeyStrategy = require('passport-headerapikey').HeaderAPIKeyStrategy;
     const crypto = require('crypto');
-    
+
     passport.use(
-      new HeaderAPIKeyStrategy(
-        { header: 'X-API-Key', prefix: '' }, 
-        false, 
-        async (apiKey, done) => {
-          try {
-            const hashedKey = crypto.createHash('sha256').update(apiKey).digest('hex');
-            const keys = await db.query('SELECT * FROM api_keys WHERE key_hash = ? AND is_active = 1', [hashedKey]);
-            
-            if (!keys || keys.length === 0) {
-              return done(null, false);
-            }
-            
-            const key = keys[0];
-            const users = await db.query('SELECT * FROM users WHERE id = ? AND is_active = 1', [key.user_id]);
-            
-            if (!users || users.length === 0) {
-              return done(null, false);
-            }
-            
-            return done(null, users[0]);
-          } catch (err) {
-            return done(err);
+      new HeaderAPIKeyStrategy({ header: 'X-API-Key', prefix: '' }, false, async (apiKey, done) => {
+        try {
+          const hashedKey = crypto.createHash('sha256').update(apiKey).digest('hex');
+          const keys = await db.query('SELECT * FROM api_keys WHERE key_hash = ? AND is_active = 1', [hashedKey]);
+
+          if (!keys || keys.length === 0) {
+            return done(null, false);
           }
+
+          const key = keys[0];
+          const users = await db.query('SELECT * FROM users WHERE id = ? AND is_active = 1', [key.user_id]);
+
+          if (!users || users.length === 0) {
+            return done(null, false);
+          }
+
+          return done(null, users[0]);
+        } catch (err) {
+          return done(err);
         }
-      )
+      })
     );
 
     // Create Express app for testing
     app = express();
     app.use(express.json());
-    
+
     // Setup session middleware
-    app.use(session({
-      secret: 'test-secret',
-      resave: false,
-      saveUninitialized: false
-    }));
-    
+    app.use(
+      session({
+        secret: 'test-secret',
+        resave: false,
+        saveUninitialized: false,
+      })
+    );
+
     app.use(passport.initialize());
     app.use(passport.session());
-    
+
     // Mount routes
     app.use('/api/websites', websitesRoutes);
   });
@@ -205,8 +193,8 @@ describe('Websites API - Version Updates', () => {
             wordpress_version: '6.4.2',
             php_version: '8.2.14',
             db_server_type: 'mariadb',
-            db_server_version: '10.11.6'
-          }
+            db_server_version: '10.11.6',
+          },
         });
 
       expect(response.status).toBe(200);
@@ -227,8 +215,8 @@ describe('Websites API - Version Updates', () => {
         .set('X-API-Key', adminApiKey.token)
         .send({
           versions: {
-            db_server_type: 'postgresql'
-          }
+            db_server_type: 'postgresql',
+          },
         });
 
       expect(response.status).toBe(400);
@@ -238,10 +226,7 @@ describe('Websites API - Version Updates', () => {
 
     it('should update only provided version fields', async () => {
       // First set some initial versions
-      await db.query(
-        'UPDATE websites SET wordpress_version = ?, php_version = ? WHERE id = ?',
-        ['6.4.0', '8.1.0', testWebsite.id]
-      );
+      await db.query('UPDATE websites SET wordpress_version = ?, php_version = ? WHERE id = ?', ['6.4.0', '8.1.0', testWebsite.id]);
 
       // Update only WordPress version
       const response = await request(app)
@@ -249,8 +234,8 @@ describe('Websites API - Version Updates', () => {
         .set('X-API-Key', adminApiKey.token)
         .send({
           versions: {
-            wordpress_version: '6.4.3'
-          }
+            wordpress_version: '6.4.3',
+          },
         });
 
       expect(response.status).toBe(200);
@@ -270,8 +255,8 @@ describe('Websites API - Version Updates', () => {
           is_dev: true,
           versions: {
             wordpress_version: '6.5.0',
-            php_version: '8.3.0'
-          }
+            php_version: '8.3.0',
+          },
         });
 
       expect(response.status).toBe(200);
@@ -285,12 +270,9 @@ describe('Websites API - Version Updates', () => {
     });
 
     it('should work without versions object (backward compatibility)', async () => {
-      const response = await request(app)
-        .put(`/api/websites/${testWebsite.domain}`)
-        .set('X-API-Key', adminApiKey.token)
-        .send({
-          title: 'Another Update'
-        });
+      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', adminApiKey.token).send({
+        title: 'Another Update',
+      });
 
       expect(response.status).toBe(200);
       expect(response.text).toBe('Website updated');
@@ -305,8 +287,8 @@ describe('Websites API - Version Updates', () => {
         .put(`/api/websites/${testWebsite.domain}`)
         .send({
           versions: {
-            wordpress_version: '6.4.2'
-          }
+            wordpress_version: '6.4.2',
+          },
         });
 
       expect(response.status).toBe(401);
@@ -315,15 +297,12 @@ describe('Websites API - Version Updates', () => {
 
   describe('PUT /api/websites/:domain/versions (deprecated)', () => {
     it('should still work for backward compatibility', async () => {
-      const response = await request(app)
-        .put(`/api/websites/${testWebsite.domain}/versions`)
-        .set('X-API-Key', adminApiKey.token)
-        .send({
-          wordpress_version: '6.4.1',
-          php_version: '8.2.13',
-          db_server_type: 'mysql',
-          db_server_version: '8.0.35'
-        });
+      const response = await request(app).put(`/api/websites/${testWebsite.domain}/versions`).set('X-API-Key', adminApiKey.token).send({
+        wordpress_version: '6.4.1',
+        php_version: '8.2.13',
+        db_server_type: 'mysql',
+        db_server_version: '8.0.35',
+      });
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);

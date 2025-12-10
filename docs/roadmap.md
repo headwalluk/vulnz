@@ -50,6 +50,7 @@ This document tracks planned improvements and enhancements for VULNZ.
 **Background**: When clients decommission infrastructure or stop using VULNZ, orphaned website records remain in the database. Since clients typically manage websites via API, auto-deleted websites will be re-added automatically if still active.
 
 **Implementation Tasks**:
+
 - [ ] Add `touch()` method to Website model (`src/models/website.js`)
   - Updates `updated_at` timestamp without changing other fields
   - Uses `UPDATE websites SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`

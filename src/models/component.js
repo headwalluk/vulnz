@@ -123,8 +123,115 @@ const findOrCreate = async (slug, componentTypeSlug, title) => {
   return component;
 };
 
+/**
+ * Find plugins that haven't been updated in X months
+ * Only considers WordPress.org plugins (where last_updated IS NOT NULL)
+ * Returns plugins used by specified user's websites
+ */
+async function findUnmaintainedPlugins(monthsThreshold = 6, userId = null) {
+  let sql = `
+    SELECT DISTINCT
+      c.id,
+      c.slug,
+      c.title,
+      c.last_updated,
+      TIMESTAMPDIFF(MONTH, c.last_updated, NOW()) as months_since_update,
+      w.domain,
+      w.title as website_title
+    FROM components c
+    JOIN releases r ON c.id = r.component_id
+    JOIN website_components wc ON r.id = wc.release_id
+    JOIN websites w ON wc.website_id = w.id
+    WHERE c.component_type_slug = 'wordpress-plugin'
+      AND c.last_updated IS NOT NULL
+      AND c.last_updated < DATE_SUB(NOW(), INTERVAL ? MONTH)
+  `;
+
+  const params = [monthsThreshold];
+
+  if (userId !== null) {
+    sql += ' AND w.user_id = ?';
+    params.push(userId);
+  }
+
+  sql += ' ORDER BY c.last_updated ASC, c.title ASC';
+
+  return await db.query(sql, params);
+}
+
+/**
+ * Find plugins that were recently published (within X months)
+ * Only considers WordPress.org plugins (where added IS NOT NULL)
+ * Returns plugins used by specified user's websites
+ */
+async function findNewlyPublishedPlugins(monthsThreshold = 3, userId = null) {
+  let sql = `
+    SELECT DISTINCT
+      c.id,
+      c.slug,
+      c.title,
+      c.added,
+      TIMESTAMPDIFF(MONTH, c.added, NOW()) as months_since_published,
+      w.domain,
+      w.title as website_title
+    FROM components c
+    JOIN releases r ON c.id = r.component_id
+    JOIN website_components wc ON r.id = wc.release_id
+    JOIN websites w ON wc.website_id = w.id
+    WHERE c.component_type_slug = 'wordpress-plugin'
+      AND c.added IS NOT NULL
+      AND c.added > DATE_SUB(NOW(), INTERVAL ? MONTH)
+  `;
+
+  const params = [monthsThreshold];
+
+  if (userId !== null) {
+    sql += ' AND w.user_id = ?';
+    params.push(userId);
+  }
+
+  sql += ' ORDER BY c.added DESC, c.title ASC';
+
+  return await db.query(sql, params);
+}
+
+/**
+ * Invalidate WordPress.org sync status for specific components
+ * Sets synced_from_wporg = 0 to trigger immediate re-sync
+ * Used when components are added/updated on websites
+ */
+async function invalidateWpOrgSyncStatus(componentIds) {
+  if (!Array.isArray(componentIds) || componentIds.length === 0) {
+    return;
+  }
+
+  await db.query('UPDATE components SET synced_from_wporg = 0 WHERE id IN (?)', [componentIds]);
+}
+
+/**
+ * Invalidate WordPress.org sync status for plugins not synced in X days
+ * Sets synced_from_wporg = 0 for all plugins where synced_from_wporg_at is older than threshold
+ * Called by cron job to ensure periodic re-sync of all plugins
+ */
+async function invalidateStaleSyncs(daysThreshold = 7) {
+  const result = await db.query(
+    `UPDATE components 
+     SET synced_from_wporg = 0 
+     WHERE component_type_slug = 'wordpress-plugin'
+       AND synced_from_wporg = 1
+       AND synced_from_wporg_at < DATE_SUB(NOW(), INTERVAL ? DAY)`,
+    [daysThreshold]
+  );
+
+  return result.affectedRows || 0;
+}
+
 module.exports = {
   createTable,
   search,
   findOrCreate,
+  findUnmaintainedPlugins,
+  findNewlyPublishedPlugins,
+  invalidateWpOrgSyncStatus,
+  invalidateStaleSyncs,
 };

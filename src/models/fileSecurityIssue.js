@@ -11,16 +11,9 @@ async function create(websiteId, filePath, lineNumber, issueType, severity, mess
     (website_id, file_path, line_number, issue_type, severity, message, last_seen_at)
     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
   `;
-  
-  const result = await db.query(sql, [
-    websiteId,
-    filePath,
-    lineNumber || null,
-    issueType,
-    severity,
-    message
-  ]);
-  
+
+  const result = await db.query(sql, [websiteId, filePath, lineNumber || null, issueType, severity, message]);
+
   return result.insertId;
 }
 
@@ -31,14 +24,8 @@ async function upsertIssue(websiteId, filePath, lineNumber, issueType, severity,
     WHERE website_id = ? AND file_path = ? AND issue_type = ? 
     AND (line_number = ? OR (line_number IS NULL AND ? IS NULL))
   `;
-  
-  const existing = await db.query(checkSql, [
-    websiteId,
-    filePath,
-    issueType,
-    lineNumber,
-    lineNumber
-  ]);
+
+  const existing = await db.query(checkSql, [websiteId, filePath, issueType, lineNumber, lineNumber]);
 
   if (existing && existing.length > 0) {
     // Update last_seen_at
@@ -59,19 +46,12 @@ async function bulkUpsert(issues) {
   const results = {
     created: 0,
     updated: 0,
-    errors: []
+    errors: [],
   };
 
   for (const issue of issues) {
     try {
-      await upsertIssue(
-        issue.websiteId,
-        issue.filePath,
-        issue.lineNumber,
-        issue.issueType,
-        issue.severity,
-        issue.message
-      );
+      await upsertIssue(issue.websiteId, issue.filePath, issue.lineNumber, issue.issueType, issue.severity, issue.message);
       results.created++;
     } catch (err) {
       results.errors.push({ issue, error: err.message });
@@ -89,13 +69,13 @@ async function deleteByFilePath(websiteId, filePath) {
 
 async function findByWebsite(websiteId, options = {}) {
   const { limit = 100, offset = 0, severity = null, filePath = null } = options;
-  
+
   let sql = `
     SELECT *
     FROM file_security_issues
     WHERE website_id = ?
   `;
-  
+
   const params = [websiteId];
 
   if (severity) {
@@ -127,16 +107,16 @@ async function getSummaryByWebsite(userId = null) {
     FROM file_security_issues fsi
     JOIN websites w ON fsi.website_id = w.id
   `;
-  
+
   const params = [];
-  
+
   if (userId !== null) {
     sql += ' WHERE w.user_id = ?';
     params.push(userId);
   }
-  
+
   sql += ' GROUP BY w.id ORDER BY critical_count DESC, high_count DESC, total_issues DESC';
-  
+
   return await db.query(sql, params);
 }
 
@@ -174,14 +154,14 @@ async function getTopFilesByIssueCount(userId = null, limit = 10) {
     FROM file_security_issues fsi
     JOIN websites w ON fsi.website_id = w.id
   `;
-  
+
   const params = [];
-  
+
   if (userId !== null) {
     sql += ' WHERE w.user_id = ?';
     params.push(userId);
   }
-  
+
   sql += ' GROUP BY w.domain, fsi.file_path ORDER BY critical_count DESC, high_count DESC, issue_count DESC LIMIT ?';
   params.push(limit);
 
@@ -193,7 +173,7 @@ async function removeStaleIssues(retentionDays = 30) {
     DELETE FROM file_security_issues 
     WHERE last_seen_at < DATE_SUB(NOW(), INTERVAL ? DAY)
   `;
-  
+
   const result = await db.query(sql, [retentionDays]);
   return result.affectedRows || 0;
 }

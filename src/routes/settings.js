@@ -12,7 +12,7 @@ const requireAdmin = async (req, res, next) => {
   if (!roles.includes('administrator')) {
     return res.status(403).json({
       success: false,
-      error: 'Administrator privileges required'
+      error: 'Administrator privileges required',
     });
   }
   next();
@@ -78,7 +78,7 @@ const requireAdmin = async (req, res, next) => {
 router.get('/', apiOrSessionAuth, async (req, res) => {
   try {
     const { category, grouped } = req.query;
-    
+
     let settings;
     if (grouped === 'true') {
       settings = await AppSetting.getAllGrouped();
@@ -87,16 +87,16 @@ router.get('/', apiOrSessionAuth, async (req, res) => {
     } else {
       settings = await AppSetting.getAll();
     }
-    
+
     res.json({
       success: true,
-      settings
+      settings,
     });
   } catch (error) {
     console.error('Error retrieving settings:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to retrieve settings'
+      error: 'Failed to retrieve settings',
     });
   }
 });
@@ -129,29 +129,29 @@ router.get('/', apiOrSessionAuth, async (req, res) => {
 router.get('/:key', apiOrSessionAuth, async (req, res) => {
   try {
     const { key } = req.params;
-    
+
     // Replace URL-encoded dots back to actual dots
     const settingKey = key.replace(/%2E/g, '.');
-    
+
     const value = await AppSetting.get(settingKey);
-    
+
     if (value === null) {
       return res.status(404).json({
         success: false,
-        error: 'Setting not found'
+        error: 'Setting not found',
       });
     }
-    
+
     res.json({
       success: true,
       key: settingKey,
-      value
+      value,
     });
   } catch (error) {
     console.error('Error retrieving setting:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to retrieve setting'
+      error: 'Failed to retrieve setting',
     });
   }
 });
@@ -216,57 +216,50 @@ router.put('/:key', apiOrSessionAuth, requireAdmin, async (req, res) => {
   try {
     const { key } = req.params;
     const { value, type, description, category, isSystem } = req.body;
-    
+
     // Replace URL-encoded dots back to actual dots
     const settingKey = key.replace(/%2E/g, '.');
-    
+
     // Validate required fields
     if (value === undefined || value === null) {
       return res.status(400).json({
         success: false,
-        error: 'Value is required'
+        error: 'Value is required',
       });
     }
-    
+
     if (!type) {
       return res.status(400).json({
         success: false,
-        error: 'Type is required'
+        error: 'Type is required',
       });
     }
-    
+
     // Validate type
     const validTypes = ['string', 'integer', 'float', 'boolean'];
     if (!validTypes.includes(type)) {
       return res.status(400).json({
         success: false,
-        error: `Invalid type. Must be one of: ${validTypes.join(', ')}`
+        error: `Invalid type. Must be one of: ${validTypes.join(', ')}`,
       });
     }
-    
-    await AppSetting.set(
-      settingKey,
-      value,
-      type,
-      description || null,
-      category || null,
-      isSystem || false
-    );
-    
+
+    await AppSetting.set(settingKey, value, type, description || null, category || null, isSystem || false);
+
     // Retrieve the updated value
     const updatedValue = await AppSetting.get(settingKey);
-    
+
     res.json({
       success: true,
       key: settingKey,
       value: updatedValue,
-      message: 'Setting updated successfully'
+      message: 'Setting updated successfully',
     });
   } catch (error) {
     console.error('Error updating setting:', error);
     res.status(400).json({
       success: false,
-      error: error.message || 'Failed to update setting'
+      error: error.message || 'Failed to update setting',
     });
   }
 });
@@ -301,37 +294,37 @@ router.put('/:key', apiOrSessionAuth, requireAdmin, async (req, res) => {
 router.delete('/:key', apiOrSessionAuth, requireAdmin, async (req, res) => {
   try {
     const { key } = req.params;
-    
+
     // Replace URL-encoded dots back to actual dots
     const settingKey = key.replace(/%2E/g, '.');
-    
+
     const deleted = await AppSetting.remove(settingKey);
-    
+
     if (!deleted) {
       return res.status(404).json({
         success: false,
-        error: 'Setting not found'
+        error: 'Setting not found',
       });
     }
-    
+
     res.json({
       success: true,
-      message: 'Setting deleted successfully'
+      message: 'Setting deleted successfully',
     });
   } catch (error) {
     console.error('Error deleting setting:', error);
-    
+
     // Check if this was a protected system setting
     if (error.message && error.message.includes('system setting')) {
       return res.status(403).json({
         success: false,
-        error: error.message
+        error: error.message,
       });
     }
-    
+
     res.status(500).json({
       success: false,
-      error: 'Failed to delete setting'
+      error: 'Failed to delete setting',
     });
   }
 });

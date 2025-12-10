@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS app_settings (
 ```
 
 **Fields:**
+
 - `setting_key`: Dot-namespaced key (e.g., `wordpress.current_version`)
 - `setting_value`: String representation of the value
 - `value_type`: Data type for proper casting when retrieved
@@ -64,6 +65,7 @@ We store all values as TEXT in the database but include a `value_type` field to 
 ### Type Casting
 
 The model automatically casts retrieved values based on their `value_type`:
+
 - `integer` → `parseInt(value, 10)`
 - `float` → `parseFloat(value)`
 - `boolean` → `value === 'true'`
@@ -109,32 +111,32 @@ scan.max_file_size_mb=10
 
 ```javascript
 // Get a single setting with type casting
-await AppSetting.get(key, defaultValue = null)
+await AppSetting.get(key, (defaultValue = null));
 // Returns: casted value or defaultValue if not found
 
 // Get multiple settings by pattern
-await AppSetting.getByPattern(pattern)
+await AppSetting.getByPattern(pattern);
 // Example: AppSetting.getByPattern('retention.*')
 // Returns: array of {key, value, type, description}
 
 // Get settings by category
-await AppSetting.getByCategory(category)
+await AppSetting.getByCategory(category);
 // Returns: array of settings in that category
 
 // Get all settings
-await AppSetting.getAll()
+await AppSetting.getAll();
 // Returns: array of all settings
 
 // Set a setting (admin only in route)
-await AppSetting.set(key, value, type, description = null, category = null)
+await AppSetting.set(key, value, type, (description = null), (category = null));
 // Upserts the setting with proper type
 
 // Delete a setting (admin only in route)
-await AppSetting.delete(key)
+await AppSetting.delete(key);
 // Only deletes if is_system = 0
 
 // Bulk set (for seeding)
-await AppSetting.bulkSet(settings)
+await AppSetting.bulkSet(settings);
 // settings: array of {key, value, type, description, category, is_system}
 ```
 
@@ -143,7 +145,7 @@ await AppSetting.bulkSet(settings)
 The model should automatically cast values when retrieved:
 
 ```javascript
-const maxDays = await AppSetting.get('retention.security_events'); 
+const maxDays = await AppSetting.get('retention.security_events');
 // Returns: 30 (integer)
 
 const isEnabled = await AppSetting.get('feature.auto_delete_websites');
@@ -165,10 +167,12 @@ Get all settings (or filter by pattern/category)
 **Authentication**: Any authenticated user
 
 **Query Parameters:**
+
 - `pattern` (optional): Glob pattern to filter keys (e.g., `retention.*`)
 - `category` (optional): Filter by category
 
 **Response:**
+
 ```json
 {
   "settings": [
@@ -190,6 +194,7 @@ Get a single setting by key
 **Authentication**: Any authenticated user
 
 **Response:**
+
 ```json
 {
   "key": "php.minimum_version",
@@ -207,6 +212,7 @@ Create or update a setting
 **Authentication**: Administrator only
 
 **Request Body:**
+
 ```json
 {
   "value": "8.2",
@@ -217,6 +223,7 @@ Create or update a setting
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -232,6 +239,7 @@ Delete a setting (if not system-protected)
 **Authentication**: Administrator only
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -246,46 +254,33 @@ Settings that should be created on first run (using INSERT IGNORE):
 ```javascript
 const defaultSettings = [
   // Version Thresholds
-  { key: 'wordpress.current_version', value: '6.7.1', type: 'string', 
-    description: 'Current stable WordPress version', category: 'versions', is_system: 1 },
-  { key: 'wordpress.minimum_version', value: '6.4', type: 'string',
-    description: 'Minimum acceptable WordPress version', category: 'versions', is_system: 1 },
-  { key: 'php.minimum_version', value: '8.1', type: 'string',
-    description: 'Minimum acceptable PHP version', category: 'versions', is_system: 1 },
-  { key: 'php.recommended_version', value: '8.3', type: 'string',
-    description: 'Recommended PHP version', category: 'versions', is_system: 1 },
-  { key: 'database.mariadb_minimum', value: '10.6.0', type: 'string',
-    description: 'Minimum MariaDB version', category: 'versions', is_system: 1 },
-  { key: 'database.mysql_minimum', value: '8.0.0', type: 'string',
-    description: 'Minimum MySQL version', category: 'versions', is_system: 1 },
-  
+  { key: 'wordpress.current_version', value: '6.7.1', type: 'string', description: 'Current stable WordPress version', category: 'versions', is_system: 1 },
+  { key: 'wordpress.minimum_version', value: '6.4', type: 'string', description: 'Minimum acceptable WordPress version', category: 'versions', is_system: 1 },
+  { key: 'php.minimum_version', value: '8.1', type: 'string', description: 'Minimum acceptable PHP version', category: 'versions', is_system: 1 },
+  { key: 'php.recommended_version', value: '8.3', type: 'string', description: 'Recommended PHP version', category: 'versions', is_system: 1 },
+  { key: 'database.mariadb_minimum', value: '10.6.0', type: 'string', description: 'Minimum MariaDB version', category: 'versions', is_system: 1 },
+  { key: 'database.mysql_minimum', value: '8.0.0', type: 'string', description: 'Minimum MySQL version', category: 'versions', is_system: 1 },
+
   // Data Retention
-  { key: 'retention.security_events', value: '30', type: 'integer',
-    description: 'Security events retention in days', category: 'retention', is_system: 1 },
-  { key: 'retention.file_issues', value: '30', type: 'integer',
-    description: 'File security issues retention in days', category: 'retention', is_system: 1 },
-  { key: 'retention.component_changes', value: '365', type: 'integer',
-    description: 'Component changes retention in days', category: 'retention', is_system: 1 },
-  { key: 'retention.api_logs', value: '7', type: 'integer',
-    description: 'API log retention in days', category: 'retention', is_system: 1 },
-  
+  { key: 'retention.security_events', value: '30', type: 'integer', description: 'Security events retention in days', category: 'retention', is_system: 1 },
+  { key: 'retention.file_issues', value: '30', type: 'integer', description: 'File security issues retention in days', category: 'retention', is_system: 1 },
+  { key: 'retention.component_changes', value: '365', type: 'integer', description: 'Component changes retention in days', category: 'retention', is_system: 1 },
+  { key: 'retention.api_logs', value: '7', type: 'integer', description: 'API log retention in days', category: 'retention', is_system: 1 },
+
   // Batch Sizes
-  { key: 'batch.wporg_sync', value: '10', type: 'integer',
-    description: 'WordPress.org sync batch size', category: 'batch', is_system: 1 },
-  { key: 'batch.reporting', value: '5', type: 'integer',
-    description: 'Email reporting batch size', category: 'batch', is_system: 1 },
-  
+  { key: 'batch.wporg_sync', value: '10', type: 'integer', description: 'WordPress.org sync batch size', category: 'batch', is_system: 1 },
+  { key: 'batch.reporting', value: '5', type: 'integer', description: 'Email reporting batch size', category: 'batch', is_system: 1 },
+
   // Feature Flags
-  { key: 'feature.auto_delete_websites', value: 'false', type: 'boolean',
-    description: 'Enable automatic stale website deletion', category: 'features', is_system: 1 },
-  { key: 'feature.geoip_enabled', value: 'true', type: 'boolean',
-    description: 'Enable GeoIP lookups for security events', category: 'features', is_system: 0 },
+  { key: 'feature.auto_delete_websites', value: 'false', type: 'boolean', description: 'Enable automatic stale website deletion', category: 'features', is_system: 1 },
+  { key: 'feature.geoip_enabled', value: 'true', type: 'boolean', description: 'Enable GeoIP lookups for security events', category: 'features', is_system: 0 },
 ];
 ```
 
 ## Migration from Environment Variables
 
 ### Phase 1: Add App Settings (v1.11.0)
+
 - Create app_settings table
 - Create AppSetting model
 - Create API routes
@@ -293,11 +288,13 @@ const defaultSettings = [
 - Keep existing environment variable fallbacks
 
 ### Phase 2: Migrate Codebase (v1.12.0)
+
 - Update all code to use AppSetting.get() instead of process.env
 - Maintain backwards compatibility with env vars as fallback
 - Update documentation
 
 ### Phase 3: Deprecate Environment Variables (v2.0.0)
+
 - Remove environment variable fallbacks
 - Remove settings from env.sample
 - Breaking change documented in CHANGELOG
@@ -307,12 +304,14 @@ const defaultSettings = [
 ### Using Settings in Reporting
 
 **Before:**
+
 ```javascript
 const retentionDays = parseInt(process.env.SECURITY_EVENTS_RETENTION_DAYS, 10) || 30;
 const wpVersion = process.env.WORDPRESS_STABLE_VERSION || '6.7.1';
 ```
 
 **After:**
+
 ```javascript
 const retentionDays = await AppSetting.get('retention.security_events', 30);
 const wpVersion = await AppSetting.get('wordpress.current_version', '6.7.1');
@@ -368,17 +367,20 @@ http GET http://localhost:3001/api/settings?pattern=retention.* \
 ## Implementation Checklist
 
 ### Database
+
 - [ ] Create migration for app_settings table
 - [ ] Add indexes for performance
 - [ ] Seed default settings using INSERT IGNORE
 
 ### Model
+
 - [ ] Create AppSetting model with type casting
 - [ ] Implement get/set/delete methods
 - [ ] Implement pattern and category filtering
 - [ ] Add value type validation
 
 ### Routes
+
 - [ ] Create GET /api/settings (with filters)
 - [ ] Create GET /api/settings/:key
 - [ ] Create PUT /api/settings/:key (admin only)
@@ -387,6 +389,7 @@ http GET http://localhost:3001/api/settings?pattern=retention.* \
 - [ ] Add administrator role check for writes
 
 ### Testing
+
 - [ ] Test type casting (string/int/float/bool)
 - [ ] Test pattern filtering
 - [ ] Test admin-only enforcement
@@ -394,6 +397,7 @@ http GET http://localhost:3001/api/settings?pattern=retention.* \
 - [ ] Test INSERT IGNORE for seeding
 
 ### Documentation
+
 - [ ] Update API documentation
 - [ ] Add usage examples
 - [ ] Document migration path from env vars
@@ -440,14 +444,17 @@ REFERENCE_UPDATE_LOCATION=https://vulnz.net/reference.json
 Additional non-sensitive settings that could be migrated from `.env` to App Settings:
 
 **Feature Flags:**
+
 - `REGISTRATION_ENABLED` → `feature.registration_enabled` (boolean)
 - `CRON_ENABLE` → `feature.cron_enabled` (boolean)
 - `WEBSITE_AUTO_DELETE_ENABLED` → `feature.website_auto_delete` (boolean)
 
 **Rate Limiting:**
+
 - `UNAUTH_SEARCH_LIMIT_PER_SECOND` → `rate.unauth_search_per_second` (integer)
 
 **Session & Authentication:**
+
 - `SESSION_DURATION_DAYS` → `session.duration_days` (integer)
 - `PASSWORD_MIN_LENGTH` → `password.min_length` (integer)
 - `PASSWORD_MIN_ALPHA` → `password.min_alpha` (integer)
@@ -458,12 +465,14 @@ Additional non-sensitive settings that could be migrated from `.env` to App Sett
 - `PASSWORD_RESET_TOKEN_DURATION` → `password.reset_token_duration` (integer)
 
 **Operational Limits:**
+
 - `LIST_PAGE_SIZE` → `ui.list_page_size` (integer)
 - `MAX_API_KEYS_PER_USER` → `limits.max_api_keys_per_user` (integer)
 - `API_LOG_RETENTION_DAYS` → `retention.api_logs_days` (integer)
 - `WEBSITE_AUTO_DELETE_DAYS` → `retention.website_auto_delete_days` (integer)
 
 **Reporting:**
+
 - `REPORTING_HOUR` → `report.delivery_hour` (integer)
 - `REPORTING_BATCH_SIZE` → `report.batch_size` (integer)
 - `REPORTING_HEADING` → `report.email_heading` (string)
@@ -473,12 +482,14 @@ Additional non-sensitive settings that could be migrated from `.env` to App Sett
 - `REPORTING_POST_SCRIPT` → `report.email_postscript` (string)
 
 **WordPress.org Integration:**
+
 - `WPORG_UPDATE_BATCH_SIZE` → `batch.wporg_update_size` (integer)
 - `WPORG_TIMEOUT_MS` → `wporg.timeout_ms` (integer)
 
 ## Migration Strategy
 
 For v1.10.0 users, provide a migration script that:
+
 1. Reads current environment variables
 2. Creates corresponding app_settings entries
 3. Logs the migration for review

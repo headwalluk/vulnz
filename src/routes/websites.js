@@ -271,14 +271,18 @@ router.post('/', apiOrSessionAuth, async (req, res) => {
 
 const processComponents = async (components, componentType) => {
   const releaseIds = [];
+  const componentIds = [];
+
   if (Array.isArray(components)) {
     for (const { slug, version } of components) {
       const component = await Component.findOrCreate(slug, componentType, slug);
       const release = await Release.findOrCreate(component.id, version);
       releaseIds.push(release.id);
+      componentIds.push(component.id);
     }
   }
-  return releaseIds;
+
+  return { releaseIds, componentIds };
 };
 
 /**
@@ -371,10 +375,13 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
 
       // Process new components
       const newComponents = [];
+      const allComponentIds = [];
 
       if (wordpressPlugins) {
         await WebsiteComponent.deleteByType(req.website.id, 'wordpress-plugin');
-        const pluginReleaseIds = await processComponents(wordpressPlugins, 'wordpress-plugin');
+        const { releaseIds: pluginReleaseIds, componentIds: pluginComponentIds } = await processComponents(wordpressPlugins, 'wordpress-plugin');
+        allComponentIds.push(...pluginComponentIds);
+
         for (const releaseId of pluginReleaseIds) {
           await WebsiteComponent.create(req.website.id, releaseId);
           // Get component info for change tracking
@@ -382,7 +389,7 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
           if (release) {
             newComponents.push({
               component_id: release.component_id,
-              release_id: releaseId
+              release_id: releaseId,
             });
           }
         }
@@ -390,7 +397,9 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
 
       if (wordpressThemes) {
         await WebsiteComponent.deleteByType(req.website.id, 'wordpress-theme');
-        const themeReleaseIds = await processComponents(wordpressThemes, 'wordpress-theme');
+        const { releaseIds: themeReleaseIds, componentIds: themeComponentIds } = await processComponents(wordpressThemes, 'wordpress-theme');
+        allComponentIds.push(...themeComponentIds);
+
         for (const releaseId of themeReleaseIds) {
           await WebsiteComponent.create(req.website.id, releaseId);
           // Get component info for change tracking
@@ -398,23 +407,23 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
           if (release) {
             newComponents.push({
               component_id: release.component_id,
-              release_id: releaseId
+              release_id: releaseId,
             });
           }
         }
+      }
+
+      // Invalidate WordPress.org sync status for updated components
+      // This triggers immediate re-sync to ensure metadata stays fresh
+      if (allComponentIds.length > 0) {
+        await Component.invalidateWpOrgSyncStatus(allComponentIds);
       }
 
       // Record component changes
       console.log('Recording component changes...');
       console.log('Old components:', oldComponents.length);
       console.log('New components:', newComponents.length);
-      componentChangeSummary = await ComponentChange.recordChanges(
-        req.website.id,
-        oldComponents,
-        newComponents,
-        req.user?.id,
-        'api'
-      );
+      componentChangeSummary = await ComponentChange.recordChanges(req.website.id, oldComponents, newComponents, req.user?.id, 'api');
       console.log('Component changes recorded:', componentChangeSummary);
 
       await Website.touch(req.website.id);
@@ -428,7 +437,7 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
         if (!validTypes.includes(versions.db_server_type)) {
           return res.status(400).json({
             success: false,
-            message: `Invalid db_server_type. Must be one of: ${validTypes.join(', ')}`
+            message: `Invalid db_server_type. Must be one of: ${validTypes.join(', ')}`,
           });
         }
       }
@@ -541,7 +550,6 @@ router.delete('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) =
  *         description: Server error
  */
 router.post('/:domain/security-events', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
-
   try {
     const { events } = req.body;
 
@@ -549,15 +557,14 @@ router.post('/:domain/security-events', apiOrSessionAuth, canAccessWebsite, asyn
       return res.status(400).json({ error: 'Events array is required and must not be empty' });
     }
 
-
     // Validate and prepare events for bulk insert
     const preparedEvents = [];
     const eventTypeCache = new Map();
 
     for (const event of events) {
       if (!event.event_type || !event.source_ip || !event.event_datetime) {
-        return res.status(400).json({ 
-          error: 'Each event must have event_type, source_ip, and event_datetime' 
+        return res.status(400).json({
+          error: 'Each event must have event_type, source_ip, and event_datetime',
         });
       }
 
@@ -568,8 +575,8 @@ router.post('/:domain/security-events', apiOrSessionAuth, canAccessWebsite, asyn
       } else {
         eventType = await SecurityEventType.findBySlug(event.event_type);
         if (!eventType) {
-          return res.status(400).json({ 
-            error: `Unknown event type: ${event.event_type}` 
+          return res.status(400).json({
+            error: `Unknown event type: ${event.event_type}`,
           });
         }
         if (!eventType.enabled) {
@@ -588,7 +595,7 @@ router.post('/:domain/security-events', apiOrSessionAuth, canAccessWebsite, asyn
         eventDatetime: event.event_datetime,
         continentCode,
         countryCode,
-        details: event.details || null
+        details: event.details || null,
       });
     }
 
@@ -602,20 +609,20 @@ router.post('/:domain/security-events', apiOrSessionAuth, canAccessWebsite, asyn
     res.status(201).json({
       success: true,
       events_created: result.inserted,
-      events_duplicate: result.duplicates
+      events_duplicate: result.duplicates,
     });
   } catch (err) {
     console.error(err);
-    
+
     // Check if error is due to duplicate key constraint
     if (err.code === 'ER_DUP_ENTRY' || err.errno === 1062 || err.message.includes('Duplicate entry')) {
       return res.status(409).json({
         success: false,
         error: 'Duplicate event(s) detected',
-        message: 'One or more events already exist with the same website, event type, IP, and timestamp'
+        message: 'One or more events already exist with the same website, event type, IP, and timestamp',
       });
     }
-    
+
     res.status(500).send('Server error');
   }
 });
@@ -628,7 +635,7 @@ router.post('/:domain/security-events', apiOrSessionAuth, canAccessWebsite, asyn
  *     deprecated: true
  *     description: |
  *       **DEPRECATED**: Use PUT /api/websites/{domain} with a `versions` object instead.
- *       
+ *
  *       Update WordPress, PHP, and database server version information for a website.
  *     tags:
  *       - Websites
@@ -687,15 +694,15 @@ router.put('/:domain/versions', apiOrSessionAuth, canAccessWebsite, async (req, 
 
     // Validate at least one version field is provided
     if (!wordpress_version && !php_version && !db_server_type && !db_server_version) {
-      return res.status(400).json({ 
-        error: 'At least one version field must be provided' 
+      return res.status(400).json({
+        error: 'At least one version field must be provided',
       });
     }
 
     // Validate db_server_type if provided
     if (db_server_type && !['mysql', 'mariadb', 'unknown'].includes(db_server_type)) {
-      return res.status(400).json({ 
-        error: 'db_server_type must be one of: mysql, mariadb, unknown' 
+      return res.status(400).json({
+        error: 'db_server_type must be one of: mysql, mariadb, unknown',
       });
     }
 
@@ -708,14 +715,14 @@ router.put('/:domain/versions', apiOrSessionAuth, canAccessWebsite, async (req, 
     const updated = await Website.updateVersions(req.website.id, versions);
 
     if (!updated) {
-      return res.status(500).json({ 
-        error: 'Failed to update versions' 
+      return res.status(500).json({
+        error: 'Failed to update versions',
       });
     }
 
     res.json({
       success: true,
-      message: 'Versions updated successfully'
+      message: 'Versions updated successfully',
     });
   } catch (err) {
     console.error(err);
@@ -805,8 +812,8 @@ router.post('/:domain/security-scan', apiOrSessionAuth, canAccessWebsite, async 
       summary: {
         error: 0,
         warning: 0,
-        info: 0
-      }
+        info: 0,
+      },
     };
 
     // Process each file
@@ -823,24 +830,17 @@ router.post('/:domain/security-scan', apiOrSessionAuth, canAccessWebsite, async 
         results.issues_deleted += deleted;
       } else {
         // File has issues - upsert them
-        const issues = file.issues.map(issue => ({
+        const issues = file.issues.map((issue) => ({
           websiteId: req.website.id,
           filePath: file.path,
           lineNumber: issue.line || null,
           issueType: issue.type,
           severity: issue.severity || 'warning',
-          message: issue.message
+          message: issue.message,
         }));
 
         for (const issue of issues) {
-          await FileSecurityIssue.upsertIssue(
-            issue.websiteId,
-            issue.filePath,
-            issue.lineNumber,
-            issue.issueType,
-            issue.severity,
-            issue.message
-          );
+          await FileSecurityIssue.upsertIssue(issue.websiteId, issue.filePath, issue.lineNumber, issue.issueType, issue.severity, issue.message);
           results.issues_created++;
           results.summary[issue.severity]++;
         }
@@ -849,7 +849,7 @@ router.post('/:domain/security-scan', apiOrSessionAuth, canAccessWebsite, async 
 
     res.status(201).json({
       success: true,
-      ...results
+      ...results,
     });
   } catch (err) {
     console.error(err);

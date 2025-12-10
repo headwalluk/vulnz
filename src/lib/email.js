@@ -51,7 +51,7 @@ async function sendPasswordResetEmail(to, token) {
 }
 
 // Helper to convert country code to flag emoji
-handlebars.registerHelper('countryFlag', function(countryCode) {
+handlebars.registerHelper('countryFlag', function (countryCode) {
   if (!countryCode || countryCode.length !== 2) {
     return '';
   }
@@ -60,8 +60,18 @@ handlebars.registerHelper('countryFlag', function(countryCode) {
   const codePoints = countryCode
     .toUpperCase()
     .split('')
-    .map(char => 127397 + char.charCodeAt(0));
+    .map((char) => 127397 + char.charCodeAt(0));
   return String.fromCodePoint(...codePoints);
+});
+
+// Helper for equality comparison
+handlebars.registerHelper('eq', function (a, b) {
+  return a === b;
+});
+
+// Helper for greater than comparison
+handlebars.registerHelper('gt', function (a, b) {
+  return a > b;
 });
 
 async function sendVulnerabilityReport(to, data) {

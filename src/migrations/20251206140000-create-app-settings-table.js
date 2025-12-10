@@ -1,6 +1,6 @@
 /**
  * Migration: Create app_settings table
- * 
+ *
  * A key-value configuration system for runtime parameters that can be
  * modified without application restarts. Replaces hardcoded values and
  * environment variables for non-sensitive configuration.

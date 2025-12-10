@@ -17,23 +17,23 @@ VULNZ_API_KEY=$3
 WEBSITE_DOMAIN=$4
 
 if [ -z "$WEBSITE_PATH" ] || [ -z "$VULNZ_API_URL" ] || [ -z "$VULNZ_API_KEY" ] || [ -z "$WEBSITE_DOMAIN" ]; then
-    echo "Usage: $0 <website_path> <vulnz_api_url> <vulnz_api_key> <website_domain>"
-    echo ""
-    echo "Example:"
-    echo "  $0 /var/www/example.com https://vulnz.example.com your-api-key example.com"
-    exit 1
+  echo "Usage: $0 <website_path> <vulnz_api_url> <vulnz_api_key> <website_domain>"
+  echo ""
+  echo "Example:"
+  echo "  $0 /var/www/example.com https://vulnz.example.com your-api-key example.com"
+  exit 1
 fi
 
 if [ ! -d "$WEBSITE_PATH" ]; then
-    echo "Error: Website path does not exist: $WEBSITE_PATH"
-    exit 1
+  echo "Error: Website path does not exist: $WEBSITE_PATH"
+  exit 1
 fi
 
 # Check if phpcs is installed
 if ! command -v phpcs &> /dev/null; then
-    echo "Error: phpcs (PHP_CodeSniffer) is not installed"
-    echo "Install with: composer global require squizlabs/php_codesniffer"
-    exit 1
+  echo "Error: phpcs (PHP_CodeSniffer) is not installed"
+  echo "Install with: composer global require squizlabs/php_codesniffer"
+  exit 1
 fi
 
 echo "Scanning WordPress site: $WEBSITE_PATH"
@@ -48,15 +48,15 @@ trap "rm -f $SCAN_RESULTS" EXIT
 # Run phpcs with WordPress Security standards
 echo "Running PHP_CodeSniffer with WordPress Security standards..."
 phpcs --standard=WordPress-Security \
-     --report=json \
-     --extensions=php \
-     --ignore=*/vendor/*,*/node_modules/* \
-     "$WEBSITE_PATH" > "$SCAN_RESULTS" 2>/dev/null || true
+  --report=json \
+  --extensions=php \
+  --ignore=*/vendor/*,*/node_modules/* \
+  "$WEBSITE_PATH" > "$SCAN_RESULTS" 2> /dev/null || true
 
 # Check if scan produced output
 if [ ! -s "$SCAN_RESULTS" ]; then
-    echo "Warning: No scan results generated. Creating empty results."
-    echo '{"totals":{"errors":0,"warnings":0,"fixable":0},"files":{}}' > "$SCAN_RESULTS"
+  echo "Warning: No scan results generated. Creating empty results."
+  echo '{"totals":{"errors":0,"warnings":0,"fixable":0},"files":{}}' > "$SCAN_RESULTS"
 fi
 
 echo "Scan complete. Processing results..."

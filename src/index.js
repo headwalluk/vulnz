@@ -269,6 +269,19 @@ async function startServer() {
         syncNextPlugin();
       });
 
+      // Invalidate stale WordPress.org syncs (once daily at 2am)
+      // Marks plugins not synced in 7 days for re-sync
+      cron.schedule('0 2 * * *', async () => {
+        const daysThreshold = parseInt(process.env.WPORG_RESYNC_DAYS || '7', 10);
+        console.log(`Running cron job to invalidate stale wporg syncs (older than ${daysThreshold} days)...`);
+        try {
+          const invalidatedCount = await component.invalidateStaleSyncs(daysThreshold);
+          console.log(`Invalidated ${invalidatedCount} stale plugin sync(s).`);
+        } catch (err) {
+          console.error('Error invalidating stale syncs:', err);
+        }
+      });
+
       if (process.env.WEBSITE_AUTO_DELETE_ENABLED === 'true') {
         const days = parseInt(process.env.WEBSITE_AUTO_DELETE_DAYS, 10) || 30;
         cron.schedule('0 0 * * *', async () => {
@@ -286,11 +299,7 @@ async function startServer() {
 
       // Purge old security events
       cron.schedule('0 1 * * *', async () => {
-        const securityEventsRetentionDays = await appSetting.getWithFallback(
-          'retention.security_events_days',
-          'SECURITY_EVENTS_RETENTION_DAYS',
-          30
-        );
+        const securityEventsRetentionDays = await appSetting.getWithFallback('retention.security_events_days', 'SECURITY_EVENTS_RETENTION_DAYS', 30);
         console.log(`Running cron job to purge old security events (older than ${securityEventsRetentionDays} days)...`);
         try {
           const deletedCount = await securityEvent.removeOldEvents(securityEventsRetentionDays);
@@ -302,11 +311,7 @@ async function startServer() {
 
       // Purge stale file security issues
       cron.schedule('0 2 * * *', async () => {
-        const fileIssuesRetentionDays = await appSetting.getWithFallback(
-          'retention.file_security_issues_days',
-          'FILE_SECURITY_ISSUES_RETENTION_DAYS',
-          30
-        );
+        const fileIssuesRetentionDays = await appSetting.getWithFallback('retention.file_security_issues_days', 'FILE_SECURITY_ISSUES_RETENTION_DAYS', 30);
         console.log(`Running cron job to purge stale file security issues (older than ${fileIssuesRetentionDays} days)...`);
         try {
           const deletedCount = await fileSecurityIssue.removeStaleIssues(fileIssuesRetentionDays);
@@ -318,11 +323,7 @@ async function startServer() {
 
       // Purge old component changes (runs weekly on Sunday at 3 AM)
       cron.schedule('0 3 * * 0', async () => {
-        const componentChangesRetentionDays = await appSetting.getWithFallback(
-          'retention.component_changes_days',
-          'COMPONENT_CHANGES_RETENTION_DAYS',
-          365
-        );
+        const componentChangesRetentionDays = await appSetting.getWithFallback('retention.component_changes_days', 'COMPONENT_CHANGES_RETENTION_DAYS', 365);
         console.log(`Running cron job to purge old component changes (older than ${componentChangesRetentionDays} days)...`);
         try {
           const deletedCount = await componentChange.removeOldChanges(componentChangesRetentionDays);

@@ -180,12 +180,12 @@ const findOutdatedWordPress = async (minVersion, userId = null) => {
     AND wordpress_version < ?
   `;
   const params = [minVersion];
-  
+
   if (userId !== null) {
     query += ' AND user_id = ?';
     params.push(userId);
   }
-  
+
   query += ' ORDER BY wordpress_version ASC';
   return await db.query(query, params);
 };
@@ -197,12 +197,12 @@ const findOutdatedPhp = async (minVersion, userId = null) => {
     AND php_version < ?
   `;
   const params = [minVersion];
-  
+
   if (userId !== null) {
     query += ' AND user_id = ?';
     params.push(userId);
   }
-  
+
   query += ' ORDER BY php_version ASC';
   return await db.query(query, params);
 };

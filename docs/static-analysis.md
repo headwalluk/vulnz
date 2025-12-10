@@ -17,11 +17,13 @@ Integrate static code analysis results from PHP security scanning tools (like PH
 The website hosting provider is responsible for running static analysis tools and POSTing results to the VULNZ API.
 
 **VULNZ Provides**:
+
 - Sample BASH script using PHP_CodeSniffer with WordPress Security sniffs
 - Script will be located in `scripts/scan-website.sh`
 - API endpoint documentation for submitting results
 
 **Provider Integrates**:
+
 - Run scanning on their schedule (e.g., daily, weekly)
 - Parse scanner output into JSON format
 - POST results to VULNZ API
@@ -41,23 +43,23 @@ VULNZ_API_KEY=$3
 WEBSITE_ID=$4
 
 if [ -z "$WEBSITE_PATH" ] || [ -z "$VULNZ_API_URL" ] || [ -z "$VULNZ_API_KEY" ] || [ -z "$WEBSITE_ID" ]; then
-    echo "Usage: $0 <website_path> <vulnz_api_url> <vulnz_api_key> <website_id>"
-    exit 1
+  echo "Usage: $0 <website_path> <vulnz_api_url> <vulnz_api_key> <website_id>"
+  exit 1
 fi
 
 # Run phpcs with WordPress Security standards
 phpcs --standard=WordPress-Security \
-     --report=json \
-     --extensions=php \
-     "$WEBSITE_PATH" > /tmp/phpcs-report.json
+  --report=json \
+  --extensions=php \
+  "$WEBSITE_PATH" > /tmp/phpcs-report.json
 
 # Parse and POST to VULNZ API
 # (Node.js/Python script to parse JSON and POST to API)
 node scripts/post-analysis-results.js \
-    "$VULNZ_API_URL" \
-    "$VULNZ_API_KEY" \
-    "$WEBSITE_ID" \
-    /tmp/phpcs-report.json
+  "$VULNZ_API_URL" \
+  "$VULNZ_API_KEY" \
+  "$WEBSITE_ID" \
+  /tmp/phpcs-report.json
 
 rm /tmp/phpcs-report.json
 ```
@@ -67,11 +69,13 @@ rm /tmp/phpcs-report.json
 ## Static Analysis Tools
 
 **Recommended**:
+
 - PHP_CodeSniffer with WordPress Coding Standards
 - WordPress Security Coding Standards (https://github.com/WordPress/WordPress-Coding-Standards)
 - Specific sniffs for security issues
 
 **Other Compatible Tools**:
+
 - Psalm with security plugins
 - PHPStan with security rules
 - Custom scanning scripts
@@ -85,6 +89,7 @@ rm /tmp/phpcs-report.json
 Tracks security issues found in specific files, with touch-based purging for resolved issues.
 
 **Schema**:
+
 ```sql
 CREATE TABLE file_security_issues (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -96,9 +101,9 @@ CREATE TABLE file_security_issues (
   message TEXT,
   last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
+
   FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE,
-  
+
   INDEX idx_website_file (website_id, file_path),
   INDEX idx_severity (severity),
   INDEX idx_last_seen (last_seen_at)
@@ -106,6 +111,7 @@ CREATE TABLE file_security_issues (
 ```
 
 **Field Descriptions**:
+
 - `file_path`: Relative path from WordPress root (e.g., `wp-content/plugins/myplugin/admin.php`)
 - `line_number`: Line where issue was found (NULL for file-level issues)
 - `issue_type`: Scanner-specific code (e.g., `WordPress.Security.EscapeOutput.OutputNotEscaped`)
@@ -126,11 +132,13 @@ Static analysis issues use a "touch-based" purging strategy similar to the websi
 3. **Deleted Files**: If a file no longer exists (not in scan results for X days), its issues are purged.
 
 **Configuration**:
+
 ```bash
-FILE_SECURITY_ISSUES_RETENTION_DAYS=30  # Default: 30 days
+FILE_SECURITY_ISSUES_RETENTION_DAYS=30 # Default: 30 days
 ```
 
 **Implementation**:
+
 - `FileSecurityIssue.removeStaleIssues()` static method
 - Called by cron job daily
 - Deletes issues where `last_seen_at` older than retention period
@@ -138,11 +146,13 @@ FILE_SECURITY_ISSUES_RETENTION_DAYS=30  # Default: 30 days
 ### API Behavior
 
 When a scan is POSTed:
+
 1. **Issues Found**: Create new records or update `last_seen_at` on existing records
 2. **Zero Issues for File**: Delete all records for that file path
 3. **File Not in Scan**: No action (wait for retention period to purge)
 
 This ensures:
+
 - Fixed issues are removed promptly
 - Persistent issues stay in the database
 - Deleted files eventually get cleaned up
@@ -156,6 +166,7 @@ Submit static analysis results for a website.
 **Authentication**: API key or session with access to the website
 
 **Request Body**:
+
 ```json
 {
   "scan_datetime": "2025-12-06T15:30:00Z",
@@ -188,6 +199,7 @@ Submit static analysis results for a website.
 ```
 
 **Response**: `201 Created` with summary:
+
 ```json
 {
   "processed": 2,
@@ -203,6 +215,7 @@ Submit static analysis results for a website.
 ```
 
 **Processing Logic**:
+
 1. For each file with issues:
    - Insert new issues or update `last_seen_at` on existing
 2. For each file with zero issues:
@@ -214,11 +227,13 @@ Submit static analysis results for a website.
 Retrieve current security issues for a website (future enhancement, low priority).
 
 **Query Parameters**:
+
 - `severity` - Filter by severity level
 - `file_path` - Filter by file path (supports wildcards)
 - `limit` - Max results (default: 100)
 
 **Response**:
+
 ```json
 {
   "issues": [
@@ -272,18 +287,23 @@ Security issues will be included in weekly vulnerability reports.
 Common WordPress security issue types:
 
 **Escape Output** (`WordPress.Security.EscapeOutput.*`):
+
 - Unescaped output vulnerabilities (XSS)
 
 **Nonce Verification** (`WordPress.Security.NonceVerification.*`):
+
 - Missing CSRF protection
 
 **Safe Redirect** (`WordPress.Security.SafeRedirect`):
+
 - Unsafe URL redirects
 
 **Validated Sanitized Input** (`WordPress.Security.ValidatedSanitizedInput.*`):
+
 - Unsanitized user input (SQL injection, etc.)
 
 **Plugin Menu Slug** (`WordPress.Security.PluginMenuSlug`):
+
 - Insecure menu slugs
 
 Reports can group by these categories for clarity.
@@ -303,7 +323,7 @@ composer global require wp-coding-standards/wpcs
 phpcs --config-set installed_paths ~/.composer/vendor/wp-coding-standards/wpcs
 
 # Verify installation
-phpcs -i  # Should show WordPress, WordPress-Core, WordPress-Docs, WordPress-Extra, etc.
+phpcs -i # Should show WordPress, WordPress-Core, WordPress-Docs, WordPress-Extra, etc.
 ```
 
 Documentation will be included in `docs/static-analysis.md` with detailed setup instructions.
