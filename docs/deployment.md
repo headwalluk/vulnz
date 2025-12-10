@@ -177,6 +177,7 @@ grep "stale website" /path/to/logs
 ```
 
 The cron job runs daily at midnight and logs:
+
 - When it starts: `Running cron job to delete stale websites (older than N days)...`
 - How many deleted: `Deleted N stale website(s).`
 - Any errors encountered
@@ -184,6 +185,7 @@ The cron job runs daily at midnight and logs:
 ### Recommendation
 
 For most deployments:
+
 - Keep `WEBSITE_AUTO_DELETE_DAYS=30` (or longer, like 60-90 days)
 - Monitor for at least 1-2 weeks before enabling
 - Review deletion logs regularly after enabling

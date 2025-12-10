@@ -1,6 +1,6 @@
 /**
  * Settings API Tests
- * 
+ *
  * Tests for /api/settings endpoints including authentication and authorization
  */
 
@@ -8,18 +8,12 @@ const request = require('supertest');
 const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
-const {
-  createTestDatabase,
-  initializeSchema,
-  createTestUser,
-  createTestApiKey,
-  cleanupTestDatabase
-} = require('../setup');
+const { createTestDatabase, initializeSchema, createTestUser, createTestApiKey, cleanupTestDatabase } = require('../setup');
 
 // We'll mock the db module dynamically
 const mockDb = {
   query: jest.fn(),
-  getConnection: jest.fn()
+  getConnection: jest.fn(),
 };
 
 jest.mock('../../src/db', () => mockDb);
@@ -39,71 +33,69 @@ describe('Settings API', () => {
   beforeAll(async () => {
     // Create test database
     db = await createTestDatabase();
-    
+
     // Update mock to use our test database
     mockDb.query.mockImplementation((...args) => db.query(...args));
-    
+
     await initializeSchema(db);
 
     // Create test users
     adminUser = await createTestUser(db, {
       username: 'admin',
       email: 'admin@example.com',
-      role: 'admin'
+      role: 'admin',
     });
     adminApiKey = await createTestApiKey(db, adminUser.id, 'Admin Test Key');
 
     regularUser = await createTestUser(db, {
       username: 'user',
       email: 'user@example.com',
-      role: 'user'
+      role: 'user',
     });
     regularApiKey = await createTestApiKey(db, regularUser.id, 'User Test Key');
 
     // Configure Passport strategies for testing
     const HeaderAPIKeyStrategy = require('passport-headerapikey').HeaderAPIKeyStrategy;
     const crypto = require('crypto');
-    
+
     passport.use(
-      new HeaderAPIKeyStrategy(
-        { header: 'X-API-Key', prefix: '' }, 
-        false, 
-        async (apiKey, done) => {
-          try {
-            // Hash the provided API key to match our storage format
-            const hashedKey = crypto.createHash('sha256').update(apiKey).digest('hex');
-            const keys = await db.query('SELECT * FROM api_keys WHERE key_hash = ? AND is_active = 1', [hashedKey]);
-            
-            if (!keys || keys.length === 0) {
-              return done(null, false);
-            }
-            
-            const key = keys[0];
-            const users = await db.query('SELECT * FROM users WHERE id = ? AND is_active = 1', [key.user_id]);
-            
-            if (!users || users.length === 0) {
-              return done(null, false);
-            }
-            
-            return done(null, users[0]);
-          } catch (err) {
-            return done(err);
+      new HeaderAPIKeyStrategy({ header: 'X-API-Key', prefix: '' }, false, async (apiKey, done) => {
+        try {
+          // Hash the provided API key to match our storage format
+          const hashedKey = crypto.createHash('sha256').update(apiKey).digest('hex');
+          const keys = await db.query('SELECT * FROM api_keys WHERE key_hash = ? AND is_active = 1', [hashedKey]);
+
+          if (!keys || keys.length === 0) {
+            return done(null, false);
           }
+
+          const key = keys[0];
+          const users = await db.query('SELECT * FROM users WHERE id = ? AND is_active = 1', [key.user_id]);
+
+          if (!users || users.length === 0) {
+            return done(null, false);
+          }
+
+          return done(null, users[0]);
+        } catch (err) {
+          return done(err);
         }
-      )
+      })
     );
 
     // Create Express app for testing
     app = express();
     app.use(express.json());
-    
+
     // Setup session middleware
-    app.use(session({
-      secret: process.env.SESSION_SECRET,
-      resave: false,
-      saveUninitialized: false,
-      cookie: { secure: false }
-    }));
+    app.use(
+      session({
+        secret: process.env.SESSION_SECRET,
+        resave: false,
+        saveUninitialized: false,
+        cookie: { secure: false },
+      })
+    );
 
     // Initialize Passport
     app.use(passport.initialize());
@@ -134,10 +126,7 @@ describe('Settings API', () => {
 
   describe('GET /api/settings', () => {
     test('should allow authenticated admin to list all settings', async () => {
-      const response = await request(app)
-        .get('/api/settings')
-        .set('X-API-Key', adminApiKey.token)
-        .expect(200);
+      const response = await request(app).get('/api/settings').set('X-API-Key', adminApiKey.token).expect(200);
 
       expect(response.body).toHaveProperty('settings');
       expect(Array.isArray(response.body.settings)).toBe(true);
@@ -145,38 +134,27 @@ describe('Settings API', () => {
     });
 
     test('should allow authenticated regular user to list all settings', async () => {
-      const response = await request(app)
-        .get('/api/settings')
-        .set('X-API-Key', regularApiKey.token)
-        .expect(200);
+      const response = await request(app).get('/api/settings').set('X-API-Key', regularApiKey.token).expect(200);
 
       expect(response.body).toHaveProperty('settings');
       expect(Array.isArray(response.body.settings)).toBe(true);
     });
 
     test('should reject unauthenticated requests', async () => {
-      await request(app)
-        .get('/api/settings')
-        .expect(401);
+      await request(app).get('/api/settings').expect(401);
     });
 
     test('should filter by category when provided', async () => {
-      const response = await request(app)
-        .get('/api/settings?category=wordpress')
-        .set('X-API-Key', adminApiKey.token)
-        .expect(200);
+      const response = await request(app).get('/api/settings?category=wordpress').set('X-API-Key', adminApiKey.token).expect(200);
 
       expect(response.body).toHaveProperty('settings');
-      response.body.settings.forEach(setting => {
+      response.body.settings.forEach((setting) => {
         expect(setting.category).toBe('wordpress');
       });
     });
 
     test('should return grouped settings when requested', async () => {
-      const response = await request(app)
-        .get('/api/settings?grouped=true')
-        .set('X-API-Key', adminApiKey.token)
-        .expect(200);
+      const response = await request(app).get('/api/settings?grouped=true').set('X-API-Key', adminApiKey.token).expect(200);
 
       expect(response.body).toHaveProperty('settings');
       expect(typeof response.body.settings).toBe('object');
@@ -186,10 +164,7 @@ describe('Settings API', () => {
 
   describe('GET /api/settings/:key', () => {
     test('should allow authenticated user to get a single setting', async () => {
-      const response = await request(app)
-        .get('/api/settings/wordpress.current_version')
-        .set('X-API-Key', regularApiKey.token)
-        .expect(200);
+      const response = await request(app).get('/api/settings/wordpress.current_version').set('X-API-Key', regularApiKey.token).expect(200);
 
       expect(response.body).toHaveProperty('key');
       expect(response.body).toHaveProperty('value');
@@ -197,16 +172,11 @@ describe('Settings API', () => {
     });
 
     test('should reject unauthenticated requests', async () => {
-      await request(app)
-        .get('/api/settings/wordpress.current_version')
-        .expect(401);
+      await request(app).get('/api/settings/wordpress.current_version').expect(401);
     });
 
     test('should return 404 for non-existent setting', async () => {
-      await request(app)
-        .get('/api/settings/nonexistent.setting')
-        .set('X-API-Key', regularApiKey.token)
-        .expect(404);
+      await request(app).get('/api/settings/nonexistent.setting').set('X-API-Key', regularApiKey.token).expect(404);
     });
   });
 
@@ -219,7 +189,7 @@ describe('Settings API', () => {
           value: 'test_value',
           type: 'string',
           description: 'Test setting',
-          category: 'test'
+          category: 'test',
         })
         .expect(200);
 
@@ -234,7 +204,7 @@ describe('Settings API', () => {
         .set('X-API-Key', adminApiKey.token)
         .send({
           value: 'updated_value',
-          type: 'string'
+          type: 'string',
         })
         .expect(200);
 
@@ -247,7 +217,7 @@ describe('Settings API', () => {
         .set('X-API-Key', regularApiKey.token)
         .send({
           value: 'test',
-          type: 'string'
+          type: 'string',
         })
         .expect(403);
     });
@@ -257,7 +227,7 @@ describe('Settings API', () => {
         .put('/api/settings/test.setting')
         .send({
           value: 'test',
-          type: 'string'
+          type: 'string',
         })
         .expect(401);
     });
@@ -268,7 +238,7 @@ describe('Settings API', () => {
         .set('X-API-Key', adminApiKey.token)
         .send({
           value: '42',
-          type: 'invalid_type'
+          type: 'invalid_type',
         })
         .expect(400);
     });
@@ -285,37 +255,23 @@ describe('Settings API', () => {
     });
 
     test('should allow admin to delete non-system settings', async () => {
-      await request(app)
-        .delete('/api/settings/test.deletable')
-        .set('X-API-Key', adminApiKey.token)
-        .expect(200);
+      await request(app).delete('/api/settings/test.deletable').set('X-API-Key', adminApiKey.token).expect(200);
     });
 
     test('should prevent deletion of system settings', async () => {
-      await request(app)
-        .delete('/api/settings/wordpress.current_version')
-        .set('X-API-Key', adminApiKey.token)
-        .expect(403);
+      await request(app).delete('/api/settings/wordpress.current_version').set('X-API-Key', adminApiKey.token).expect(403);
     });
 
     test('should reject non-admin users', async () => {
-      await request(app)
-        .delete('/api/settings/test.deletable')
-        .set('X-API-Key', regularApiKey.token)
-        .expect(403);
+      await request(app).delete('/api/settings/test.deletable').set('X-API-Key', regularApiKey.token).expect(403);
     });
 
     test('should reject unauthenticated requests', async () => {
-      await request(app)
-        .delete('/api/settings/test.deletable')
-        .expect(401);
+      await request(app).delete('/api/settings/test.deletable').expect(401);
     });
 
     test('should return 404 for non-existent setting', async () => {
-      await request(app)
-        .delete('/api/settings/nonexistent.setting')
-        .set('X-API-Key', adminApiKey.token)
-        .expect(404);
+      await request(app).delete('/api/settings/nonexistent.setting').set('X-API-Key', adminApiKey.token).expect(404);
     });
   });
 
@@ -326,14 +282,11 @@ describe('Settings API', () => {
         .set('X-API-Key', adminApiKey.token)
         .send({
           value: '42',
-          type: 'integer'
+          type: 'integer',
         })
         .expect(200);
 
-      const response = await request(app)
-        .get('/api/settings/test.integer_value')
-        .set('X-API-Key', adminApiKey.token)
-        .expect(200);
+      const response = await request(app).get('/api/settings/test.integer_value').set('X-API-Key', adminApiKey.token).expect(200);
 
       expect(response.body.value).toBe(42);
       expect(typeof response.body.value).toBe('number');
@@ -345,14 +298,11 @@ describe('Settings API', () => {
         .set('X-API-Key', adminApiKey.token)
         .send({
           value: 'true',
-          type: 'boolean'
+          type: 'boolean',
         })
         .expect(200);
 
-      const response = await request(app)
-        .get('/api/settings/test.boolean_value')
-        .set('X-API-Key', adminApiKey.token)
-        .expect(200);
+      const response = await request(app).get('/api/settings/test.boolean_value').set('X-API-Key', adminApiKey.token).expect(200);
 
       expect(response.body.value).toBe(true);
       expect(typeof response.body.value).toBe('boolean');
@@ -364,14 +314,11 @@ describe('Settings API', () => {
         .set('X-API-Key', adminApiKey.token)
         .send({
           value: '3.14',
-          type: 'float'
+          type: 'float',
         })
         .expect(200);
 
-      const response = await request(app)
-        .get('/api/settings/test.float_value')
-        .set('X-API-Key', adminApiKey.token)
-        .expect(200);
+      const response = await request(app).get('/api/settings/test.float_value').set('X-API-Key', adminApiKey.token).expect(200);
 
       expect(response.body.value).toBe(3.14);
       expect(typeof response.body.value).toBe('number');

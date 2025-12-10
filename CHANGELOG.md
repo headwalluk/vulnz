@@ -1,8 +1,76 @@
 # Changelog
 
+## 1.13.0 - 2025-12-10
+
+### Reporting Improvements
+
+- **Executive Summary**: Added summary table at top of vulnerability reports
+  - Quick overview of all monitored metrics (vulnerable websites, security events, outdated software, etc.)
+  - Color-coded highlighting for items requiring attention
+  - Provides at-a-glance security posture assessment
+
+- **Recommended Actions**: Added prioritized action items section
+  - Automatically generated based on report findings
+  - Color-coded by priority (Critical: red, High: orange, Medium: brown, Low: black)
+  - Actionable items with specific counts (e.g., "Update 5 websites with known vulnerabilities")
+  - Appears only when there are actions to take
+
+- **Plugin De-duplication**: Plugins now grouped across multiple websites
+  - Unmaintained and newly published plugins shown once with website list
+  - Reduces visual clutter when same plugin appears on multiple sites
+  - Example: "Found on 5 websites: Site A, Site B, Site C, Site D, Site E"
+
+- **Human-Readable Dates**: Improved date formatting throughout reports
+  - Changed from "Sat Feb 08 2025 12:09:00 GMT..." to "Feb 8, 2025 (10 months ago)"
+  - Applied to component changes, unmaintained plugins, and newly published plugins
+  - Relative time indicators ("X months ago", "X days ago", "today")
+
+- **Bug Fixes**:
+  - Fixed BigInt type conversion in security events and static analysis totals
+  - Added Handlebars helpers for conditional formatting (`eq`, `gt`)
+
+### WordPress.org Metadata Integration
+
+- **Metadata Capture**: Added 4 new fields to components table
+  - `added` (DATE): When plugin was first published to wordpress.org
+  - `last_updated` (DATETIME): Last update timestamp from wordpress.org
+  - `requires_php` (VARCHAR): Minimum required PHP version
+  - `tested` (VARCHAR): WordPress version tested up to
+
+- **Date Parsing**: Created robust parsing functions for wordpress.org API formats
+  - `parseWpOrgDateTime()`: Converts "2025-11-13 1:39pm GMT" to MySQL DATETIME
+  - `parseWpOrgDate()`: Validates and stores YYYY-MM-DD format
+  - Timezone-aware with UTC consistency throughout database
+
+- **Plugins to Monitor**: New report section for maintenance awareness
+  - ⚠️ Unmaintained Plugins: Not updated in 6+ months (configurable)
+  - 🆕 Newly Published Plugins: Published within 3 months (configurable)
+  - Helps identify potential security risks from abandoned or untested plugins
+
+- **Periodic Re-sync**: Automatic metadata refresh system
+  - `synced_from_wporg_at` timestamp tracks last sync per plugin
+  - Daily cron job invalidates stale syncs (7+ days old by default)
+  - Automatic re-sync triggered when components updated via API
+  - Elegant priority queue: NULL-first sorting ensures never-synced plugins prioritized
+  - Composite index for optimal query performance
+
+### Configuration
+
+- **New Environment Variables**:
+  - `PLUGIN_UNMAINTAINED_THRESHOLD_MONTHS=6`: Months without update before flagging as unmaintained
+  - `PLUGIN_NEWLY_PUBLISHED_THRESHOLD_MONTHS=3`: Age threshold for "newly published" warnings
+  - `WPORG_RESYNC_DAYS=7`: Days before plugin metadata considered stale
+
+### Infrastructure
+
+- **Database Migrations**:
+  - `20251210100000-add-wporg-metadata-to-components.js`: Adds wordpress.org metadata fields
+  - `20251210110000-add-synced-from-wporg-at-to-components.js`: Adds sync timestamp and composite index
+
 ## 1.12.0 - 2025-12-07
 
 ### Reporting
+
 - **Security Events Filtering**: Fixed weekly reports to only show security events from user's websites
   - Security events summary now filtered by user's website IDs
   - Top attack sources now filtered by user's website IDs
@@ -12,6 +80,7 @@
 ## 1.11.4 - 2025-12-06
 
 ### Code Quality
+
 - **ESLint**: Fixed all 127 linting errors across the codebase
   - Configured Jest globals for test files (eslint.config.js)
   - Fixed missing middleware parameter (`next` in `canAccessWebsite`)
@@ -22,6 +91,7 @@
 ## 1.11.3 - 2025-12-06
 
 ### Security Events
+
 - **Deduplication**: Added database-level deduplication for security events
   - Unique constraint on `(website_id, event_type_id, source_ip, event_datetime)`
   - Second-level precision prevents duplicate events from same IP
@@ -30,12 +100,14 @@
   - Supports single and bulk event submissions (tested up to 1,000 events)
 
 ### Reporting
+
 - **Country Flags**: Added Unicode flag emojis to security event reports
   - Top Attack Sources now display country flags (e.g., 🇨🇳 CN, 🇩🇪 DE)
   - Regional Indicator Symbol conversion for all country codes
   - Graceful degradation in email clients without emoji support
 
 ### Infrastructure
+
 - **Migration**: `20251206190000-add-security-events-dedup-constraint.js`
   - Adds unique key constraint for event deduplication
   - Idempotent migration (safe to re-run)
@@ -43,6 +115,7 @@
 ## 1.11.2 - 2025-12-06
 
 ### API Improvements
+
 - **Consolidated Version Updates**: Enhanced `PUT /api/websites/:domain` endpoint
   - Now accepts optional `versions` object for updating WordPress, PHP, and database versions
   - Eliminates need for separate API call to `/api/websites/:domain/versions`
@@ -52,6 +125,7 @@
   - Deprecated `PUT /api/websites/:domain/versions` endpoint (still functional)
 
 ### Testing
+
 - **Websites API Tests**: Added 7 new tests for version update functionality
   - Tests version updates via consolidated endpoint
   - Tests validation and error handling
@@ -59,12 +133,14 @@
   - All 28 tests passing (21 Settings + 7 Websites)
 
 ### Documentation
+
 - **Swagger Documentation**: Updated API documentation
   - Added `versions` parameter to main PUT endpoint
   - Marked `/versions` endpoint as deprecated
   - Enhanced parameter descriptions and examples
 
 ### Infrastructure
+
 - **Test Schema Updates**: Fixed test database schema
   - Updated websites table to match production (domain/title fields)
   - Added all version-related fields for comprehensive testing
@@ -73,6 +149,7 @@
 ## 1.11.1 - 2025-12-06
 
 ### Testing Infrastructure
+
 - **Comprehensive Test Suite**: Added automated testing with Jest and Supertest
   - 21/21 tests passing for Settings API endpoints
   - In-memory SQLite database for test isolation
@@ -91,6 +168,7 @@
   - Type Casting - 3 tests (integer, boolean, float)
 
 ### Documentation
+
 - **Restructured README.md**: Streamlined from 333 to 156 lines
   - Moved project tracking to `docs/project-tracker.md`
   - Improved organization with clear sections for installation, configuration, and documentation links
@@ -102,6 +180,7 @@
   - `docs/project-tracker.md` - Centralized project tracking for all releases
 
 ### Dependencies
+
 - Added dev dependencies:
   - `jest` - Test framework
   - `supertest` - HTTP API testing
@@ -109,6 +188,7 @@
   - `bcryptjs` - Password hashing for tests
 
 ### Scripts
+
 - Added `npm test` - Run all tests
 - Added `npm run test:watch` - Watch mode for development
 - Added `npm run test:coverage` - Generate coverage report
@@ -116,6 +196,7 @@
 ## 1.11.0 - 2025-12-06
 
 ### Features
+
 - **App Settings System**: Database-backed configuration management
   - New `app_settings` table with typed key-value storage (string, integer, float, boolean)
   - REST API for settings management: GET/PUT/DELETE endpoints with admin-only write protection
@@ -145,6 +226,7 @@
   - All migrations maintain backward compatibility with `.env` files
 
 ### API Changes
+
 - Added `GET /api/settings` - List all settings with optional category filtering
 - Added `GET /api/settings?grouped=true` - Get settings grouped by category
 - Added `GET /api/settings/:key` - Get single setting with type casting
@@ -153,6 +235,7 @@
 - All endpoints documented with Swagger/OpenAPI annotations
 
 ### Infrastructure
+
 - New environment variables:
   - `REFERENCE_UPDATE_METHOD` (url|file|disabled)
   - `REFERENCE_UPDATE_LOCATION` (URL or file path)
@@ -162,6 +245,7 @@
 - Updated reporting and purge cron jobs to use app settings
 
 ### Documentation
+
 - Added docs/app-settings.md - Comprehensive app settings documentation
 - Added "Upgrading" section to README.md with production deployment steps
 - Documented reference data update system
@@ -169,6 +253,7 @@
 - Added Swagger documentation for all settings endpoints
 
 ### Notes
+
 - Settings updates take effect immediately without application restart
 - Reference data system provides centralized version management for all VULNZ installations
 - System settings cannot be deleted but can be updated
@@ -179,6 +264,7 @@
 ## 1.10.0 2025-12-06
 
 ### Features
+
 - **Security Events Logging**: Track security-relevant events from monitored websites
   - New `security_event_types` and `security_events` tables with 10 pre-seeded event types
   - Geographic context via MaxMind GeoIP integration (continent/country codes)
@@ -216,6 +302,7 @@
   - Improved email template with structured, actionable information
 
 ### Bug Fixes
+
 - Fixed SQL syntax errors in bulk insert operations (security events, component changes)
 - Changed SQL alias from 'set' to 'evt' to avoid reserved keyword conflict
 - Fixed user filtering in fileSecurityIssue and componentChange queries
@@ -224,12 +311,14 @@
 - Removed debug logging from component change tracking
 
 ### Infrastructure
+
 - Added 4 new database migrations for v1.10.0 features
 - Added 3 new cron jobs (security events purge, file issues purge, component changes purge)
 - New environment variables: GEOIP_DATABASE_PATH, SECURITY_EVENTS_RETENTION_DAYS, FILE_SECURITY_ISSUES_RETENTION_DAYS, COMPONENT_CHANGES_RETENTION_DAYS, WORDPRESS_STABLE_VERSION, PHP_MINIMUM_VERSION, etc.
 - Created comprehensive documentation for all new features
 
 ### Documentation
+
 - Added docs/security-events.md - Security events logging guide
 - Added docs/version-tracking.md - Version monitoring documentation
 - Added docs/static-analysis.md - Static analysis integration guide
@@ -239,6 +328,7 @@
 ## 1.9.0 2025-12-05
 
 ### Features
+
 - **Automatic Stale Website Deletion**: New cron job to automatically remove inactive websites
   - Added `Website.touch(websiteId)` method to update `updated_at` timestamp when components change
   - Added `Website.removeStaleWebsites(days)` method to delete websites older than threshold
@@ -251,6 +341,7 @@
 ## 1.8.1 2025-12-04
 
 ### Bug Fixes
+
 - Fixed Edit and Delete buttons not working on filtered search results in admin components page
   - Updated event handlers to use `.attr('data-id')` instead of `.data('id')` for dynamically injected HTML
   - Added `id` field to component search API response to match list endpoint structure
@@ -259,6 +350,7 @@
 ## 1.8.0 2025-12-04
 
 ### Features
+
 - Added search functionality to admin components page (`/admin/components`)
   - Search box with Bootstrap styling matching users page design
   - Real-time search filtering using existing `/api/components/search` endpoint
@@ -269,12 +361,14 @@
 ## 1.7.1 2025-12-04
 
 ### Security
+
 - Updated `validator` dependency override from 13.15.20 to 13.15.23 to address high severity vulnerability (GHSA-vghf-hv5q-vc2g)
 - npm audit now reports 0 vulnerabilities
 
 ## 1.7.0 2025-11-28
 
 ### Documentation
+
 - **Major restructure:** Split comprehensive README.md into organized docs/ directory
   - Created `docs/development.md` - Local development setup guide
   - Created `docs/deployment.md` - Production deployment guide
@@ -288,6 +382,7 @@
 - Rate limiting documentation moved from development to deployment guide
 
 ### Security
+
 - **New:** Startup check for .env file permissions (must be 0600)
   - Prevents accidental world-readable secrets
   - Clear error messaging with fix instructions
@@ -301,6 +396,7 @@
 - Security analysis documented in roadmap with prioritized improvements
 
 ### License
+
 - Changed from ISC to MIT license
 - Updated copyright to Paul Faulkner
 

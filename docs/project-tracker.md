@@ -10,11 +10,13 @@ Active development tracking for VULNZ features and releases.
 **Release Date**: December 6, 2025
 
 ### Overview
+
 Enhanced security event tracking with database-level deduplication and improved reporting with country flag emojis.
 
 ### Changes
 
 #### Security Events Deduplication
+
 - [x] Added unique constraint on `(website_id, event_type_id, source_ip, event_datetime)`
 - [x] Implemented `INSERT IGNORE` for bulk event submissions
 - [x] Added duplicate event counting in API responses
@@ -22,12 +24,14 @@ Enhanced security event tracking with database-level deduplication and improved 
 - [x] Second-level precision prevents duplicate submissions
 
 #### Reporting Enhancements
+
 - [x] Added Unicode flag emojis to country code display
 - [x] Implemented `countryFlag` Handlebars helper
 - [x] Updated vulnerability report template with flags
 - [x] Graceful degradation for email clients
 
 #### Infrastructure
+
 - [x] Created migration for deduplication constraint
 - [x] Updated `SecurityEvent.bulkCreate()` to return counts
 - [x] Enhanced error handling for duplicate detection
@@ -40,11 +44,13 @@ Enhanced security event tracking with database-level deduplication and improved 
 **Release Date**: December 6, 2025
 
 ### Overview
+
 Streamlined API endpoints by consolidating version update functionality into the main website update endpoint, reducing API call overhead for external integrations.
 
 ### Changes
 
 #### API Improvements
+
 - [x] Enhanced `PUT /api/websites/:domain` to accept optional `versions` object
 - [x] Added validation for `db_server_type` field (mysql|mariadb|unknown)
 - [x] Maintained backward compatibility with existing integrations
@@ -52,12 +58,14 @@ Streamlined API endpoints by consolidating version update functionality into the
 - [x] Updated Swagger documentation with deprecation notices
 
 #### Testing
+
 - [x] Created `tests/api/websites.test.js` with 7 comprehensive tests
 - [x] Fixed test database schema to match production
 - [x] Updated `createTestWebsite()` helper in test setup
 - [x] All 28 tests passing (21 Settings + 7 Websites)
 
 #### Documentation
+
 - [x] Updated CHANGELOG.md with v1.11.2 changes
 - [x] Updated README.md test badge (28 passing)
 - [x] Enhanced Swagger API documentation
@@ -70,9 +78,11 @@ Streamlined API endpoints by consolidating version update functionality into the
 **Release Date**: December 6, 2025
 
 ### Overview
+
 Established comprehensive automated testing infrastructure with Jest and Supertest, including full test suite for Settings API.
 
 ### Completed
+
 - [x] Jest + Supertest test infrastructure
 - [x] In-memory SQLite database for test isolation
 - [x] MySQL→SQLite compatibility layer
@@ -91,11 +101,13 @@ Established comprehensive automated testing infrastructure with Jest and Superte
 **Release Date**: December 2025
 
 ### Overview
+
 Transform VULNZ from a vulnerability tracking system into a comprehensive security monitoring platform. This release adds security event logging, version tracking, static code analysis integration, component change auditing, and dramatically enhanced weekly reports.
 
 ### New Features
 
 #### 1. Security Events Logging
+
 Track security-relevant events from monitored websites including failed logins, user enumeration attempts, vulnerability probes, and more. Events include geographic context (continent/country) via GeoIP lookup.
 
 **Documentation**: [docs/security-events.md](security-events.md)
@@ -110,6 +122,7 @@ Track security-relevant events from monitored websites including failed logins, 
 - [ ] Document API endpoints
 
 #### 2. Version Tracking
+
 Monitor WordPress core, PHP, and database server versions across all websites. Alert on outdated software with known vulnerabilities.
 
 **Documentation**: [docs/version-tracking.md](version-tracking.md)
@@ -125,6 +138,7 @@ Monitor WordPress core, PHP, and database server versions across all websites. A
 - [ ] Document API endpoints
 
 #### 3. Static Analysis Integration
+
 Store results from PHP security scanning tools (PHP_CodeSniffer, etc.) to identify code-level security issues in WordPress files.
 
 **Documentation**: [docs/static-analysis.md](static-analysis.md)
@@ -140,6 +154,7 @@ Store results from PHP security scanning tools (PHP_CodeSniffer, etc.) to identi
 - [ ] Document sample script setup and usage
 
 #### 4. Component Changes Tracking
+
 Audit trail of plugin/theme additions, removals, and version updates with security context.
 
 **Documentation**: [docs/component-changes.md](component-changes.md)
@@ -154,6 +169,7 @@ Audit trail of plugin/theme additions, removals, and version updates with securi
 - [ ] Document change tracking behavior
 
 #### 5. Enhanced Weekly Reports
+
 Comprehensive weekly security reports including all new data sources with actionable recommendations.
 
 **Documentation**: [docs/enhanced-reporting.md](enhanced-reporting.md)
@@ -171,6 +187,7 @@ Comprehensive weekly security reports including all new data sources with action
 - [x] Update report sending logic
 
 #### 6. Database & Infrastructure
+
 - [x] Create database migration script for new tables
 - [x] Add indexes for performance optimization
 - [x] Update cron jobs in `src/lib/cron.js`
@@ -180,6 +197,7 @@ Comprehensive weekly security reports including all new data sources with action
 - [x] Test database migrations on existing data
 
 #### 7. Testing & Documentation
+
 - [x] Write unit tests for new models
 - [x] Write integration tests for new API endpoints
 - [x] Write tests for report generation
@@ -189,6 +207,7 @@ Comprehensive weekly security reports including all new data sources with action
 - [x] Document breaking changes (if any)
 
 #### 8. Release
+
 - [x] Version bump to 1.10.0
 - [x] Update CHANGELOG
 - [x] Tag release in git
@@ -196,11 +215,14 @@ Comprehensive weekly security reports including all new data sources with action
 - [x] Announce release
 
 ### Dependencies
+
 - **MaxMind GeoLite2** - IP geolocation database
 - **semver** - Semantic version comparison
 
 ### Configuration Changes
+
 New environment variables required:
+
 ```bash
 SECURITY_EVENTS_RETENTION_DAYS=30
 GEOIP_DATABASE_PATH=/path/to/GeoLite2-City.mmdb
@@ -219,11 +241,13 @@ PHP_RECOMMENDED_VERSION=8.3.0
 **Release Date**: December 6, 2025
 
 ### Overview
+
 Establish comprehensive automated testing infrastructure to ensure API reliability and prevent regressions. Initial focus on Settings API with plans to expand coverage to all endpoints.
 
 ### Features
 
 #### 1. Test Infrastructure Setup
+
 - [x] Install Jest, Supertest, sqlite3, bcryptjs
 - [x] Create `tests/setup.js` with test utilities
 - [x] Implement in-memory SQLite database for test isolation
@@ -233,6 +257,7 @@ Establish comprehensive automated testing infrastructure to ensure API reliabili
 - [x] Add test scripts to package.json
 
 #### 2. Settings API Test Suite
+
 - [x] Write 21 comprehensive tests for Settings API
 - [x] Test GET /api/settings (5 tests: list, filter, group, auth)
 - [x] Test GET /api/settings/:key (3 tests: retrieve, 404, auth)
@@ -242,6 +267,7 @@ Establish comprehensive automated testing infrastructure to ensure API reliabili
 - [x] All 21 tests passing
 
 #### 3. Documentation
+
 - [x] Create `tests/README.md` with comprehensive testing guide
 - [x] Document test architecture and database isolation
 - [x] Provide examples for writing new tests
@@ -252,12 +278,14 @@ Establish comprehensive automated testing infrastructure to ensure API reliabili
 - [x] Create `docs/project-tracker.md` for centralized tracking
 
 #### 4. Release
+
 - [x] Version bump to 1.11.1
 - [x] Update CHANGELOG
 - [x] Commit and tag release
 - [ ] Push to GitHub
 
 ### Test Coverage
+
 - **Settings API**: 21/21 tests passing (100%)
 - **Overall Project**: Baseline established for future expansion
 
@@ -269,6 +297,7 @@ Establish comprehensive automated testing infrastructure to ensure API reliabili
 **Release Date**: December 6, 2025
 
 ### Overview
+
 Move runtime configuration from environment variables to a database-backed key-value store. This provides a centralized, typed configuration system for version thresholds, retention periods, feature flags, and operational settings without requiring application restarts. Includes automated reference data updates for version thresholds.
 
 **Documentation**: [docs/app-settings.md](app-settings.md)
@@ -276,6 +305,7 @@ Move runtime configuration from environment variables to a database-backed key-v
 ### Features
 
 #### 1. Database Schema
+
 - [x] Create migration for `app_settings` table
 - [x] Add indexes for category and is_system fields
 - [x] Define ENUM for value types (string, integer, float, boolean)
@@ -283,6 +313,7 @@ Move runtime configuration from environment variables to a database-backed key-v
 - [x] Test migration on existing database
 
 #### 2. AppSetting Model
+
 - [x] Create `src/models/AppSetting.js`
 - [x] Implement `get(key)` with type casting
 - [x] Implement `set(key, value, type, description, category, isSystem)`
@@ -293,6 +324,7 @@ Move runtime configuration from environment variables to a database-backed key-v
 - [x] Write unit tests for model methods
 
 #### 3. REST API Endpoints
+
 - [x] Add `GET /api/settings` - List all settings (auth required)
 - [x] Add `GET /api/settings/:key` - Get single setting (auth required)
 - [x] Add `PUT /api/settings/:key` - Update setting (admin only)
@@ -304,6 +336,7 @@ Move runtime configuration from environment variables to a database-backed key-v
 - [x] Document API endpoints (Swagger)
 
 #### 4. Default Settings Seeding
+
 - [x] Create seeding script for initial settings
 - [x] Seed WordPress version settings
 - [x] Seed PHP version settings
@@ -315,6 +348,7 @@ Move runtime configuration from environment variables to a database-backed key-v
 - [x] Document seeded defaults
 
 #### 5. Migration from Environment Variables
+
 - [x] Identify settings to migrate from `.env`
 - [x] Update `src/lib/reporting.js` to use AppSetting
 - [x] Update `src/lib/cron.js` to use AppSetting
@@ -326,6 +360,7 @@ Move runtime configuration from environment variables to a database-backed key-v
 - [x] Document migration process
 
 #### 6. Reference Data Updates
+
 - [x] Create `src/lib/referenceData.js`
 - [x] Support URL and file methods for fetching reference data
 - [x] Add semver validation
@@ -337,6 +372,7 @@ Move runtime configuration from environment variables to a database-backed key-v
 - [x] Document reference data system
 
 #### 7. Testing Infrastructure
+
 - [x] Set up Jest + Supertest + SQLite test environment
 - [x] Create in-memory database isolation for tests
 - [x] Implement MySQL→SQLite syntax conversion layer
@@ -349,6 +385,7 @@ Move runtime configuration from environment variables to a database-backed key-v
 - [ ] Add tests for v1.10.0 features
 
 #### 8. Admin UI (Future)
+
 - [ ] Design settings management interface
 - [ ] Add settings page to admin panel
 - [ ] Group settings by category
@@ -358,6 +395,7 @@ Move runtime configuration from environment variables to a database-backed key-v
 - [ ] Show setting descriptions and types
 
 #### 9. Release
+
 - [x] Version bump to 1.11.0
 - [x] Update CHANGELOG
 - [x] Tag release in git (v1.10.0, v1.11.0)
@@ -367,7 +405,9 @@ Move runtime configuration from environment variables to a database-backed key-v
 - [ ] Announce release
 
 ### Configuration Migration
+
 Settings migrated from `.env` to database:
+
 - `WORDPRESS_STABLE_VERSION` → `wordpress.current_version`
 - `PHP_MINIMUM_VERSION` → `php.minimum_version`
 - `PHP_RECOMMENDED_VERSION` → `php.recommended_version`
@@ -376,6 +416,7 @@ Settings migrated from `.env` to database:
 - `COMPONENT_CHANGES_RETENTION_DAYS` → `retention.component_changes_days`
 
 ### Test Coverage
+
 - **Settings API**: 21/21 tests passing
   - GET /api/settings (5 tests)
   - GET /api/settings/:key (3 tests)
@@ -388,6 +429,7 @@ Settings migrated from `.env` to database:
 ## Future Releases
 
 ### Version 1.12.0 - Expanded Test Coverage (Planned)
+
 - [ ] Tests for Website API endpoints
 - [ ] Tests for Security Events API
 - [ ] Tests for Version Tracking API
@@ -397,6 +439,7 @@ Settings migrated from `.env` to database:
 - [ ] E2E tests for complete workflows
 
 ### Version 2.0.0 - Major Refactor (Planned)
+
 - [ ] TypeScript migration
 - [ ] GraphQL API alongside REST
 - [ ] Real-time notifications (WebSockets)

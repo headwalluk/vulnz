@@ -17,6 +17,7 @@ Track core software versions for monitored websites, including WordPress, PHP, a
 Version information is reported via the VULNZ API by the website hosting provider. The hosting provider determines the appropriate method for collecting version data from their systems.
 
 **Collection Methods** (provider responsibility):
+
 - Parse WordPress `wp-includes/version.php` for WordPress version
 - Execute `php -v` or check `phpversion()` for PHP version
 - Query `SELECT VERSION()` for database version
@@ -40,6 +41,7 @@ ALTER TABLE websites ADD INDEX idx_php_version (php_version);
 ```
 
 **Rationale for Table Structure**:
+
 - These are metadata about the hosting environment, not components with releases
 - No need for version history tracking (current state is sufficient)
 - Simpler queries: `SELECT * FROM websites WHERE wordpress_version < '6.4'`
@@ -48,6 +50,7 @@ ALTER TABLE websites ADD INDEX idx_php_version (php_version);
 ## Version Format
 
 Versions should be stored in semver-compatible format where possible:
+
 - WordPress: `6.4.2`, `6.5.0`
 - PHP: `8.2.14`, `8.3.1`
 - Database: `10.11.6-MariaDB`, `8.0.35`
@@ -63,6 +66,7 @@ Update version information for a website.
 **Authentication**: API key or session with access to the website
 
 **Request Body**:
+
 ```json
 {
   "wordpress_version": "6.4.2",
@@ -75,6 +79,7 @@ Update version information for a website.
 **Response**: `200 OK` with updated website object
 
 **Behavior**:
+
 - Updates `versions_last_checked_at` timestamp automatically
 - Partial updates allowed (can update just WordPress version, for example)
 - Invalid version formats return `400 Bad Request`
@@ -158,6 +163,7 @@ CREATE TABLE website_version_history (
 ```
 
 This would enable:
+
 - "How long has this site been on this PHP version?"
 - Upgrade velocity metrics
 - Compliance reporting
@@ -169,6 +175,7 @@ This would enable:
 Version data is tied to the website record and persists as long as the website is monitored. No separate retention policy needed.
 
 The `versions_last_checked_at` timestamp can be used to identify stale data:
+
 - Alert if versions haven't been checked in 7+ days
 - Flag in reports: "Version data may be outdated"
 

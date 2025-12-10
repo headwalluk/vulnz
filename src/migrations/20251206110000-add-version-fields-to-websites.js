@@ -8,7 +8,7 @@ const up = async () => {
     `ALTER TABLE websites ADD COLUMN IF NOT EXISTS db_server_version VARCHAR(20) AFTER db_server_type`,
     `ALTER TABLE websites ADD COLUMN IF NOT EXISTS versions_last_checked_at TIMESTAMP NULL AFTER db_server_version`,
     `ALTER TABLE websites ADD INDEX IF NOT EXISTS idx_wordpress_version (wordpress_version)`,
-    `ALTER TABLE websites ADD INDEX IF NOT EXISTS idx_php_version (php_version)`
+    `ALTER TABLE websites ADD INDEX IF NOT EXISTS idx_php_version (php_version)`,
   ];
 
   for (const query of queries) {

@@ -12,6 +12,7 @@ Enhance the existing weekly vulnerability email reports to include security even
 **Trigger**: Based on `users.last_summary_sent_at` timestamp
 
 **Current Content**:
+
 - List of websites with vulnerable components
 - Component names and versions
 - Links to vulnerability information
@@ -21,6 +22,7 @@ Enhance the existing weekly vulnerability email reports to include security even
 The enhanced report will include six major sections:
 
 ### 1. Executive Summary
+
 - Total websites monitored
 - Overall security score/health indicator
 - Key metrics at a glance:
@@ -30,8 +32,10 @@ The enhanced report will include six major sections:
   - Websites with code security issues
 
 ### 2. Vulnerabilities (Existing - Enhanced)
+
 **Current**: List of vulnerable components per website
 **Enhanced**:
+
 - Prioritize by severity (critical/high/medium/low)
 - Show vulnerability age (days since published)
 - Group by vulnerability type where possible
@@ -39,6 +43,7 @@ The enhanced report will include six major sections:
 - Link to detailed vulnerability information
 
 **Example**:
+
 ```
 ⚠️ CRITICAL VULNERABILITIES (2)
 
@@ -52,22 +57,27 @@ example.com
 ```
 
 ### 3. Security Events (NEW)
+
 Summary of security events recorded this week, grouped by:
 
 **By Event Type**:
+
 - Failed login attempts: 147 events across 12 websites
 - User enumeration: 23 events across 3 websites
 - File probes: 8 events across 2 websites
 
 **By Geography**:
+
 - Top 10 countries by event count
 - Continental distribution pie chart (data for visualization)
 
 **Notable Patterns**:
+
 - Spike detection: "example.com had 45 failed logins on Dec 4 (3x normal)"
 - Persistent attackers: "IP 203.0.113.42 targeted 5 different websites"
 
 **Example**:
+
 ```
 🔒 SECURITY EVENTS THIS WEEK (178 total)
 
@@ -85,23 +95,28 @@ Top Attack Sources:
 ```
 
 ### 4. Software Versions (NEW)
+
 Status of WordPress core, PHP, and database versions across monitored websites.
 
 **Outdated Software Alert**:
+
 - Websites running end-of-life PHP versions
 - Websites behind on WordPress core updates
 - Database servers needing updates
 
 **Version Distribution**:
+
 - PHP: 5 sites on 8.1, 12 sites on 8.2, 3 sites on 8.3
 - WordPress: 8 sites on 6.4, 10 sites on 6.5, 2 sites on 6.3
 - Database: 15 MariaDB, 5 MySQL
 
 **Updates This Week**:
+
 - example.com upgraded WordPress 6.3 → 6.4 ✓
 - site2.com upgraded PHP 8.1 → 8.2 ✓
 
 **Example**:
+
 ```
 💾 SOFTWARE VERSIONS
 
@@ -116,22 +131,27 @@ Status of WordPress core, PHP, and database versions across monitored websites.
 ```
 
 ### 5. Code Security Issues (NEW)
+
 Results from static analysis scanning (PHP_CodeSniffer, etc.).
 
 **Summary**:
+
 - Total issues by severity (error/warning/info)
 - Issues by category (escape output, nonce verification, etc.)
 - Issues trend (up/down from last week)
 
 **Top Issues**:
+
 - Files with most errors
 - Most common issue types
 
 **Remediation Guidance**:
+
 - Links to WordPress security documentation
 - Code examples for common fixes
 
 **Example**:
+
 ```
 🔍 STATIC ANALYSIS RESULTS
 
@@ -143,7 +163,7 @@ Issue Summary:
 Common Issues:
 1. Unescaped Output (23 occurrences)
    Fix: Use esc_html(), esc_attr(), or esc_url()
-   
+
 2. Missing Nonce Verification (15 occurrences)
    Fix: Add wp_verify_nonce() checks
 
@@ -155,18 +175,22 @@ Top Files with Issues:
 ```
 
 ### 6. Component Changes (NEW)
+
 Audit of plugin/theme additions, removals, and updates.
 
 **Summary**:
+
 - Components added this week
 - Components removed this week
 - Components updated this week
 
 **Security Context**:
+
 - Alert if newly added component has known vulnerabilities
 - Highlight updates that fix security issues
 
 **Example**:
+
 ```
 🔄 COMPONENT CHANGES THIS WEEK
 
@@ -186,6 +210,7 @@ example.com:
 ## Report Customization
 
 ### System-Level Configuration
+
 These settings apply to all users and reports:
 
 ```bash
@@ -197,7 +222,7 @@ REPORT_TOP_COUNTRIES=10
 REPORT_TOP_FILES_WITH_ISSUES=10
 
 # Severity thresholds
-REPORT_SHOW_INFO_ISSUES=false  # Only show warnings and errors
+REPORT_SHOW_INFO_ISSUES=false # Only show warnings and errors
 
 # Data included
 REPORT_INCLUDE_SECURITY_EVENTS=true
@@ -211,6 +236,7 @@ REPORT_INCLUDE_COMPONENT_CHANGES=true
 Allow users to customize their reports:
 
 **Potential Options**:
+
 - Report frequency (daily, weekly, monthly)
 - Section visibility (enable/disable sections)
 - Severity filters (only critical/high vulnerabilities)
@@ -218,11 +244,13 @@ Allow users to customize their reports:
 - Delivery format (HTML email, PDF attachment, API webhook)
 
 **Database Schema**:
+
 ```sql
 ALTER TABLE users ADD COLUMN report_preferences JSON;
 ```
 
 **Example Preferences**:
+
 ```json
 {
   "frequency": "weekly",
@@ -245,9 +273,11 @@ ALTER TABLE users ADD COLUMN report_preferences JSON;
 ## Email Template
 
 ### Template Engine
+
 Continue using **Handlebars** (`src/emails/*.hbs`)
 
 ### New Templates
+
 - `vulnerability-report.hbs` (existing - will be enhanced)
 - Consider splitting into partials:
   - `_vulnerabilities.hbs`
@@ -312,6 +342,7 @@ Continue using **Handlebars** (`src/emails/*.hbs`)
 ## Report Generation Process
 
 ### Current Process
+
 1. Cron job runs every 10 minutes (`src/lib/cron.js`)
 2. Check if it's time to send reports (`reporting.shouldSendReports()`)
 3. Get users who need reports (`User.getUsersForReporting()`)
@@ -319,6 +350,7 @@ Continue using **Handlebars** (`src/emails/*.hbs`)
 5. Update `users.last_summary_sent_at`
 
 ### Enhanced Process
+
 1. Cron job runs every 10 minutes (unchanged)
 2. Check if it's time to send reports (unchanged)
 3. Get users who need reports (unchanged)
@@ -335,6 +367,7 @@ Continue using **Handlebars** (`src/emails/*.hbs`)
    j. Update `last_summary_sent_at`
 
 ### Performance Considerations
+
 - Use efficient queries with proper indexes
 - Consider caching expensive calculations
 - Batch database queries where possible
@@ -344,8 +377,9 @@ Continue using **Handlebars** (`src/emails/*.hbs`)
 ### New Queries Required
 
 **Security Events Summary**:
+
 ```sql
-SELECT 
+SELECT
   event_type_id,
   COUNT(*) as count,
   country_code
@@ -357,8 +391,9 @@ GROUP BY event_type_id, country_code;
 ```
 
 **Version Status**:
+
 ```sql
-SELECT 
+SELECT
   domain,
   wordpress_version,
   php_version,
@@ -374,8 +409,9 @@ WHERE user_id = ?
 ```
 
 **Static Analysis Summary**:
+
 ```sql
-SELECT 
+SELECT
   website_id,
   severity,
   issue_type,
@@ -386,8 +422,9 @@ GROUP BY website_id, severity, issue_type;
 ```
 
 **Component Changes**:
+
 ```sql
-SELECT 
+SELECT
   cc.change_type,
   c.title,
   r_old.version as old_version,
@@ -406,10 +443,12 @@ ORDER BY cc.changed_at DESC;
 ## Report Delivery
 
 ### Email Format
+
 - **HTML** primary format (styled, with colors and icons)
 - **Plain text** fallback (for email clients that don't support HTML)
 
 ### Email Styling
+
 - Use inline CSS (for email client compatibility)
 - Color coding:
   - 🔴 Red: Critical/Error
@@ -418,43 +457,52 @@ ORDER BY cc.changed_at DESC;
   - 🔵 Blue: Informational
 
 ### Subject Line
+
 - `[VULNZ] Weekly Security Report - {period}`
 - Example: `[VULNZ] Weekly Security Report - Nov 29 to Dec 6, 2025`
 
 ### From Address
+
 - `REPORT_FROM_EMAIL` (e.g., `reports@vulnz.example.com`)
 - `REPORT_FROM_NAME` (e.g., `VULNZ Security Reports`)
 
 ## Testing & Preview
 
 ### Report Preview Endpoint (Future)
+
 Create an endpoint for users to preview their report without waiting for scheduled send:
 
 **GET /api/reports/preview**
+
 - Generate report with current data
 - Return HTML for display in browser
 - Don't update `last_summary_sent_at`
 
 ### Manual Report Trigger (Future)
+
 Allow administrators to manually trigger report generation:
 
 **POST /api/reports/send**
+
 - Force immediate report generation
 - Useful for testing or on-demand reports
 
 ## Error Handling
 
 ### Report Generation Failures
+
 - Log errors to `console.error()` and continue with other users
 - Send partial report if some sections fail
 - Include error notice in email: "Some sections could not be generated"
 
 ### Email Delivery Failures
+
 - Log SMTP errors
 - Don't update `last_summary_sent_at` if email fails
 - Retry on next cron run
 
 ### Data Availability
+
 - Handle missing data gracefully
 - Show "No data available" instead of empty sections
 - Don't fail entire report if one section has no data
@@ -462,24 +510,29 @@ Allow administrators to manually trigger report generation:
 ## Future Enhancements
 
 ### Interactive Reports
+
 - Host reports on VULNZ web UI
 - Allow drill-down into details
 - Enable filtering and sorting
 
 ### Report Archive
+
 - Store generated reports in database
 - Allow users to view past reports
 - Enable comparison between periods
 
 ### API Webhooks
+
 - POST report data to user-specified webhook URLs
 - Enable integration with SIEM systems, Slack, etc.
 
 ### Report Scheduling
+
 - Allow users to choose specific day/time for reports
 - Support multiple report schedules (daily digest + weekly summary)
 
 ### Export Formats
+
 - PDF export for offline storage
 - CSV export for data analysis
 - JSON API endpoint for programmatic access
@@ -487,18 +540,21 @@ Allow administrators to manually trigger report generation:
 ## Implementation Priority
 
 **Phase 1** (Initial Implementation):
+
 1. ✅ Enhance report data collection (new queries)
 2. ✅ Update Handlebars template with new sections
 3. ✅ Test with sample data
 4. ✅ Deploy and monitor
 
 **Phase 2** (Near-term Enhancements):
+
 1. Report preview endpoint
 2. Manual report trigger
 3. Plain text email fallback
 4. Error handling improvements
 
 **Phase 3** (Future):
+
 1. User-level preferences
 2. Interactive web reports
 3. Report archive

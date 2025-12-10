@@ -7,7 +7,7 @@ let countryLookup = null;
 async function initializeGeoIP() {
   try {
     const geoipPath = process.env.GEOIP_DATABASE_PATH || '/var/lib/GeoIP';
-    
+
     // Try to load City database (includes country data)
     const cityDbPath = path.join(geoipPath, 'GeoLite2-City.mmdb');
     try {
@@ -51,7 +51,7 @@ function lookupIp(ip) {
 
     return {
       continentCode: result.continent?.code || null,
-      countryCode: result.country?.iso_code || null
+      countryCode: result.country?.iso_code || null,
     };
   } catch (err) {
     console.error('GeoIP lookup error:', err.message);
@@ -61,5 +61,5 @@ function lookupIp(ip) {
 
 module.exports = {
   initializeGeoIP,
-  lookupIp
+  lookupIp,
 };

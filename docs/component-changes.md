@@ -33,6 +33,7 @@ This tells us what's currently installed but doesn't provide change history.
 Audit log of all component additions, removals, and updates.
 
 **Schema**:
+
 ```sql
 CREATE TABLE component_changes (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -44,13 +45,13 @@ CREATE TABLE component_changes (
   changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   changed_by_user_id INT UNSIGNED NULL,
   changed_via ENUM('api', 'ui', 'sync', 'plugin') DEFAULT 'api',
-  
+
   FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE,
   FOREIGN KEY (component_id) REFERENCES components(id) ON DELETE CASCADE,
   FOREIGN KEY (old_release_id) REFERENCES releases(id) ON DELETE SET NULL,
   FOREIGN KEY (new_release_id) REFERENCES releases(id) ON DELETE SET NULL,
   FOREIGN KEY (changed_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
-  
+
   INDEX idx_website_date (website_id, changed_at),
   INDEX idx_component (component_id),
   INDEX idx_change_type (change_type)
@@ -58,11 +59,13 @@ CREATE TABLE component_changes (
 ```
 
 **Change Types**:
+
 - `added`: Component newly installed (old_release_id = NULL, new_release_id = version)
 - `removed`: Component uninstalled (old_release_id = version, new_release_id = NULL)
 - `updated`: Component version changed (old_release_id = old version, new_release_id = new version)
 
 **Changed Via**:
+
 - `api`: Changed via VULNZ API endpoint
 - `ui`: Changed through VULNZ web interface
 - `sync`: Detected by automated sync/polling (future)
@@ -75,6 +78,7 @@ Component changes should be recorded wherever components are modified. This happ
 ### 1. Website Component Updates (Primary)
 
 When `PUT /api/websites/:id` is called with a `components` array, we need to:
+
 1. Compare incoming components with existing `website_components`
 2. Detect additions, removals, and updates
 3. Record changes in `component_changes` table
@@ -83,12 +87,13 @@ When `PUT /api/websites/:id` is called with a `components` array, we need to:
 **Location**: `src/routes/websites.js` - `processComponents()` function
 
 **Current Implementation**:
+
 ```javascript
 async function processComponents(websiteId, components) {
   // Delete all existing associations
   await WebsiteComponent.deleteByType(websiteId, 'plugin');
   await WebsiteComponent.deleteByType(websiteId, 'theme');
-  
+
   // Add new associations
   for (const component of components) {
     const release = await Release.findOrCreate(...);
@@ -98,21 +103,16 @@ async function processComponents(websiteId, components) {
 ```
 
 **Enhanced Implementation Needed**:
+
 ```javascript
 async function processComponents(websiteId, components, userId = null) {
   // Get current components before changes
   const currentPlugins = await WebsiteComponent.getPlugins(websiteId);
   const currentThemes = await WebsiteComponent.getThemes(websiteId);
-  
+
   // Process changes and record them
-  await ComponentChange.recordChanges(
-    websiteId, 
-    [...currentPlugins, ...currentThemes],
-    components,
-    userId,
-    'api'
-  );
-  
+  await ComponentChange.recordChanges(websiteId, [...currentPlugins, ...currentThemes], components, userId, 'api');
+
   // Apply changes (existing logic)
   // ...
 }
@@ -123,14 +123,17 @@ async function processComponents(websiteId, components, userId = null) {
 New API endpoints for granular component management:
 
 **POST /api/websites/:id/components**
+
 - Add a single component
 - Record `added` change
 
 **DELETE /api/websites/:id/components/:releaseId**
+
 - Remove a single component
 - Record `removed` change
 
 **PUT /api/websites/:id/components/:componentId**
+
 - Update component to new version
 - Record `updated` change with old and new release IDs
 
@@ -184,16 +187,19 @@ static async getChangesByDateRange(startDate, endDate, websiteId = null) {
 Component changes are audit records and should be retained longer than security events.
 
 **Configuration**:
+
 ```bash
-COMPONENT_CHANGES_RETENTION_DAYS=365  # Default: 1 year
+COMPONENT_CHANGES_RETENTION_DAYS=365 # Default: 1 year
 ```
 
 **Implementation**:
+
 - `ComponentChange.removeOldChanges()` static method
 - Called by cron job weekly (less frequent than security events)
 - Purge changes older than retention period
 
-**Rationale**: 
+**Rationale**:
+
 - Useful for long-term analysis: "What was installed when this site was compromised 6 months ago?"
 - Less privacy-sensitive than security events (no IP addresses)
 - Relatively low volume compared to security events
@@ -203,6 +209,7 @@ COMPONENT_CHANGES_RETENTION_DAYS=365  # Default: 1 year
 When component operations are performed, include change summary in response:
 
 **PUT /api/websites/:id with components**:
+
 ```json
 {
   "website": {
@@ -262,6 +269,7 @@ Component changes will be included in weekly vulnerability reports.
 ## Change Detection Strategies
 
 ### Option 1: API-Driven (Current Approach)
+
 - Hosting provider POSTs current component list
 - VULNZ compares with stored state
 - Changes recorded automatically
@@ -270,6 +278,7 @@ Component changes will be included in weekly vulnerability reports.
 **Cons**: Only detects changes when API is called
 
 ### Option 2: Polling (Future Enhancement)
+
 - VULNZ polls websites periodically
 - Compares current state with stored state
 - Records changes automatically
@@ -278,6 +287,7 @@ Component changes will be included in weekly vulnerability reports.
 **Cons**: Requires WordPress plugin or API access
 
 ### Option 3: WordPress Plugin (Future Enhancement)
+
 - VULNZ WordPress plugin hooks into WordPress plugin/theme actions
 - Reports changes in real-time
 - Records who made the change (WordPress user)
@@ -292,12 +302,14 @@ Component changes will be included in weekly vulnerability reports.
 Future enhancement: Capture additional context with changes.
 
 **Possible Fields**:
+
 - `notes`: Free-text field for change description
 - `ticket_reference`: Link to support ticket or issue tracker
 - `automated`: Boolean indicating if change was automated
 - `rollback_of`: Reference to previous change being rolled back
 
 Example:
+
 ```json
 {
   "component": "wordpress-seo",
@@ -316,11 +328,13 @@ Example:
 Component changes can indicate security events:
 
 **Suspicious Patterns**:
+
 - Component added + immediate security events from that site
 - Multiple components removed after breach (cleanup?)
 - Rapid version changes (automated attack?)
 
 **Integration with Security Events**:
+
 - Cross-reference component changes with security event timeline
 - Report: "Plugin X was added on Dec 1, first failed login on Dec 2"
 
@@ -337,8 +351,9 @@ This correlation helps identify attack vectors.
 ## Example Queries
 
 **Website component history**:
+
 ```sql
-SELECT 
+SELECT
   cc.changed_at,
   cc.change_type,
   c.title AS component_name,
@@ -355,8 +370,9 @@ ORDER BY cc.changed_at DESC;
 ```
 
 **Changes in date range (for reporting)**:
+
 ```sql
-SELECT 
+SELECT
   w.domain,
   COUNT(CASE WHEN cc.change_type = 'added' THEN 1 END) AS added,
   COUNT(CASE WHEN cc.change_type = 'removed' THEN 1 END) AS removed,

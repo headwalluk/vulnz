@@ -99,6 +99,7 @@ pm2 save
 Copy `env.sample` to `.env` and configure the following key settings:
 
 #### Database Configuration (Required)
+
 ```bash
 DB_HOST=localhost
 DB_USER=vulnz
@@ -108,6 +109,7 @@ DB_PORT=3306
 ```
 
 #### Application Settings
+
 ```bash
 NODE_ENV=production
 PORT=3000
@@ -116,6 +118,7 @@ JWT_SECRET=your_random_jwt_secret_here
 ```
 
 #### Email Configuration (For Reports)
+
 ```bash
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
@@ -126,13 +129,14 @@ SMTP_FROM=vulnz@example.com
 ```
 
 #### Security Features
+
 ```bash
 # GeoIP for security event tracking
 GEOIP_DATABASE_PATH=/var/lib/GeoIP/GeoLite2-City.mmdb
 
 # Reference data updates (version thresholds)
-REFERENCE_UPDATE_METHOD=disabled  # Options: url, file, disabled
-REFERENCE_UPDATE_LOCATION=        # URL or file path
+REFERENCE_UPDATE_METHOD=disabled # Options: url, file, disabled
+REFERENCE_UPDATE_LOCATION=       # URL or file path
 ```
 
 **See [env.sample](env.sample) for all available configuration options.**
@@ -140,6 +144,7 @@ REFERENCE_UPDATE_LOCATION=        # URL or file path
 ### Database Setup
 
 1. **Create database and user:**
+
 ```sql
 CREATE DATABASE vulnz CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER 'vulnz'@'localhost' IDENTIFIED BY 'your_secure_password';
@@ -184,11 +189,13 @@ pm2 restart vulnz
 ## Documentation
 
 ### Getting Started
+
 - [Development Setup](docs/development.md) - Local development environment
 - [Production Deployment](docs/deployment.md) - Production deployment with PM2
 - [Reverse Proxy Setup](docs/reverse-proxy.md) - Apache/Nginx with SSL/TLS
 
 ### Features & Integrations
+
 - [API Documentation](docs/api-usage.md) - REST API reference and examples
 - [WordPress Plugin](docs/wordpress-plugin.md) - Sync WordPress sites with VULNZ
 - [Wordfence Importer](docs/wordfence-importer.md) - Import vulnerabilities from Wordfence
@@ -200,6 +207,7 @@ pm2 restart vulnz
 - [App Settings](docs/app-settings.md) - Database-backed configuration system
 
 ### Development
+
 - [Testing Guide](tests/README.md) - Running and writing tests
 - [Project Tracker](docs/project-tracker.md) - Feature development status
 - [Roadmap](docs/roadmap.md) - Planned features and improvements

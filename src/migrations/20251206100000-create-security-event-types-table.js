@@ -23,62 +23,62 @@ const up = async () => {
       slug: 'failed-login',
       title: 'Failed Login Attempt',
       description: 'Authentication attempt with incorrect credentials',
-      severity: 'warning'
+      severity: 'warning',
     },
     {
       slug: 'blocked-user-enum',
       title: 'Blocked User Enumeration',
       description: 'Attempt to enumerate valid usernames',
-      severity: 'warning'
+      severity: 'warning',
     },
     {
       slug: 'xmlrpc-probe',
       title: 'XML-RPC Probe Attempt',
       description: 'Suspicious XML-RPC endpoint access',
-      severity: 'warning'
+      severity: 'warning',
     },
     {
       slug: 'file-probe',
       title: 'Suspicious File Access',
       description: 'Attempt to access sensitive or non-existent files',
-      severity: 'warning'
+      severity: 'warning',
     },
     {
       slug: 'plugin-enum',
       title: 'Plugin Enumeration',
       description: 'Attempt to enumerate installed plugins',
-      severity: 'info'
+      severity: 'info',
     },
     {
       slug: 'theme-enum',
       title: 'Theme Enumeration',
       description: 'Attempt to enumerate installed themes',
-      severity: 'info'
+      severity: 'info',
     },
     {
       slug: 'brute-force',
       title: 'Brute Force Attack Detected',
       description: 'Multiple rapid authentication attempts detected',
-      severity: 'critical'
+      severity: 'critical',
     },
     {
       slug: 'sql-injection',
       title: 'SQL Injection Attempt',
       description: 'Suspected SQL injection in request parameters',
-      severity: 'critical'
+      severity: 'critical',
     },
     {
       slug: 'xss-attempt',
       title: 'XSS Attempt',
       description: 'Suspected cross-site scripting attack',
-      severity: 'critical'
+      severity: 'critical',
     },
     {
       slug: 'command-injection',
       title: 'Command Injection Attempt',
       description: 'Suspected OS command injection attempt',
-      severity: 'critical'
-    }
+      severity: 'critical',
+    },
   ];
 
   const insertQuery = `
@@ -87,12 +87,7 @@ const up = async () => {
   `;
 
   for (const eventType of eventTypes) {
-    await db.query(insertQuery, [
-      eventType.slug,
-      eventType.title,
-      eventType.description,
-      eventType.severity
-    ]);
+    await db.query(insertQuery, [eventType.slug, eventType.title, eventType.description, eventType.severity]);
   }
 };
 

@@ -11,17 +11,9 @@ async function create(websiteId, componentId, changeType, oldReleaseId, newRelea
     (website_id, component_id, change_type, old_release_id, new_release_id, changed_by_user_id, changed_via)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
-  
-  const result = await db.query(sql, [
-    websiteId,
-    componentId,
-    changeType,
-    oldReleaseId || null,
-    newReleaseId || null,
-    changedByUserId || null,
-    changedVia
-  ]);
-  
+
+  const result = await db.query(sql, [websiteId, componentId, changeType, oldReleaseId || null, newReleaseId || null, changedByUserId || null, changedVia]);
+
   return result.insertId;
 }
 
@@ -33,15 +25,7 @@ async function bulkCreate(changes) {
   // For single change, use simple insert
   if (changes.length === 1) {
     const change = changes[0];
-    return await create(
-      change.websiteId,
-      change.componentId,
-      change.changeType,
-      change.oldReleaseId,
-      change.newReleaseId,
-      change.changedByUserId,
-      change.changedVia
-    );
+    return await create(change.websiteId, change.componentId, change.changeType, change.oldReleaseId, change.newReleaseId, change.changedByUserId, change.changedVia);
   }
 
   // For multiple changes, build proper VALUES clause
@@ -52,14 +36,14 @@ async function bulkCreate(changes) {
     VALUES ${placeholders}
   `;
 
-  const values = changes.flatMap(change => [
+  const values = changes.flatMap((change) => [
     change.websiteId,
     change.componentId,
     change.changeType,
     change.oldReleaseId || null,
     change.newReleaseId || null,
     change.changedByUserId || null,
-    change.changedVia || 'api'
+    change.changedVia || 'api',
   ]);
 
   const result = await db.query(sql, values);
@@ -69,7 +53,7 @@ async function bulkCreate(changes) {
 async function recordChanges(websiteId, oldComponents, newComponents, userId = null, changedVia = 'api') {
   // oldComponents and newComponents are arrays of {component_id, release_id, slug, version}
   const changes = [];
-  
+
   // Create maps for quick lookup
   const oldMap = new Map();
   for (const comp of oldComponents) {
@@ -86,7 +70,7 @@ async function recordChanges(websiteId, oldComponents, newComponents, userId = n
   // Detect additions and updates
   for (const [key, newComp] of newMap) {
     const oldComp = oldMap.get(key);
-    
+
     if (!oldComp) {
       // Component added
       changes.push({
@@ -96,7 +80,7 @@ async function recordChanges(websiteId, oldComponents, newComponents, userId = n
         oldReleaseId: null,
         newReleaseId: newComp.release_id,
         changedByUserId: userId,
-        changedVia
+        changedVia,
       });
     } else if (oldComp.release_id !== newComp.release_id) {
       // Component updated (version changed)
@@ -107,7 +91,7 @@ async function recordChanges(websiteId, oldComponents, newComponents, userId = n
         oldReleaseId: oldComp.release_id,
         newReleaseId: newComp.release_id,
         changedByUserId: userId,
-        changedVia
+        changedVia,
       });
     }
   }
@@ -123,7 +107,7 @@ async function recordChanges(websiteId, oldComponents, newComponents, userId = n
         oldReleaseId: oldComp.release_id,
         newReleaseId: null,
         changedByUserId: userId,
-        changedVia
+        changedVia,
       });
     }
   }
@@ -134,10 +118,10 @@ async function recordChanges(websiteId, oldComponents, newComponents, userId = n
   }
 
   return {
-    added: changes.filter(c => c.changeType === 'added').length,
-    removed: changes.filter(c => c.changeType === 'removed').length,
-    updated: changes.filter(c => c.changeType === 'updated').length,
-    total: changes.length
+    added: changes.filter((c) => c.changeType === 'added').length,
+    removed: changes.filter((c) => c.changeType === 'removed').length,
+    updated: changes.filter((c) => c.changeType === 'updated').length,
+    total: changes.length,
   };
 }
 
@@ -213,14 +197,14 @@ async function getChangeSummary(startDate, endDate, userId = null) {
     WHERE cc.changed_at >= ?
       AND cc.changed_at < ?
   `;
-  
+
   const params = [startDate, endDate];
-  
+
   if (userId !== null) {
     sql += ' AND w.user_id = ?';
     params.push(userId);
   }
-  
+
   sql += ' ORDER BY cc.changed_at DESC';
 
   return await db.query(sql, params);
@@ -231,7 +215,7 @@ async function removeOldChanges(retentionDays = 365) {
     DELETE FROM component_changes 
     WHERE changed_at < DATE_SUB(NOW(), INTERVAL ? DAY)
   `;
-  
+
   const result = await db.query(sql, [retentionDays]);
   return result.affectedRows || 0;
 }
