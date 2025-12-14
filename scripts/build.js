@@ -255,8 +255,8 @@ async function updateHtmlFiles(pageBundleMap) {
 }
 
 async function copyStatic() {
-  // Copy partials, images, and other required static files
-  const dirsToCopy = ['partials', 'images'];
+  // Copy partials, images, vendor, and other required static files
+  const dirsToCopy = ['partials', 'images', 'vendor'];
   for (const dir of dirsToCopy) {
     const srcDir = path.join(PUBLIC, dir);
     if (fs.existsSync(srcDir)) {

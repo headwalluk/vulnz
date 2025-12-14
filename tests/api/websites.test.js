@@ -130,7 +130,10 @@ describe('Websites API - Version Updates', () => {
       const userRoles = await db.query('SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?', [userId]);
       return userRoles.map((row) => row.name);
     });
-
+    User.findUserById = jest.fn().mockImplementation(async (userId) => {
+      const users = await db.query('SELECT * FROM users WHERE id = ?', [userId]);
+      return users[0] || null;
+    });
     // Configure Passport strategies for testing
     const HeaderAPIKeyStrategy = require('passport-headerapikey').HeaderAPIKeyStrategy;
     const crypto = require('crypto');
@@ -314,6 +317,83 @@ describe('Websites API - Version Updates', () => {
       expect(websites[0].php_version).toBe('8.2.13');
       expect(websites[0].db_server_type).toBe('mysql');
       expect(websites[0].db_server_version).toBe('8.0.35');
+    });
+  });
+
+  describe('PUT /api/websites/:domain with user_id (ownership change)', () => {
+    let regularUser;
+    let regularApiKey;
+
+    beforeAll(async () => {
+      // Create a regular user for testing
+      regularUser = await createTestUser(db, {
+        username: 'regular@example.com',
+        email: 'regular@example.com',
+        role: 'user',
+      });
+      regularApiKey = await createTestApiKey(db, regularUser.id, 'Regular Test Key');
+    });
+
+    it('should allow admin to change website owner', async () => {
+      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', adminApiKey.token).send({
+        user_id: regularUser.id,
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.text).toBe('Website updated');
+
+      // Verify user_id was updated in database
+      const websites = await db.query('SELECT * FROM websites WHERE id = ?', [testWebsite.id]);
+      expect(parseInt(websites[0].user_id)).toBe(regularUser.id);
+
+      // Restore original owner for other tests
+      await db.query('UPDATE websites SET user_id = ? WHERE id = ?', [adminUser.id, testWebsite.id]);
+    });
+
+    it('should reject non-admin trying to change owner', async () => {
+      // First give the website to regular user
+      await db.query('UPDATE websites SET user_id = ? WHERE id = ?', [regularUser.id, testWebsite.id]);
+
+      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', regularApiKey.token).send({
+        user_id: adminUser.id,
+      });
+
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toContain('Only administrators can change website ownership');
+
+      // Restore original owner
+      await db.query('UPDATE websites SET user_id = ? WHERE id = ?', [adminUser.id, testWebsite.id]);
+    });
+
+    it('should reject null user_id', async () => {
+      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', adminApiKey.token).send({
+        user_id: null,
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toContain('user_id cannot be null or empty');
+    });
+
+    it('should reject empty string user_id', async () => {
+      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', adminApiKey.token).send({
+        user_id: '',
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toContain('user_id cannot be null or empty');
+    });
+
+    it('should reject non-existent user_id', async () => {
+      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', adminApiKey.token).send({
+        user_id: 999999,
+      });
+
+      expect(response.status).toBe(404);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toContain('Target user not found');
     });
   });
 });

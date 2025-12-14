@@ -1,0 +1,17 @@
+# Dependencies
+node_modules
+package-lock.json
+
+# Build outputs
+dist
+build
+
+# Vendor files
+public/vendor
+
+# Handlebars templates (Prettier struggles with inline blocks)
+src/emails/*.hbs
+
+# Minified files
+*.min.js
+*.min.css

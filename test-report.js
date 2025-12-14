@@ -9,10 +9,10 @@ const user = require('./src/models/user');
 
 async function testReport() {
   console.log('Fetching test user...');
-  
+
   // Get a user (using first user from weekly report)
   const users = await user.findUsersForWeeklyReport('MON', 1);
-  
+
   if (users.length === 0) {
     console.error('No users found in database for weekly reports');
     process.exit(1);
@@ -20,7 +20,7 @@ async function testReport() {
 
   const testUser = users[0];
   console.log(`Generating report for user: ${testUser.username} (ID: ${testUser.id})`);
-  
+
   try {
     await reporting.sendSummaryEmail(testUser);
     console.log('✓ Report generated and sent successfully!');
@@ -29,7 +29,7 @@ async function testReport() {
     console.error('✗ Error generating report:', error);
     process.exit(1);
   }
-  
+
   process.exit(0);
 }
 
