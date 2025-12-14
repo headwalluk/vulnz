@@ -424,8 +424,35 @@ $(document).ready(function () {
     const website = $(this).closest('li').data('website');
     const componentsList = $('#components-list');
     const websiteUserInfo = $('#website-user-info');
+    const websiteOwnerSection = $('#website-owner-section');
+    const websiteOwnerDisplay = $('#website-owner-display');
+
     componentsList.empty();
     websiteUserInfo.empty();
+    websiteOwnerDisplay.empty();
+    websiteOwnerSection.hide();
+    $('#website-owner-change').hide();
+
+    // Show owner info if admin
+    if (currentUser.roles.includes('administrator')) {
+      websiteOwnerSection.show();
+      const ownerHtml = `
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <i class="bi bi-person-circle me-2"></i>
+            <strong>${website.username}</strong>
+          </div>
+          <button id="change-owner-btn" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-pencil me-1"></i>Change
+          </button>
+        </div>
+      `;
+      websiteOwnerDisplay.html(ownerHtml);
+
+      // Store website data for later use
+      websiteOwnerSection.data('website-domain', website.domain);
+      websiteOwnerSection.data('current-user-id', website.user_id);
+    }
 
     if (website.meta && Object.keys(website.meta).length > 0) {
       const metaList = $('<ul class="list-group mb-3"></ul>');
@@ -496,5 +523,145 @@ $(document).ready(function () {
     $('#components-modal-label').html(modalTitle);
     const componentsModal = new bootstrap.Modal($('#components-modal'));
     componentsModal.show();
+  });
+
+  // Handle change owner button click
+  $(document).on('click', '#change-owner-btn', function () {
+    $('#website-owner-display').hide();
+    $('#website-owner-change').show();
+
+    const currentUserId = $('#website-owner-section').data('current-user-id');
+
+    // Initialize Select2 for user search
+    $('#website-owner-select').select2({
+      theme: 'bootstrap-5',
+      placeholder: 'Search for a user...',
+      allowClear: false,
+      minimumInputLength: 0,
+      dropdownParent: $('#components-modal'),
+      ajax: {
+        url: '/api/users',
+        dataType: 'json',
+        delay: 250,
+        data: function (params) {
+          return {
+            q: params.term || '',
+            page: params.page || 1,
+            limit: 50,
+          };
+        },
+        processResults: function (data) {
+          return {
+            results: data.users.map((user) => ({
+              id: user.id,
+              text: user.username,
+            })),
+          };
+        },
+        cache: true,
+      },
+    });
+
+    // Load and set current user
+    $.ajax({
+      url: '/api/users/' + currentUserId,
+      method: 'GET',
+      success: function (user) {
+        const option = new Option(user.username, user.id, true, true);
+        $('#website-owner-select').append(option).trigger('change');
+      },
+    });
+  });
+
+  // Handle owner selection change
+  $(document).on('change', '#website-owner-select', function () {
+    const currentUserId = $('#website-owner-section').data('current-user-id');
+    const newUserId = $(this).val();
+    $('#save-owner-change').prop('disabled', parseInt(newUserId) === parseInt(currentUserId));
+  });
+
+  // Handle cancel owner change
+  $(document).on('click', '#cancel-owner-change', function () {
+    $('#website-owner-change').hide();
+    $('#website-owner-display').show();
+
+    // Destroy Select2 instance
+    if ($('#website-owner-select').data('select2')) {
+      $('#website-owner-select').select2('destroy');
+    }
+    $('#website-owner-select').empty().append('<option value="">Loading users...</option>');
+  });
+
+  // Handle save owner change
+  $(document).on('click', '#save-owner-change', function () {
+    const $btn = $(this);
+    const $spinner = $btn.find('.spinner-border');
+    const websiteDomain = $('#website-owner-section').data('website-domain');
+    const newUserId = $('#website-owner-select').val();
+
+    if (!newUserId) {
+      alert('Please select a user');
+      return;
+    }
+
+    $btn.prop('disabled', true);
+    $spinner.show();
+
+    $.ajax({
+      url: `/api/websites/${websiteDomain}`,
+      method: 'PUT',
+      contentType: 'application/json',
+      data: JSON.stringify({ user_id: parseInt(newUserId) }),
+      success: function () {
+        // Get the selected user's username to display
+        const newOwnerUsername = $('#website-owner-select option:selected').text();
+
+        // Update the display with the new owner
+        const ownerHtml = `
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <i class="bi bi-person-circle me-2"></i>
+              <strong>${newOwnerUsername}</strong>
+            </div>
+            <button id="change-owner-btn" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-pencil me-1"></i>Change
+            </button>
+          </div>
+        `;
+        $('#website-owner-display').html(ownerHtml);
+
+        // Update stored user_id
+        $('#website-owner-section').data('current-user-id', parseInt(newUserId));
+
+        // Reset UI state
+        $('#website-owner-change').hide();
+        $('#website-owner-display').show();
+
+        // Destroy Select2 instance
+        if ($('#website-owner-select').data('select2')) {
+          $('#website-owner-select').select2('destroy');
+        }
+        $('#website-owner-select').empty().append('<option value="">Loading users...</option>');
+
+        // Show success message
+        alert('Website owner updated successfully');
+
+        // Reload websites list in background
+        loadWebsites(currentPage, currentSearch);
+      },
+      error: function (xhr) {
+        let errorMessage = 'Failed to update website owner';
+        if (xhr.responseJSON && xhr.responseJSON.message) {
+          errorMessage = xhr.responseJSON.message;
+        } else if (xhr.responseText) {
+          errorMessage = xhr.responseText;
+        }
+        alert(errorMessage);
+      },
+      complete: function () {
+        $btn.prop('disabled', false);
+        $spinner.hide();
+      },
+    });
   });
 });

@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.14.0 - 2025-12-14
+
+### Admin Features
+
+- **Website Ownership Transfer**: Administrators can now change which user account owns a website
+  - Searchable user dropdown using Select2 integration
+  - Real-time AJAX user search via `/api/users?q=` endpoint
+  - Enhanced website info modal on dashboard with ownership management
+  - Server-side validation prevents NULL assignments and ensures target user exists
+  - Admin-only authorization enforced on backend
+  - Comprehensive test coverage (5 new tests)
+
+### Infrastructure Improvements
+
+- **Vendor Assets Management**: Migrated from CDN to local npm packages
+  - Replaced Select2 CDN links with local vendor files
+  - Added `select2` and `select2-bootstrap-5-theme` npm dependencies
+  - Created `scripts/copy-vendor-deps.js` to manage vendor file deployment
+  - Updated build script to include vendor directory in production builds
+  - Automated vendor file copying via `postinstall` script
+
+### Documentation
+
+- **Future Development Roadmap**: Added `docs/future-development.md`
+  - UI modernization recommendations (SPA migration strategies)
+  - Feature roadmap with priorities and effort estimates
+  - Technical debt tracking and improvement suggestions
+
 ## 1.13.0 - 2025-12-10
 
 ### Reporting Improvements

@@ -347,7 +347,7 @@ const processComponents = async (components, componentType) => {
  */
 router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
   try {
-    const { title, 'wordpress-plugins': wordpressPlugins, 'wordpress-themes': wordpressThemes, is_dev, meta, versions } = req.body;
+    const { title, 'wordpress-plugins': wordpressPlugins, 'wordpress-themes': wordpressThemes, is_dev, meta, versions, user_id } = req.body;
     const websiteData = {};
     if (title) {
       websiteData.title = title;
@@ -357,6 +357,36 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
     }
     if (meta) {
       websiteData.meta = meta;
+    }
+
+    // Handle user_id change (admin only)
+    if (user_id !== undefined) {
+      const roles = await User.getRoles(req.user.id);
+
+      if (!roles.includes('administrator')) {
+        return res.status(403).json({
+          success: false,
+          message: 'Only administrators can change website ownership',
+        });
+      }
+
+      if (user_id === null || user_id === '') {
+        return res.status(400).json({
+          success: false,
+          message: 'user_id cannot be null or empty',
+        });
+      }
+
+      // Verify the target user exists
+      const targetUser = await User.findUserById(user_id);
+      if (!targetUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'Target user not found',
+        });
+      }
+
+      websiteData.user_id = user_id;
     }
 
     // Dignostics. Consider removing.

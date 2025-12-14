@@ -18,7 +18,7 @@ const { validateEmailAddress } = require('../lib/emailValidation');
  */
 function formatHumanDate(dateValue) {
   if (!dateValue) return 'Unknown';
-  
+
   const date = new Date(dateValue);
   if (isNaN(date.getTime())) return 'Invalid date';
 
@@ -51,7 +51,7 @@ function deduplicatePlugins(plugins) {
 
   for (const plugin of plugins) {
     const key = plugin.slug;
-    
+
     if (!pluginMap.has(key)) {
       pluginMap.set(key, {
         title: plugin.title,
@@ -121,23 +121,27 @@ async function sendSummaryEmail(userToSend) {
   const newlyPublishedPlugins = await component.findNewlyPublishedPlugins(parseInt(newlyPublishedThresholdMonths, 10), isAdministrator ? null : userToSend.id);
 
   // Deduplicate plugins
-  const deduplicatedUnmaintained = deduplicatePlugins(unmaintainedPlugins.map((p) => ({
-    title: p.title,
-    slug: p.slug,
-    lastUpdated: p.last_updated,
-    monthsSinceUpdate: p.months_since_update,
-    domain: p.domain,
-    websiteTitle: p.website_title,
-  })));
+  const deduplicatedUnmaintained = deduplicatePlugins(
+    unmaintainedPlugins.map((p) => ({
+      title: p.title,
+      slug: p.slug,
+      lastUpdated: p.last_updated,
+      monthsSinceUpdate: p.months_since_update,
+      domain: p.domain,
+      websiteTitle: p.website_title,
+    }))
+  );
 
-  const deduplicatedNewlyPublished = deduplicatePlugins(newlyPublishedPlugins.map((p) => ({
-    title: p.title,
-    slug: p.slug,
-    added: p.added,
-    monthsSincePublished: p.months_since_published,
-    domain: p.domain,
-    websiteTitle: p.website_title,
-  })));
+  const deduplicatedNewlyPublished = deduplicatePlugins(
+    newlyPublishedPlugins.map((p) => ({
+      title: p.title,
+      slug: p.slug,
+      added: p.added,
+      monthsSincePublished: p.months_since_published,
+      domain: p.domain,
+      websiteTitle: p.website_title,
+    }))
+  );
 
   // Calculate total security events (convert BigInt to Number)
   const totalSecurityEvents = securityEventsSummary.reduce((sum, evt) => sum + Number(evt.event_count), 0);
