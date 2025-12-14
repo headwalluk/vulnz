@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.14.1 - 2025-12-14
+
+### UX Improvements
+
+- **Website Info Modal**: Made modal wider using `modal-lg` class for better readability
+- **Ownership Transfer UI**: Enhanced user experience
+  - Fixed display state when reopening modal after clicking "Change"
+  - Added auto-focus to search input when Select2 dropdown opens
+  - Removed success alert (silent success, show only errors)
+  - Restored modal focus after saving to enable immediate Escape key dismissal
+
 ## 1.14.0 - 2025-12-14
 
 ### Admin Features

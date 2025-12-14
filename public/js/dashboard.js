@@ -431,6 +431,7 @@ $(document).ready(function () {
     websiteUserInfo.empty();
     websiteOwnerDisplay.empty();
     websiteOwnerSection.hide();
+    websiteOwnerDisplay.show();
     $('#website-owner-change').hide();
 
     // Show owner info if admin
@@ -562,6 +563,13 @@ $(document).ready(function () {
       },
     });
 
+    // Auto-focus search input when Select2 opens
+    $('#website-owner-select').on('select2:open', function () {
+      setTimeout(function () {
+        document.querySelector('.select2-search__field').focus();
+      }, 0);
+    });
+
     // Load and set current user
     $.ajax({
       url: '/api/users/' + currentUserId,
@@ -643,8 +651,8 @@ $(document).ready(function () {
         }
         $('#website-owner-select').empty().append('<option value="">Loading users...</option>');
 
-        // Show success message
-        alert('Website owner updated successfully');
+        // Give focus to modal so Escape key works immediately
+        $('#components-modal').focus();
 
         // Reload websites list in background
         loadWebsites(currentPage, currentSearch);
