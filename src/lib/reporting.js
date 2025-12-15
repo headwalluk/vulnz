@@ -211,6 +211,10 @@ async function sendSummaryEmail(userToSend) {
       domain: site.domain,
       vulnerableComponents: site.vulnerableComponents,
     })),
+    allWebsites: userWebsites.map((site) => ({
+      title: site.title,
+      domain: site.domain,
+    })),
     securityEvents: {
       summary: securityEventsSummary,
       topCountries: topAttackCountries,

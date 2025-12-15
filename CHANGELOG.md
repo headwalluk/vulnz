@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.15.0 - 2025-12-15
+
+### Reporting Improvements
+
+- **Email Report Streamlining**: Removed "Component Changes (Past 7 Days)" section
+  - Reduces information overload in weekly security reports
+  - Component change data still tracked and will be exposed via API in future
+  - Cleaner, more focused email reports for clients
+
+- **All Monitored Websites List**: Added comprehensive website listing
+  - New section displays all monitored websites after vulnerable websites
+  - Shows website title and domain in clean single-column format
+  - Mobile-friendly layout without clickable links
+  - Helps users verify all their websites are being monitored
+
 ## 1.14.1 - 2025-12-14
 
 ### UX Improvements
