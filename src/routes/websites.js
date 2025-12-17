@@ -290,7 +290,7 @@ const processComponents = async (components, componentType) => {
  * /api/websites/{domain}:
  *   put:
  *     summary: Update a website
- *     description: Update a website's properties, associated components, and version information.
+ *     description: Update a website's properties, associated components, version information, and ownership. Changing ownership requires administrator privileges.
  *     tags:
  *       - Websites
  *     parameters:
@@ -309,20 +309,29 @@ const processComponents = async (components, componentType) => {
  *             properties:
  *               title:
  *                 type: string
+ *                 description: Website title
  *               wordpress-plugins:
  *                 type: array
+ *                 description: Array of WordPress plugins
  *                 items:
  *                   type: object
  *               wordpress-themes:
  *                 type: array
+ *                 description: Array of WordPress themes
  *                 items:
  *                   type: object
  *               is_dev:
  *                 type: boolean
+ *                 description: Whether this is a development website
  *               meta:
  *                 type: object
+ *                 description: Arbitrary metadata key-value pairs
+ *               user_id:
+ *                 type: integer
+ *                 description: User ID to transfer ownership to (admin only)
  *               versions:
  *                 type: object
+ *                 description: Software version information
  *                 properties:
  *                   wordpress_version:
  *                     type: string
@@ -335,13 +344,15 @@ const processComponents = async (components, componentType) => {
  *                     type: string
  *     responses:
  *       200:
- *         description: Website updated
+ *         description: Website updated successfully
  *       400:
- *         description: Bad request (invalid db_server_type)
+ *         description: Bad request (invalid db_server_type, null/empty user_id)
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (non-admin attempting ownership change)
  *       404:
- *         description: Website not found
+ *         description: Website not found or target user not found
  *       500:
  *         description: Server error
  */
