@@ -107,6 +107,39 @@ Update `BASE_URL` in your `.env` to match your public-facing URL.
 
 Ensure your reverse proxy is configured to forward the client IP address so rate limiting works correctly (set `trust proxy` in Express if needed).
 
+## CORS Configuration
+
+If you're building a browser-based client (e.g., WordPress plugin, SPA) that needs to make API calls to VULNZ from a different domain, enable CORS:
+
+```bash
+# Enable CORS
+CORS_ENABLED=true
+
+# Allow specific origins (recommended for production)
+CORS_ORIGIN=https://example.com,https://app.example.com
+
+# Or allow all origins (NOT recommended for production)
+# CORS_ORIGIN=*
+
+# Enable credentials (cookies, authorization headers)
+CORS_CREDENTIALS=true
+```
+
+**Security Notes:**
+
+- Always use specific origins in production (comma-separated list)
+- Only use `CORS_ORIGIN=*` for development or public APIs
+- Enable `CORS_CREDENTIALS=true` if your client needs to send cookies or authorization headers
+- The API already uses API key authentication via `X-API-Key` header, which works with CORS
+
+**Example for WordPress Plugin:**
+
+```bash
+CORS_ENABLED=true
+CORS_ORIGIN=https://yourwordpresssite.com
+CORS_CREDENTIALS=true
+```
+
 ## Rate Limiting for Unauthenticated Requests
 
 The app applies a simple per-second cap on unauthenticated search requests. Configure this with the `UNAUTH_SEARCH_LIMIT_PER_SECOND` environment variable:

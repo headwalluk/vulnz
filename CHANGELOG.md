@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.16.0 - 2025-12-17
+
+### API Improvements
+
+- **CORS Support**: Added configurable CORS middleware for browser-based API clients
+  - Configure via `.env` with `CORS_ENABLED`, `CORS_ORIGIN`, and `CORS_CREDENTIALS`
+  - Support for single or multiple origins (comma-separated)
+  - Allow all origins with `CORS_ORIGIN=*` (not recommended for production)
+  - Enable/disable CORS entirely for flexible deployment scenarios
+  - Graceful handling of disallowed origins (no server errors)
+  - Documented in deployment guide with security best practices
+  - Ready for WordPress plugin and SPA integrations
+
+- **API Documentation**: Enhanced OpenAPI/Swagger documentation
+  - Updated Swagger version to match project version (1.16.0)
+  - Added ownership transfer documentation (`user_id` parameter in PUT /api/websites/{domain})
+  - Improved Swagger UI with custom title and cleaner interface
+  - OpenAPI JSON available at `/openapi.json` for external tool integration
+
 ## 1.15.0 - 2025-12-15
 
 ### Reporting Improvements

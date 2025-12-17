@@ -1,6 +1,6 @@
 {
   "name": "vulnz",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "description": "Vulnerability database for WordPress plugins and themes",
   "main": "src/index.js",
   "scripts": {
@@ -40,6 +40,7 @@
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "express-mysql-session": "^3.0.3",

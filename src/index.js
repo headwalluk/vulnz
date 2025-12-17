@@ -29,6 +29,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const helmet = require('helmet');
+const cors = require('cors');
 const app = express();
 const port = process.env.HTTP_LISTEN_PORT || 3000;
 const apiKey = require('./models/apiKey');
@@ -84,7 +85,7 @@ const swaggerOptions = {
     openapi: '3.0.0',
     info: {
       title: 'vulnz API',
-      version: '1.0.0',
+      version: '1.15.0',
       description: 'API for WordPress vulnerability database',
     },
     servers: [
@@ -102,7 +103,15 @@ app.set('trust proxy', 1);
 app.use(redirectHtml);
 
 // Swagger UI
-app.use('/doc', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use(
+  '/doc',
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, {
+    customSiteTitle: 'VULNZ API Documentation',
+    customCss: '.swagger-ui .topbar { display: none }',
+    customCssUrl: null,
+  })
+);
 
 // OpenAPI JSON endpoint
 app.get('/openapi.json', (req, res) => {
@@ -111,6 +120,41 @@ app.get('/openapi.json', (req, res) => {
 });
 
 app.use(helmet());
+
+// CORS Configuration
+if (process.env.CORS_ENABLED === 'true') {
+  const corsOptions = {
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+
+      const allowedOrigins = process.env.CORS_ORIGIN || '*';
+
+      // Allow all origins if CORS_ORIGIN is set to '*'
+      if (allowedOrigins === '*') {
+        return callback(null, true);
+      }
+
+      // Check if origin is in the allowed list (comma-separated)
+      const originsArray = allowedOrigins.split(',').map((o) => o.trim());
+      if (originsArray.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // Origin not allowed - reject without error (CORS will handle it)
+      callback(null, false);
+    },
+    credentials: process.env.CORS_CREDENTIALS === 'true',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+  };
+
+  app.use(cors(corsOptions));
+  console.log('[CORS] Enabled with origin:', process.env.CORS_ORIGIN || '*');
+} else {
+  console.log('[CORS] Disabled');
+}
+
 app.use(express.json());
 
 const sessionStore = new MySQLStore({
