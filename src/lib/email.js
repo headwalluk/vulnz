@@ -90,10 +90,15 @@ async function sendVulnerabilityReport(to, data) {
 
   const html = compiledTemplate({ ...data, branding });
 
+  // Dynamic subject line based on vulnerability status
+  const hasVulnerabilities = data.vulnerableWebsitesCount > 0;
+  const subjectStatus = hasVulnerabilities ? 'Attention Required!' : 'All Clear';
+  const subject = `Weekly Vulnerability Report: ${subjectStatus}`;
+
   const mailOptions = {
     from: process.env.SMTP_FROM,
     to: to,
-    subject: 'Weekly Vulnerability Report',
+    subject: subject,
     html: html,
   };
 
