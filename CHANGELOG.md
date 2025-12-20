@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.17.0 - 2025-12-20
+
+### Email Report Redesign
+
+- **Modern Email Template**: Complete redesign of weekly vulnerability reports
+  - Professional, mobile-responsive design with card-based layout
+  - Zero-click status banner (red for issues, green for all clear)
+  - Dynamic subject line: "All Clear" or "Attention Required!"
+  - Stats grid with at-a-glance metrics
+  - Recommended actions section placed prominently for better UX
+  - Color-coded sections: critical (red), warnings (amber), info (blue), success (green)
+  - Removed unnecessary borders from last items in lists for cleaner appearance
+  - Empty state messaging when no vulnerabilities found
+
+- **Content Improvements**:
+  - Added "All Monitored Websites" section
+  - Added "Security Events (Past 7 Days)" with attack sources
+  - Added "Outdated Core Software" details (WordPress & PHP)
+  - Added "Static Analysis Issues" section
+  - Added "Newly Published Plugins" watchlist
+  - Softened "Abandoned Plugin Check" wording to be less aggressive
+  - Maintained all data from previous template while improving readability
+
+- **Email Client Compatibility**:
+  - Proper MSO/Outlook conditional comments
+  - Table-based layout for maximum compatibility
+  - Inline styles throughout
+  - Mobile-responsive with breakpoints
+  - Tested across major email clients
+
 ## 1.16.0 - 2025-12-17
 
 ### API Improvements
