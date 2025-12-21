@@ -197,6 +197,10 @@ router.get('/me', logApiCall, async (req, res) => {
       defaultPageSize: parseInt(process.env.LIST_PAGE_SIZE, 10) || 10,
       reporting_weekday: req.user.reporting_weekday,
       reporting_email: req.user.reporting_email,
+      whitelabel: {
+        enabled: Boolean(req.user.enable_white_label),
+        htmlSnippet: req.user.white_label_html || '',
+      },
     });
   } catch (err) {
     console.error(err);
