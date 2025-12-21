@@ -18,7 +18,7 @@ async function createTable() {
   await db.query(sql);
 }
 
-async function createUser(username, password, roleNames, blocked, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at) {
+async function createUser(username, password, roleNames, blocked, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at, enable_white_label, white_label_html) {
   const emailValidation = validateEmailAddress(username);
   if (!emailValidation.isValid) {
     throw new Error(emailValidation.errors.join(' '));
@@ -36,9 +36,11 @@ async function createUser(username, password, roleNames, blocked, max_api_keys, 
   }
   const finalBlocked = blocked !== undefined ? blocked : false;
   const finalReportingWeekday = reporting_weekday !== undefined ? reporting_weekday : '';
+  const finalEnableWhiteLabel = enable_white_label !== undefined ? enable_white_label : false;
+  const finalWhiteLabelHtml = white_label_html !== undefined ? white_label_html : null;
   const result = await db.query(
-    'INSERT INTO users (username, password, blocked, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [username, hashedPassword, finalBlocked, finalMaxApiKeys, finalReportingWeekday, reporting_email, last_summary_sent_at]
+    'INSERT INTO users (username, password, blocked, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at, enable_white_label, white_label_html) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [username, hashedPassword, finalBlocked, finalMaxApiKeys, finalReportingWeekday, reporting_email, last_summary_sent_at, finalEnableWhiteLabel, finalWhiteLabelHtml]
   );
   const userId = result.insertId;
 
@@ -59,12 +61,13 @@ async function createUser(username, password, roleNames, blocked, max_api_keys, 
     }
   }
 
-  const [userRow] = await db.query('SELECT id, username, blocked, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at FROM users WHERE id = ?', [userId]);
+  const [userRow] = await db.query('SELECT id, username, blocked, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at, enable_white_label, white_label_html FROM users WHERE id = ?', [userId]);
   const roles = await getRoles(userId);
   return {
     ...userRow,
     id: parseInt(userRow.id, 10),
     blocked: Boolean(userRow.blocked),
+    enable_white_label: Boolean(userRow.enable_white_label),
     roles,
   };
 }
@@ -89,7 +92,7 @@ async function updatePassword(userId, newPassword) {
   await db.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
 }
 
-async function updateUser(userId, { username, password, roles, blocked, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at }) {
+async function updateUser(userId, { username, password, roles, blocked, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at, enable_white_label, white_label_html }) {
   if (password) {
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.isValid) {
@@ -129,6 +132,14 @@ async function updateUser(userId, { username, password, roles, blocked, max_api_
 
   if (last_summary_sent_at !== undefined) {
     await db.query('UPDATE users SET last_summary_sent_at = ? WHERE id = ?', [last_summary_sent_at, userId]);
+  }
+
+  if (enable_white_label !== undefined) {
+    await db.query('UPDATE users SET enable_white_label = ? WHERE id = ?', [enable_white_label, userId]);
+  }
+
+  if (white_label_html !== undefined) {
+    await db.query('UPDATE users SET white_label_html = ? WHERE id = ?', [white_label_html, userId]);
   }
 
   if (roles) {

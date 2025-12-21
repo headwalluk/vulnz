@@ -41,12 +41,33 @@ $(document).ready(function () {
     $('#reporting-email').attr('placeholder', currentUser.username);
     $('#reporting-weekday').val(currentUser.reporting_weekday);
     $('#is-dev').prop('checked', currentUser.is_dev);
+    $('#enable-white-label').prop('checked', currentUser.enable_white_label || false);
+    $('#white-label-html').val(currentUser.white_label_html || '');
+    
+    // Show/hide white-label section based on checkbox
+    if (currentUser.enable_white_label) {
+      $('#white-label-section').show();
+    }
+    updateCharCounter();
+    
     loadUserData();
   }
 
   function loadUserData() {
     loadApiKeys();
     loadWebsites();
+    
+    // Handle white-label checkbox toggle
+    $('#enable-white-label').on('change', function () {
+      if ($(this).is(':checked')) {
+        $('#white-label-section').slideDown();
+      } else {
+        $('#white-label-section').slideUp();
+      }
+    });
+    
+    // Update character counter
+    $('#white-label-html').on('input', updateCharCounter);
 
     $('#create-api-key-form').on('submit', function (e) {
       e.preventDefault();
@@ -93,12 +114,27 @@ $(document).ready(function () {
       const reporting_weekday = $('#reporting-weekday').val();
       const reporting_email = $('#reporting-email').val();
       const is_dev = $('#is-dev').is(':checked');
+      const enable_white_label = $('#enable-white-label').is(':checked');
+      const white_label_html = $('#white-label-html').val();
+      
+      // Validate character limit client-side
+      if (white_label_html.length > 16384) {
+        alert('Custom header HTML must not exceed 16384 characters.');
+        return;
+      }
+      
       $('#reporting-spinner').show();
       $.ajax({
         url: '/api/users/me',
         method: 'PUT',
         contentType: 'application/json',
-        data: JSON.stringify({ reporting_weekday, is_dev, reporting_email }),
+        data: JSON.stringify({ 
+          reporting_weekday, 
+          is_dev, 
+          reporting_email,
+          enable_white_label,
+          white_label_html
+        }),
         success: function () {
           alert('Reporting settings saved.');
           $('#send-report-now').prop('disabled', false);
@@ -132,6 +168,11 @@ $(document).ready(function () {
         },
       });
     });
+  }
+  
+  function updateCharCounter() {
+    const length = $('#white-label-html').val().length;
+    $('#char-counter').text(`(${length}/16384)`);
   }
 
   function loadApiKeys() {
