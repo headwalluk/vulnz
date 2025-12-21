@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.20.0 - 2025-12-21
+
+### Bug Fixes
+
+- **HTML Entity Decoding**: Fixed double-encoding issue in vulnerability reports
+  - Component titles from WordPress.org API containing HTML entities (e.g., `&amp;`, `&gt;`, `&lt;`) were being double-encoded in email reports
+  - Enhanced `stripAll()` function to decode HTML entities to plain text before storing in database
+  - Added `decodeHtmlEntities()` helper function supporting both named and numeric entities
+  - Migration `20251221130000-decode-html-entities-in-components.js` cleans existing data
+  - Example: "Health Check &amp;amp; Troubleshooting" now correctly displays as "Health Check & Troubleshooting"
+
+- **White-Label Dashboard Loading**: Fixed white-label settings not populating on page load
+  - `/api/auth/me` now returns structured `whitelabel` object with `enabled` and `htmlSnippet` properties
+  - Dashboard JavaScript properly checks for `whitelabel` object existence (backward compatible)
+  - Checkbox and HTML snippet textarea now populate correctly from API response
+
 ## 1.19.0 - 2025-12-21
 
 ### White-Label Character Limit Increase
