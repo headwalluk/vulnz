@@ -1,5 +1,53 @@
 # Changelog
 
+## 1.19.0 - 2025-12-21
+
+### White-Label Character Limit Increase
+
+- **Expanded HTML Limit**: Increased white-label HTML character limit from 4096 to 16384 characters (16 KB)
+  - Supports complex SVG logos and rich branding elements
+  - Updated client-side validation in dashboard textarea
+  - Updated server-side validation in API endpoints
+  - Updated HTML sanitizer trim limit
+  - Character counter now displays "X/16384"
+  - Database TEXT column supports up to 65,535 bytes (no schema change needed)
+
+## 1.18.0 - 2025-12-21
+
+### White-Label Email Reports
+
+- **Custom Branding**: Users can now white-label their weekly vulnerability reports
+  - Enable/disable custom branding via checkbox in account settings
+  - Replace default "vulnz" header with custom HTML (up to 16384 characters / 16 KB)
+  - Inline SVG support recommended for logos (avoids spam risk from external images)
+  - HTML sanitization prevents XSS while allowing email-safe tags and styles
+  - Character counter shows remaining space (X/16384)
+  - Collapsible example snippets in dashboard for quick reference
+  - Test custom branding using existing "Send now" button
+
+- **Database Changes**:
+  - Added `enable_white_label` (BOOLEAN) to users table
+  - Added `white_label_html` (TEXT) to users table
+  - Migration: `20251221120000-add-white-label-to-users.js`
+
+- **API Updates**:
+  - `PUT /api/users/:id` and `PUT /api/users/me` accept white-label fields
+  - Client-side and server-side validation for 16384 character limit (16 KB)
+  - HTML sanitization using `sanitize-html` library
+  - Appropriate error messages for validation failures
+
+- **Email Template**:
+  - Conditional rendering: custom HTML when enabled, default header otherwise
+  - Graceful fallback if white-labeling enabled but HTML empty
+  - Uses Handlebars triple-braces for unescaped HTML rendering
+
+- **Security**:
+  - Comprehensive HTML sanitization (removes scripts, event handlers, dangerous attributes)
+  - Allows email-safe tags: table, tr, td, img, svg, h1-h6, p, span, div, a, etc.
+  - Allows safe inline styles with regex validation
+  - Allows inline SVG with path, circle, rect, text elements
+  - External images allowed but users warned about spam risk
+
 ## 1.17.0 - 2025-12-20
 
 ### Email Report Redesign

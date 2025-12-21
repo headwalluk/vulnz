@@ -202,6 +202,11 @@ async function sendSummaryEmail(userToSend) {
 
   const emailData = {
     username: userToSend.username,
+    user: {
+      username: userToSend.username,
+      enable_white_label: userToSend.enable_white_label,
+      white_label_html: userToSend.white_label_html,
+    },
     totalWebsites,
     vulnerableWebsitesCount: vulnerableWebsites.length,
     executiveSummary,

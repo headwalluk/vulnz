@@ -3,6 +3,7 @@ const router = express.Router();
 const user = require('../models/user');
 const db = require('../db');
 const { isAuthenticated, apiKeyOrSessionAdminAuth } = require('../middleware/auth');
+const { sanitizeEmailHtml } = require('../lib/htmlSanitizer');
 
 /**
  * @swagger
@@ -32,7 +33,7 @@ router.get('/', apiKeyOrSessionAdminAuth, async (req, res) => {
     let totalUsers;
     const queryParams = [];
 
-    let baseQuery = 'SELECT id, username, blocked, max_api_keys, reporting_weekday, reporting_email FROM users';
+    let baseQuery = 'SELECT id, username, blocked, max_api_keys, reporting_weekday, reporting_email, enable_white_label, white_label_html FROM users';
     let countQuery = 'SELECT COUNT(*) as count FROM users';
 
     if (searchQuery) {
@@ -202,7 +203,27 @@ router.get('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
  */
 router.put('/me', isAuthenticated, async (req, res) => {
   try {
-    await user.updateUser(req.user.id, req.body);
+    const updateData = { ...req.body };
+    
+    // Validate and sanitize white_label_html if provided
+    if (updateData.white_label_html !== undefined) {
+      if (typeof updateData.white_label_html !== 'string') {
+        return res.status(400).send('white_label_html must be a string');
+      }
+      if (updateData.white_label_html.length > 16384) {
+        return res.status(400).send('white_label_html must not exceed 16384 characters');
+      }
+      updateData.white_label_html = sanitizeEmailHtml(updateData.white_label_html);
+    }
+    
+    // Validate enable_white_label if provided
+    if (updateData.enable_white_label !== undefined) {
+      if (typeof updateData.enable_white_label !== 'boolean') {
+        return res.status(400).send('enable_white_label must be a boolean');
+      }
+    }
+    
+    await user.updateUser(req.user.id, updateData);
     res.send('User updated');
   } catch (err) {
     console.error(err);
@@ -246,7 +267,27 @@ router.put('/password', isAuthenticated, async (req, res) => {
 
 router.put('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
   try {
-    await user.updateUser(req.params.id, req.body);
+    const updateData = { ...req.body };
+    
+    // Validate and sanitize white_label_html if provided
+    if (updateData.white_label_html !== undefined) {
+      if (typeof updateData.white_label_html !== 'string') {
+        return res.status(400).send('white_label_html must be a string');
+      }
+      if (updateData.white_label_html.length > 16384) {
+        return res.status(400).send('white_label_html must not exceed 16384 characters');
+      }
+      updateData.white_label_html = sanitizeEmailHtml(updateData.white_label_html);
+    }
+    
+    // Validate enable_white_label if provided
+    if (updateData.enable_white_label !== undefined) {
+      if (typeof updateData.enable_white_label !== 'boolean') {
+        return res.status(400).send('enable_white_label must be a boolean');
+      }
+    }
+    
+    await user.updateUser(req.params.id, updateData);
     res.send('User updated');
   } catch (err) {
     console.error(err);

@@ -83,6 +83,48 @@
               <label for="reporting-email" class="form-label">Reporting Email</label>
               <input type="email" class="form-control" id="reporting-email" />
             </div>
+            <div class="mb-3">
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="enable-white-label" />
+                <label class="form-check-label" for="enable-white-label">
+                  Enable custom email header branding
+                </label>
+              </div>
+            </div>
+            <div id="white-label-section" class="mb-3" style="display: none;">
+              <label for="white-label-html" class="form-label">Custom Header HTML <span class="text-muted" id="char-counter">(0/16384)</span></label>
+              <textarea class="form-control font-monospace" id="white-label-html" rows="8" maxlength="16384" style="font-size: 0.875rem;"></textarea>
+              <div class="form-text">
+                <strong>Email-safe HTML guidelines:</strong>
+                <ul class="mb-1">
+                  <li>Use inline styles (no <code>&lt;style&gt;</code> tags)</li>
+                  <li>Use table-based layout for best email client compatibility</li>
+                  <li><strong>⚠️ External images increase spam risk</strong> - use inline SVG instead</li>
+                </ul>
+                <a href="#" data-bs-toggle="collapse" data-bs-target="#html-examples" class="text-decoration-none">
+                  <i class="bi bi-chevron-down"></i> Show example snippets
+                </a>
+                <div class="collapse mt-2" id="html-examples">
+                  <div class="card card-body bg-light">
+                    <h6>Example 1: Simple Gradient Header</h6>
+                    <pre class="mb-3" style="font-size: 0.75rem;"><code>&lt;tr&gt;
+  &lt;td align="center" style="padding: 40px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"&gt;
+    &lt;h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;"&gt;ACME Security&lt;/h1&gt;
+  &lt;/td&gt;
+&lt;/tr&gt;</code></pre>
+                    <h6>Example 2: Inline SVG Logo (Recommended)</h6>
+                    <pre style="font-size: 0.75rem;"><code>&lt;tr&gt;
+  &lt;td align="center" style="padding: 40px 20px; background-color: #0f172a;"&gt;
+    &lt;svg width="120" height="40" viewBox="0 0 120 40" xmlns="http://www.w3.org/2000/svg"&gt;
+      &lt;rect width="120" height="40" fill="#3b82f6" rx="4"/&gt;
+      &lt;text x="60" y="25" font-family="Arial" font-size="18" font-weight="bold" fill="#ffffff" text-anchor="middle"&gt;YourBrand&lt;/text&gt;
+    &lt;/svg&gt;
+  &lt;/td&gt;
+&lt;/tr&gt;</code></pre>
+                  </div>
+                </div>
+              </div>
+            </div>
             <button type="submit" class="btn btn-primary">Save Changes</button>
             <button type="button" class="btn btn-secondary" id="send-report-now"><i class="bi bi-envelope"></i> Send now</button>
             <div id="reporting-spinner" class="spinner-border spinner-border-sm text-primary ms-2" role="status" style="display: none">
