@@ -41,12 +41,16 @@ $(document).ready(function () {
     $('#reporting-email').attr('placeholder', currentUser.username);
     $('#reporting-weekday').val(currentUser.reporting_weekday);
     $('#is-dev').prop('checked', currentUser.is_dev);
-    $('#enable-white-label').prop('checked', currentUser.enable_white_label || false);
-    $('#white-label-html').val(currentUser.white_label_html || '');
     
-    // Show/hide white-label section based on checkbox
-    if (currentUser.enable_white_label) {
-      $('#white-label-section').show();
+    // Populate white-label settings
+    if (currentUser.whitelabel) {
+      $('#enable-white-label').prop('checked', currentUser.whitelabel.enabled || false);
+      $('#white-label-html').val(currentUser.whitelabel.htmlSnippet || '');
+      
+      // Show/hide white-label section based on checkbox
+      if (currentUser.whitelabel.enabled) {
+        $('#white-label-section').show();
+      }
     }
     updateCharCounter();
     

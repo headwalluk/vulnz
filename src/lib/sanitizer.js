@@ -1,3 +1,29 @@
+function decodeHtmlEntities(str) {
+  if (typeof str !== 'string') {
+    return '';
+  }
+  // Decode common HTML entities
+  const entities = {
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&apos;': "'",
+    '&#39;': "'",
+  };
+  
+  let decoded = str;
+  // First decode named entities
+  for (const [entity, char] of Object.entries(entities)) {
+    decoded = decoded.split(entity).join(char);
+  }
+  // Then decode numeric entities
+  decoded = decoded.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec));
+  decoded = decoded.replace(/&#x([0-9a-f]+);/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+  
+  return decoded;
+}
+
 function stripAll(str) {
   if (typeof str !== 'string') {
     return '';
@@ -6,7 +32,7 @@ function stripAll(str) {
   sanitized = sanitized.replace(/<[^>]*>?/gm, ''); // Strip HTML tags
   sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ''); // Strip script tags
   sanitized = sanitized.replace(/[\w.-]+@[\w.-]+\.\w+/g, ''); // Strip email addresses
-  sanitized = sanitized.replace(/&#\d+;/g, ''); // Strip HTML entities
+  sanitized = decodeHtmlEntities(sanitized); // Decode HTML entities to plain text
   return sanitized;
 }
 
@@ -80,4 +106,5 @@ module.exports = {
   stripNonAlphaNumeric,
   sanitizeSearchQuery,
   sanitizeComponentSlug,
+  decodeHtmlEntities,
 };
