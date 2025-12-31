@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.21.1 - 2025-12-31
+
+### Documentation
+
+- **API Documentation**: Added missing Swagger/OpenAPI documentation for `PUT /api/users/me`
+  - Now properly documents all supported properties: `reporting_weekday`, `reporting_email`, `enable_white_label`, `white_label_html`
+  - Added character limit constraint (`maxLength: 16384`) for `white_label_html` in API schema
+  - Clarified that `is_dev` is a website property, not a user property
+
+### Maintenance
+
+- Updated npm dependencies via `npm audit` and `npm update`
+
 ## 1.21.0 - 2025-12-31
 
 ### Account Status Management
