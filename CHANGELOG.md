@@ -1,5 +1,77 @@
 # Changelog
 
+## 1.21.0 - 2025-12-31
+
+### Account Status Management
+
+- **Pause/Unpause Accounts**: Users can now temporarily pause their own accounts, and admins can pause other accounts
+  - Paused users cannot log in via web UI but retain API key access (to unpause themselves)
+  - Paused users are excluded from scheduled vulnerability reports
+  - Self-service temporary suspension for users going on vacation, during migrations, etc.
+
+- **Block/Unblock Accounts**: Administrators can now block user accounts for security violations
+  - Blocked users have complete lockout - no UI login, no API key access
+  - Admins cannot block their own account (prevents system lockout)
+  - Admin-imposed hard lockout for policy enforcement
+
+- **Database Changes**:
+  - Added `paused` (BOOLEAN) to users table with index
+  - Migration: `20251231120000-add-paused-to-users.js`
+
+- **API Updates**:
+  - New endpoints:
+    - `PUT /api/users/me/pause` - Pause own account
+    - `PUT /api/users/me/unpause` - Unpause own account
+    - `PUT /api/users/:id/pause` - Admin: pause user account
+    - `PUT /api/users/:id/unpause` - Admin: unpause user account
+    - `PUT /api/users/:id/block` - Admin: block user account (with self-block prevention)
+    - `PUT /api/users/:id/unblock` - Admin: unblock user account
+  - All user API responses now include `paused` field
+  - User creation/update now accepts optional `paused` parameter (admin only)
+
+- **Admin UI Enhancements**:
+  - User list shows visual indicators for paused (warning icon) and blocked (danger icon) status
+  - Added pause/unpause toggle buttons (outline warning style)
+  - Added block/unblock toggle buttons (outline dark style)
+  - Block button disabled for admin's own account
+  - User edit form includes "Paused" toggle switch
+  - Confirmation dialogs for block/unblock actions
+
+- **Authentication Updates**:
+  - Passport Local Strategy now rejects both blocked AND paused users from UI login
+  - API key authentication allows paused users (enables self-unpause)
+  - `/me/*` endpoints support both session and API key authentication
+
+### API Route Consistency Improvements
+
+- **Breaking Change**: Renamed password update endpoint for consistency
+  - Old: `PUT /api/users/password`
+  - New: `PUT /api/users/me/password`
+  - All "current user" operations now follow `/api/users/me/*` pattern
+  - Dashboard updated to use new endpoint
+
+- **Consistent API Routes**:
+  - `GET /api/users/me` - Get current user details
+  - `PUT /api/users/me` - Update current user
+  - `PUT /api/users/me/password` - Update password
+  - `PUT /api/users/me/pause` - Pause own account
+  - `PUT /api/users/me/unpause` - Unpause own account
+
+### Documentation
+
+- Added comprehensive documentation: `docs/account-status-management.md`
+  - Requirements and security model
+  - Permission matrix
+  - Security considerations and risk mitigations
+  - Implementation details
+  - Database schema changes
+  - Future enhancement suggestions
+
+- Updated Swagger/OpenAPI documentation for all affected endpoints
+  - Full request/response schemas
+  - Admin-only restrictions documented
+  - Error response codes
+
 ## 1.20.0 - 2025-12-21
 
 ### Bug Fixes

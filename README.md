@@ -18,6 +18,7 @@ VULNZ is a comprehensive security monitoring platform designed for WordPress hos
 - **Monitor security events** like failed logins and attack attempts
 - **Track software versions** (WordPress core, PHP, database)
 - **Audit component changes** (plugin/theme installations and updates)
+- **Manage user accounts** with pause/unpause and block/unblock controls
 - **Generate weekly reports** with actionable security recommendations
 
 The application pulls metadata from wordpress.org and stores links to vulnerability disclosures, acting as a vulnerability metabase rather than duplicating full vulnerability details.
@@ -197,6 +198,7 @@ pm2 restart vulnz
 ### Features & Integrations
 
 - [API Documentation](docs/api-usage.md) - REST API reference and examples
+- [Account Status Management](docs/account-status-management.md) - Pause/unpause and block/unblock users
 - [WordPress Plugin](docs/wordpress-plugin.md) - Sync WordPress sites with VULNZ
 - [Wordfence Importer](docs/wordfence-importer.md) - Import vulnerabilities from Wordfence
 - [Security Events](docs/security-events.md) - Monitor security events with GeoIP
@@ -227,7 +229,7 @@ npm run test:watch
 npm run test:coverage
 ```
 
-**Current coverage**: 21/21 Settings API tests passing. See [Testing Guide](tests/README.md) for details.
+**Current coverage**: 33 tests across Settings API and Websites API. See [Testing Guide](tests/README.md) for details.
 
 ## License
 

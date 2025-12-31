@@ -15,6 +15,12 @@ passport.use(
       if (!match) {
         return done(null, false, { message: 'Incorrect password.' });
       }
+      if (user.blocked) {
+        return done(null, false, { message: 'Account is blocked.' });
+      }
+      if (user.paused) {
+        return done(null, false, { message: 'Account is paused.' });
+      }
       return done(null, user);
     } catch (err) {
       return done(err);

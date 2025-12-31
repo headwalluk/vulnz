@@ -41,26 +41,26 @@ $(document).ready(function () {
     $('#reporting-email').attr('placeholder', currentUser.username);
     $('#reporting-weekday').val(currentUser.reporting_weekday);
     $('#is-dev').prop('checked', currentUser.is_dev);
-    
+
     // Populate white-label settings
     if (currentUser.whitelabel) {
       $('#enable-white-label').prop('checked', currentUser.whitelabel.enabled || false);
       $('#white-label-html').val(currentUser.whitelabel.htmlSnippet || '');
-      
+
       // Show/hide white-label section based on checkbox
       if (currentUser.whitelabel.enabled) {
         $('#white-label-section').show();
       }
     }
     updateCharCounter();
-    
+
     loadUserData();
   }
 
   function loadUserData() {
     loadApiKeys();
     loadWebsites();
-    
+
     // Handle white-label checkbox toggle
     $('#enable-white-label').on('change', function () {
       if ($(this).is(':checked')) {
@@ -69,7 +69,7 @@ $(document).ready(function () {
         $('#white-label-section').slideUp();
       }
     });
-    
+
     // Update character counter
     $('#white-label-html').on('input', updateCharCounter);
 
@@ -98,7 +98,7 @@ $(document).ready(function () {
       }
 
       $.ajax({
-        url: '/api/users/password',
+        url: '/api/users/me/password',
         method: 'PUT',
         contentType: 'application/json',
         data: JSON.stringify({ newPassword }),
@@ -120,24 +120,24 @@ $(document).ready(function () {
       const is_dev = $('#is-dev').is(':checked');
       const enable_white_label = $('#enable-white-label').is(':checked');
       const white_label_html = $('#white-label-html').val();
-      
+
       // Validate character limit client-side
       if (white_label_html.length > 16384) {
         alert('Custom header HTML must not exceed 16384 characters.');
         return;
       }
-      
+
       $('#reporting-spinner').show();
       $.ajax({
         url: '/api/users/me',
         method: 'PUT',
         contentType: 'application/json',
-        data: JSON.stringify({ 
-          reporting_weekday, 
-          is_dev, 
+        data: JSON.stringify({
+          reporting_weekday,
+          is_dev,
           reporting_email,
           enable_white_label,
-          white_label_html
+          white_label_html,
         }),
         success: function () {
           alert('Reporting settings saved.');
@@ -173,7 +173,7 @@ $(document).ready(function () {
       });
     });
   }
-  
+
   function updateCharCounter() {
     const length = $('#white-label-html').val().length;
     $('#char-counter').text(`(${length}/16384)`);

@@ -11,7 +11,7 @@ function decodeHtmlEntities(str) {
     '&apos;': "'",
     '&#39;': "'",
   };
-  
+
   let decoded = str;
   // First decode named entities
   for (const [entity, char] of Object.entries(entities)) {
@@ -20,7 +20,7 @@ function decodeHtmlEntities(str) {
   // Then decode numeric entities
   decoded = decoded.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec));
   decoded = decoded.replace(/&#x([0-9a-f]+);/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
-  
+
   return decoded;
 }
 
