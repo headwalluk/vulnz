@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.21.2 - 2025-12-31
+
+### Bug Fixes
+
+- **API Authentication**: Fixed `/api/reports/summary-email` endpoint to support API key authentication
+  - Changed middleware from `isAuthenticated` to `apiOrSessionAuth`
+  - Endpoint now accepts both session cookies (Web UI) and `X-API-Key` header (API)
+  - Resolves 401 errors when calling endpoint with API key authentication
+
 ## 1.21.1 - 2025-12-31
 
 ### Documentation

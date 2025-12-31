@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const user = require('../models/user');
-const { isAuthenticated } = require('../middleware/auth');
+const { apiOrSessionAuth } = require('../middleware/auth');
 const { sendSummaryEmail } = require('../lib/reporting');
 
-router.post('/summary-email', isAuthenticated, async (req, res) => {
+router.post('/summary-email', apiOrSessionAuth, async (req, res) => {
   try {
     const userId = (req.body && req.body.user_id) || (req.user && req.user.id);
     if (!userId) {
