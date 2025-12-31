@@ -302,11 +302,50 @@ router.get('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
  *                 type: boolean
  *               white_label_html:
  *                 type: string
+ *                 maxLength: 16384
  *     responses:
  *       200:
  *         description: User updated
  *       400:
  *         description: Invalid request
+ *       500:
+ *         description: Server error
+ */
+/**
+ * @swagger
+ * /api/users/me:
+ *   put:
+ *     summary: Update current user's account settings
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reporting_weekday:
+ *                 type: string
+ *                 enum: ['', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
+ *                 description: Day of week for vulnerability reports (empty string to disable)
+ *               reporting_email:
+ *                 type: string
+ *                 format: email
+ *                 description: Alternative email for reports (uses username if not provided)
+ *               enable_white_label:
+ *                 type: boolean
+ *                 description: Enable custom branding in email reports
+ *               white_label_html:
+ *                 type: string
+ *                 maxLength: 16384
+ *                 description: Custom HTML for email report header (max 16KB, will be sanitized)
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *       400:
+ *         description: Invalid request (e.g., white_label_html exceeds limit)
+ *       401:
+ *         description: Unauthorized
  *       500:
  *         description: Server error
  */

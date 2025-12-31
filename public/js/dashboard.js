@@ -117,7 +117,7 @@ $(document).ready(function () {
       e.preventDefault();
       const reporting_weekday = $('#reporting-weekday').val();
       const reporting_email = $('#reporting-email').val();
-      const is_dev = $('#is-dev').is(':checked');
+      // const is_dev = $('#is-dev').is(':checked');
       const enable_white_label = $('#enable-white-label').is(':checked');
       const white_label_html = $('#white-label-html').val();
 
@@ -134,7 +134,7 @@ $(document).ready(function () {
         contentType: 'application/json',
         data: JSON.stringify({
           reporting_weekday,
-          is_dev,
+          // is_dev,
           reporting_email,
           enable_white_label,
           white_label_html,
