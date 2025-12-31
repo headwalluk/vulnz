@@ -45,6 +45,7 @@ $(document).ready(function () {
       roles.push($(this).val());
     });
     const blocked = $('#new-user-blocked').is(':checked');
+    const paused = $('#new-user-paused').is(':checked');
     const max_api_keys = $('#max-api-keys').val();
     const reporting_weekday = $('#reporting-weekday').val();
     const reporting_email = $('#reporting-email').val();
@@ -61,6 +62,7 @@ $(document).ready(function () {
         password,
         roles,
         blocked,
+        paused,
         max_api_keys,
         reporting_weekday,
         reporting_email,
@@ -130,18 +132,41 @@ $(document).ready(function () {
         } else {
           users.forEach(function (user) {
             const deleteButton = currentUser.id === user.id ? '' : `<button class="btn btn-sm btn-danger" data-id="${user.id}">Delete</button>`;
-            const blockedIcon = user.blocked ? '<i class="bi bi-slash-circle-fill text-danger ms-2"></i>' : '';
+            const blockedIcon = user.blocked ? '<i class="bi bi-slash-circle-fill text-danger ms-2" title="Blocked"></i>' : '';
+            const pausedIcon = user.paused ? '<i class="bi bi-pause-circle-fill text-warning ms-2" title="Paused"></i>' : '';
             const reportingDay = user.reporting_weekday ? `<span class="badge bg-info ms-2">${user.reporting_weekday}</span>` : '';
+
+            // Action buttons for pause/unpause
+            let pauseButton = '';
+            if (user.paused) {
+              pauseButton = `<button class="btn btn-sm btn-success unpause-user-btn" data-id="${user.id}" title="Unpause"><i class="bi bi-play-circle"></i></button>`;
+            } else {
+              pauseButton = `<button class="btn btn-sm btn-outline-warning pause-user-btn" data-id="${user.id}" title="Pause"><i class="bi bi-pause-circle"></i></button>`;
+            }
+
+            // Action buttons for block/unblock
+            let blockButton = '';
+            if (currentUser.id === user.id) {
+              // Current user cannot block themselves
+              blockButton = '';
+            } else if (user.blocked) {
+              blockButton = `<button class="btn btn-sm btn-info unblock-user-btn" data-id="${user.id}" title="Unblock"><i class="bi bi-shield-check"></i></button>`;
+            } else {
+              blockButton = `<button class="btn btn-sm btn-dark block-user-btn" data-id="${user.id}" title="Block"><i class="bi bi-shield-slash"></i></button>`;
+            }
+
             usersList.append(`
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             <div>
                               <i class="bi bi-person-circle me-2 fs-4"></i>
                             </div>
                             <div class="flex-grow-1">
-                                <span class="fw-medium">${user.username}</span>${blockedIcon}${reportingDay}<br/>
+                                <span class="fw-medium">${user.username}</span>${blockedIcon}${pausedIcon}${reportingDay}<br/>
                                 <span class="badge bg-secondary">id = ${user.id}</span>
                             </div>
                             <div class="d-flex gap-2">
+                                ${pauseButton}
+                                ${blockButton}
                                 <button class="btn btn-sm btn-warning" data-id="${user.id}"><i class="bi bi-pencil"></i></button>
                                 ${deleteButton.replace('Delete', '<i class="bi bi-trash"></i>')}
                             </div>
@@ -183,6 +208,7 @@ $(document).ready(function () {
         $('#cancel-edit-user').show();
         $('#new-user-password').prop('required', false);
         $('#new-user-blocked').prop('checked', user.blocked);
+        $('#new-user-paused').prop('checked', user.paused);
         $('#user-form-container').fadeIn();
         $('html, body').animate(
           {
@@ -230,6 +256,70 @@ $(document).ready(function () {
         },
       });
     }
+  });
+
+  // Pause user handler
+  $('#users-list').on('click', '.pause-user-btn', function () {
+    const userId = $(this).data('id');
+    if (confirm('Are you sure you want to pause this user account?')) {
+      $.ajax({
+        url: `/api/users/${userId}/pause`,
+        method: 'PUT',
+        success: function () {
+          loadUsers(currentUser, currentPage, currentSearch);
+        },
+        error: function (err) {
+          alert('Failed to pause user: ' + err.responseText);
+        },
+      });
+    }
+  });
+
+  // Unpause user handler
+  $('#users-list').on('click', '.unpause-user-btn', function () {
+    const userId = $(this).data('id');
+    $.ajax({
+      url: `/api/users/${userId}/unpause`,
+      method: 'PUT',
+      success: function () {
+        loadUsers(currentUser, currentPage, currentSearch);
+      },
+      error: function (err) {
+        alert('Failed to unpause user: ' + err.responseText);
+      },
+    });
+  });
+
+  // Block user handler
+  $('#users-list').on('click', '.block-user-btn', function () {
+    const userId = $(this).data('id');
+    if (confirm('Are you sure you want to BLOCK this user account? This will prevent all access including API keys.')) {
+      $.ajax({
+        url: `/api/users/${userId}/block`,
+        method: 'PUT',
+        success: function () {
+          loadUsers(currentUser, currentPage, currentSearch);
+        },
+        error: function (err) {
+          alert('Failed to block user: ' + err.responseText);
+        },
+      });
+    }
+  });
+
+  // Unblock user handler
+  $('#users-list').on('click', '.unblock-user-btn', function () {
+    const userId = $(this).data('id');
+    $.ajax({
+      url: `/api/users/${userId}/unblock`,
+      method: 'PUT',
+      success: function () {
+        loadUsers(currentUser, currentPage, currentSearch);
+      },
+      error: function (err) {
+        alert('Failed to unblock user: ' + err.responseText);
+      },
+    });
   });
 
   $('#user-search-form').on('submit', function (e) {

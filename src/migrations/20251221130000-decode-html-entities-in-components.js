@@ -17,9 +17,7 @@ const up = async () => {
   console.log('Starting HTML entity decoding in components...');
 
   // Fetch all components that might have HTML entities
-  const components = await db.query(
-    'SELECT id, title, description FROM components WHERE title LIKE "%&%" OR description LIKE "%&%"'
-  );
+  const components = await db.query('SELECT id, title, description FROM components WHERE title LIKE "%&%" OR description LIKE "%&%"');
 
   let updatedCount = 0;
 

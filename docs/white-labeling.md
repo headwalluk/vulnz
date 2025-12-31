@@ -7,9 +7,11 @@ This feature enables users to replace the default "vulnz" branding in their week
 ## Requirements
 
 ### User Story
+
 As a VULNZ user, I want to customize the header branding in my weekly vulnerability reports so that my clients see my company's logo and branding instead of the default "vulnz" header.
 
 ### Functional Requirements
+
 - All users can enable/disable white-labeling via a checkbox in their account settings
 - Users can provide custom HTML (up to 16384 characters / 16 KB) to replace the default header section
 - Custom HTML is sanitized to prevent XSS and email client compatibility issues
@@ -18,6 +20,7 @@ As a VULNZ user, I want to customize the header branding in my weekly vulnerabil
 - Default: White-labeling disabled with empty HTML snippet
 
 ### Security Requirements
+
 - **HTML Sanitization**: All user-provided HTML must be sanitized to remove:
   - Script tags and event handlers (XSS prevention)
   - Potentially dangerous attributes
@@ -30,6 +33,7 @@ As a VULNZ user, I want to customize the header branding in my weekly vulnerabil
   - Display warning in UI when external images detected (future enhancement)
 
 ### UI/UX Requirements
+
 - Checkbox: "Enable custom email header branding"
 - Textarea: Large input field for HTML snippet (16384 character limit / 16 KB)
 - Character counter: Display remaining characters (e.g., "3500/16384")
@@ -40,16 +44,17 @@ As a VULNZ user, I want to customize the header branding in my weekly vulnerabil
 ## Database Schema Changes
 
 ### New Fields for `users` Table
+
 ```sql
 ALTER TABLE users ADD COLUMN enable_white_label BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN white_label_html TEXT NULL;
 ```
 
 **Field Details:**
+
 - `enable_white_label` (BOOLEAN): Toggle for white-labeling feature
   - Default: `FALSE`
   - Not null to ensure explicit enable/disable state
-  
 - `white_label_html` (TEXT): Custom HTML snippet
   - Nullable: Can be empty when white-labeling is disabled
   - Type TEXT: Supports large HTML content (up to 65,535 bytes)
@@ -58,6 +63,7 @@ ALTER TABLE users ADD COLUMN white_label_html TEXT NULL;
 ## Email Template Changes
 
 ### Implemented Conditional Rendering
+
 ```handlebars
 {{#if user.enable_white_label}}
   {{#if user.white_label_html}}
@@ -67,6 +73,7 @@ ALTER TABLE users ADD COLUMN white_label_html TEXT NULL;
 ```
 
 **Behavior:**
+
 - If `enable_white_label = true` AND `white_label_html` has content: Render custom HTML
 - Otherwise: No header row (cleaner, minimal email design)
 - Uses triple-braces `{{{ }}}` for unescaped HTML rendering (after sanitization)
@@ -74,15 +81,17 @@ ALTER TABLE users ADD COLUMN white_label_html TEXT NULL;
 ## Example Custom HTML Snippets
 
 ### Example 1: Simple Logo Header
+
 ```html
 <tr>
   <td align="center" style="padding: 40px 20px; background-color: #1a237e;">
-    <img src="https://example.com/logo.png" alt="Company Logo" style="max-width: 200px; height: auto;">
+    <img src="https://example.com/logo.png" alt="Company Logo" style="max-width: 200px; height: auto;" />
   </td>
 </tr>
 ```
 
 ### Example 2: Text-Based Branding
+
 ```html
 <tr>
   <td align="center" style="padding: 40px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
@@ -93,13 +102,14 @@ ALTER TABLE users ADD COLUMN white_label_html TEXT NULL;
 ```
 
 ### Example 3: Complex Branded Header
+
 ```html
 <tr>
   <td align="center" style="padding: 30px 20px; background-color: #ffffff; border-bottom: 3px solid #ff6b6b;">
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto;">
       <tr>
         <td style="padding-right: 15px;">
-          <img src="https://example.com/shield-icon.png" alt="" style="width: 40px; height: 40px;">
+          <img src="https://example.com/shield-icon.png" alt="" style="width: 40px; height: 40px;" />
         </td>
         <td>
           <h1 style="margin: 0; color: #2d3748; font-size: 24px; font-weight: 700;">SecureWP Pro</h1>
@@ -111,11 +121,12 @@ ALTER TABLE users ADD COLUMN white_label_html TEXT NULL;
 ```
 
 ### Example 4: Inline SVG Logo (Recommended)
+
 ```html
 <tr>
   <td align="center" style="padding: 40px 20px; background-color: #0f172a;">
     <svg width="120" height="40" viewBox="0 0 120 40" xmlns="http://www.w3.org/2000/svg">
-      <rect width="120" height="40" fill="#3b82f6" rx="4"/>
+      <rect width="120" height="40" fill="#3b82f6" rx="4" />
       <text x="60" y="25" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#ffffff" text-anchor="middle">YourBrand</text>
     </svg>
     <p style="margin: 10px 0 0; color: #94a3b8; font-size: 12px;">Security Monitoring</p>
@@ -126,6 +137,7 @@ ALTER TABLE users ADD COLUMN white_label_html TEXT NULL;
 ## Implementation Checklist
 
 ### Phase 1: Database & Model
+
 - [x] Create migration file: `20251221120000-add-white-label-to-users.js`
   - [x] Add `enable_white_label` BOOLEAN column
   - [x] Add `white_label_html` TEXT column
@@ -138,6 +150,7 @@ ALTER TABLE users ADD COLUMN white_label_html TEXT NULL;
 - [x] Verify schema changes in database
 
 ### Phase 2: HTML Sanitization
+
 - [x] Research sanitization library options:
   - [x] Option 1: `sanitize-html` (Node.js server-side) ✅ **CHOSEN**
   - [x] Option 2: `dompurify` with jsdom (isomorphic)
@@ -151,6 +164,7 @@ ALTER TABLE users ADD COLUMN white_label_html TEXT NULL;
 - [x] Write unit tests for sanitization edge cases
 
 ### Phase 3: API Updates
+
 - [x] Update `PUT /api/users/:id` endpoint:
   - [x] Accept `enable_white_label` in request body
   - [x] Accept `white_label_html` in request body
@@ -167,6 +181,7 @@ ALTER TABLE users ADD COLUMN white_label_html TEXT NULL;
   - [x] Submit HTML exceeding 4096 characters (verify rejection)
 
 ### Phase 4: Dashboard UI
+
 - [x] Update user settings page (`public/dashboard.html` or equivalent):
   - [x] Add checkbox with label: "Enable custom email header branding"
   - [x] Add textarea with label: "Custom Header HTML" (maxlength="4096")
@@ -186,6 +201,7 @@ ALTER TABLE users ADD COLUMN white_label_html TEXT NULL;
 - [x] Test UI interactions
 
 ### Phase 5: Email Template Integration
+
 - [x] Update `src/emails/vulnerability-report.hbs`:
   - [x] Replace lines 45-58 with conditional Handlebars logic
   - [x] Use `{{{triple braces}}}` for unescaped HTML rendering
@@ -203,6 +219,7 @@ ALTER TABLE users ADD COLUMN white_label_html TEXT NULL;
   - [x] Send test email with white-label enabled (Example 4 - inline SVG)
 
 ### Phase 6: Testing & Documentation
+
 - [x] Write integration tests:
   - [x] Test user creation with white-label fields
   - [x] Test user update with white-label fields
@@ -223,6 +240,7 @@ ALTER TABLE users ADD COLUMN white_label_html TEXT NULL;
   - [x] List all changes (DB, API, UI, Email)
 
 ### Phase 7: Security Review & Release
+
 - [x] Security review:
   - [x] Verify HTML sanitization prevents XSS
   - [x] Test with various malicious payloads
@@ -239,7 +257,9 @@ ALTER TABLE users ADD COLUMN white_label_html TEXT NULL;
 ## Technical Notes
 
 ### HTML Sanitization Configuration
+
 When configuring `sanitize-html`, recommended allowed elements for email headers:
+
 ```javascript
 allowedTags: ['table', 'tr', 'td', 'th', 'img', 'h1', 'h2', 'h3', 'p', 'span', 'div', 'a', 'strong', 'em', 'br'],
 allowedAttributes: {
@@ -264,9 +284,10 @@ allowedStyles: {
 ```
 
 ### Email Client Considerations
+
 - **Inline Styles**: Ensure all styles are inline (no `<style>` tags)
 - **Table-Based Layout**: Use `<table>` for layout (not div/flexbox)
-- **Image Hosting**: 
+- **Image Hosting**:
   - Images must be hosted on publicly accessible HTTPS URLs
   - **Warning**: Images from external domains increase spam risk
   - **Recommended**: Use inline SVG instead of external images for logos
@@ -274,8 +295,9 @@ allowedStyles: {
 - **Outlook Compatibility**: Test with MSO conditional comments if needed
 
 ### Validation Rules
+
 - `enable_white_label`: Must be BOOLEAN (true/false)
-- `white_label_html`: 
+- `white_label_html`:
   - Optional (can be null/empty)
   - Maximum length: 16384 characters / 16 KB (enforced in UI and API)
   - Must pass HTML sanitization
@@ -285,6 +307,7 @@ allowedStyles: {
 ## Future Enhancements
 
 Potential improvements for future versions:
+
 - [ ] Live preview of custom HTML in dashboard
 - [ ] Library of pre-designed header templates
 - [ ] Support for custom footer branding

@@ -4,7 +4,7 @@
     "wordpress.minimum_version": "6.4",
     "php.minimum_version": "8.3",
     "php.recommended_version": "8.4",
-    "php.eol_version": "8.0",
+    "php.eol_version": "8.1",
     "database.mysql_minimum_version": "8.0",
     "database.mariadb_minimum_version": "10.5",
     "unknown.test_setting": "should_be_ignored",

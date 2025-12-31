@@ -12,13 +12,26 @@ async function createTable() {
       reporting_email VARCHAR(255) NULL,
       max_api_keys INT NOT NULL DEFAULT 1,
       blocked BOOLEAN NOT NULL DEFAULT FALSE,
+      paused BOOLEAN NOT NULL DEFAULT FALSE,
       last_summary_sent_at DATETIME NULL
     )
   `;
   await db.query(sql);
 }
 
-async function createUser(username, password, roleNames, blocked, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at, enable_white_label, white_label_html) {
+async function createUser(
+  username,
+  password,
+  roleNames,
+  blocked,
+  max_api_keys,
+  reporting_weekday,
+  reporting_email,
+  last_summary_sent_at,
+  enable_white_label,
+  white_label_html,
+  paused
+) {
   const emailValidation = validateEmailAddress(username);
   if (!emailValidation.isValid) {
     throw new Error(emailValidation.errors.join(' '));
@@ -35,12 +48,13 @@ async function createUser(username, password, roleNames, blocked, max_api_keys, 
     finalMaxApiKeys = Math.min(finalMaxApiKeys, parseInt(process.env.MAX_API_KEYS_PER_USER, 10));
   }
   const finalBlocked = blocked !== undefined ? blocked : false;
+  const finalPaused = paused !== undefined ? paused : false;
   const finalReportingWeekday = reporting_weekday !== undefined ? reporting_weekday : '';
   const finalEnableWhiteLabel = enable_white_label !== undefined ? enable_white_label : false;
   const finalWhiteLabelHtml = white_label_html !== undefined ? white_label_html : null;
   const result = await db.query(
-    'INSERT INTO users (username, password, blocked, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at, enable_white_label, white_label_html) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [username, hashedPassword, finalBlocked, finalMaxApiKeys, finalReportingWeekday, reporting_email, last_summary_sent_at, finalEnableWhiteLabel, finalWhiteLabelHtml]
+    'INSERT INTO users (username, password, blocked, paused, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at, enable_white_label, white_label_html) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [username, hashedPassword, finalBlocked, finalPaused, finalMaxApiKeys, finalReportingWeekday, reporting_email, last_summary_sent_at, finalEnableWhiteLabel, finalWhiteLabelHtml]
   );
   const userId = result.insertId;
 
@@ -61,12 +75,16 @@ async function createUser(username, password, roleNames, blocked, max_api_keys, 
     }
   }
 
-  const [userRow] = await db.query('SELECT id, username, blocked, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at, enable_white_label, white_label_html FROM users WHERE id = ?', [userId]);
+  const [userRow] = await db.query(
+    'SELECT id, username, blocked, paused, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at, enable_white_label, white_label_html FROM users WHERE id = ?',
+    [userId]
+  );
   const roles = await getRoles(userId);
   return {
     ...userRow,
     id: parseInt(userRow.id, 10),
     blocked: Boolean(userRow.blocked),
+    paused: Boolean(userRow.paused),
     enable_white_label: Boolean(userRow.enable_white_label),
     roles,
   };
@@ -92,7 +110,10 @@ async function updatePassword(userId, newPassword) {
   await db.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
 }
 
-async function updateUser(userId, { username, password, roles, blocked, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at, enable_white_label, white_label_html }) {
+async function updateUser(
+  userId,
+  { username, password, roles, blocked, paused, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at, enable_white_label, white_label_html }
+) {
   if (password) {
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.isValid) {
@@ -112,6 +133,10 @@ async function updateUser(userId, { username, password, roles, blocked, max_api_
 
   if (blocked !== undefined) {
     await db.query('UPDATE users SET blocked = ? WHERE id = ?', [blocked, userId]);
+  }
+
+  if (paused !== undefined) {
+    await db.query('UPDATE users SET paused = ? WHERE id = ?', [paused, userId]);
   }
 
   if (max_api_keys !== undefined) {
@@ -170,6 +195,7 @@ async function findUsersForWeeklyReport(dayOfWeek, batchSize) {
     WHERE reporting_weekday = ?
     AND (last_summary_sent_at IS NULL OR DATE(last_summary_sent_at) < CURDATE())
     AND blocked = 0
+    AND paused = 0
     LIMIT ?
   `;
 
@@ -182,6 +208,7 @@ async function countUsersDueForWeeklyReport(dayOfWeek) {
     WHERE reporting_weekday = ?
     AND (last_summary_sent_at IS NULL OR DATE(last_summary_sent_at) < CURDATE())
     AND blocked = 0
+    AND paused = 0
   `;
   const [result] = await db.query(query, [dayOfWeek]);
   return result.count;
