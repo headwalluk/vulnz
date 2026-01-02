@@ -24,7 +24,7 @@ users ──┬── api_keys
 components ──┬── releases ──┬── vulnerabilities
              │              └── website_components
              └── component_types
-             
+
 app_settings (global configuration)
 api_call_logs (audit trail)
 migrations (schema version tracking)
@@ -59,6 +59,7 @@ CREATE TABLE users (
 ```
 
 **Key Fields:**
+
 - `blocked`: Account completely disabled
 - `paused`: Temporarily suspended (can be unpaused)
 - `enable_white_label`: Use custom branding in email reports
@@ -80,6 +81,7 @@ CREATE TABLE roles (
 ```
 
 **Default Roles:**
+
 - `administrator`: Full system access
 - `user`: Standard user access
 
@@ -160,6 +162,7 @@ CREATE TABLE component_types (
 ```
 
 **Default Types:**
+
 - `wordpress-plugin`: WordPress plugins
 - `wordpress-theme`: WordPress themes
 
@@ -188,6 +191,7 @@ CREATE TABLE components (
 ```
 
 **Key Fields:**
+
 - `wporg_*`: Metadata synced from wordpress.org
 - `synced_from_wporg_at`: Last sync timestamp
 
@@ -254,6 +258,7 @@ CREATE TABLE websites (
 ```
 
 **Key Fields:**
+
 - `is_dev`: Development site (excluded from some reports)
 - `meta`: Arbitrary JSON metadata
 - `wordpress_version`, `php_version`, `db_server_*`: Software versions
@@ -295,6 +300,7 @@ CREATE TABLE security_event_types (
 ```
 
 **Common Event Types:**
+
 - `failed-login`: Failed login attempt
 - `blocked-login`: Login blocked by security plugin
 - `brute-force`: Brute force attack detected
@@ -324,6 +330,7 @@ CREATE TABLE security_events (
 ```
 
 **Key Features:**
+
 - Unique constraint prevents duplicate events
 - `country_code`: ISO 3166-1 alpha-2 (resolved from IP)
 - `meta`: Additional event-specific data (JSON)
@@ -349,12 +356,14 @@ CREATE TABLE file_security_issues (
 ```
 
 **Issue Types:**
+
 - `malware`: Malware detected
 - `suspicious`: Suspicious code pattern
 - `backdoor`: Backdoor detected
 - `defaced`: File modification detected
 
 **Severity Levels:**
+
 - `critical`, `high`, `medium`, `low`, `info`
 
 ### component_changes
@@ -378,6 +387,7 @@ CREATE TABLE component_changes (
 ```
 
 **Change Types:**
+
 - `installed`: New installation
 - `updated`: Version update
 - `activated`: Activated (was installed but inactive)
@@ -403,6 +413,7 @@ CREATE TABLE app_settings (
 ```
 
 **Common Settings:**
+
 - `last_wporg_sync_cursor`: Last processed component for wordpress.org sync
 - `maintenance_mode`: Enable/disable maintenance mode
 
@@ -443,11 +454,13 @@ CREATE TABLE email_logs (
 ```
 
 **Email Types:**
+
 - `vulnerability-report`: Weekly vulnerability report
 - `password-reset`: Password reset email
 - `test-email`: Test email from UI
 
 **Status Values:**
+
 - `sent`: Successfully sent
 - `failed`: Failed to send
 
@@ -482,7 +495,7 @@ ORDER BY w.domain;
 ### Getting Website Components with Vulnerability Info
 
 ```sql
-SELECT 
+SELECT
   c.slug,
   c.name,
   r.version,
@@ -500,7 +513,7 @@ GROUP BY c.id, r.id;
 ### Recent Security Events by Country
 
 ```sql
-SELECT 
+SELECT
   country_code,
   COUNT(*) AS event_count,
   COUNT(DISTINCT source_ip) AS unique_ips

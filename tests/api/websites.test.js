@@ -53,9 +53,8 @@ describe('Websites API - Version Updates', () => {
 
     // Create admin user
     adminUser = await createTestUser(db, {
-      username: 'admin',
-      email: 'admin@example.com',
-      role: 'admin',
+      username: 'admin@example.com',
+      role: 'administrator',
     });
     adminApiKey = await createTestApiKey(db, adminUser.id, 'Admin Test Key');
 
@@ -134,33 +133,9 @@ describe('Websites API - Version Updates', () => {
       const users = await db.query('SELECT * FROM users WHERE id = ?', [userId]);
       return users[0] || null;
     });
-    // Configure Passport strategies for testing
-    const HeaderAPIKeyStrategy = require('passport-headerapikey').HeaderAPIKeyStrategy;
-    const crypto = require('crypto');
 
-    passport.use(
-      new HeaderAPIKeyStrategy({ header: 'X-API-Key', prefix: '' }, false, async (apiKey, done) => {
-        try {
-          const hashedKey = crypto.createHash('sha256').update(apiKey).digest('hex');
-          const keys = await db.query('SELECT * FROM api_keys WHERE key_hash = ? AND is_active = 1', [hashedKey]);
-
-          if (!keys || keys.length === 0) {
-            return done(null, false);
-          }
-
-          const key = keys[0];
-          const users = await db.query('SELECT * FROM users WHERE id = ? AND is_active = 1', [key.user_id]);
-
-          if (!users || users.length === 0) {
-            return done(null, false);
-          }
-
-          return done(null, users[0]);
-        } catch (err) {
-          return done(err);
-        }
-      })
-    );
+    // Use the real Passport configuration from production
+    require('../../src/config/passport');
 
     // Create Express app for testing
     app = express();
@@ -190,7 +165,7 @@ describe('Websites API - Version Updates', () => {
     it('should update versions when provided in request body', async () => {
       const response = await request(app)
         .put(`/api/websites/${testWebsite.domain}`)
-        .set('X-API-Key', adminApiKey.token)
+        .set('X-API-Key', adminApiKey)
         .send({
           versions: {
             wordpress_version: '6.4.2',
@@ -215,7 +190,7 @@ describe('Websites API - Version Updates', () => {
     it('should reject invalid db_server_type', async () => {
       const response = await request(app)
         .put(`/api/websites/${testWebsite.domain}`)
-        .set('X-API-Key', adminApiKey.token)
+        .set('X-API-Key', adminApiKey)
         .send({
           versions: {
             db_server_type: 'postgresql',
@@ -234,7 +209,7 @@ describe('Websites API - Version Updates', () => {
       // Update only WordPress version
       const response = await request(app)
         .put(`/api/websites/${testWebsite.domain}`)
-        .set('X-API-Key', adminApiKey.token)
+        .set('X-API-Key', adminApiKey)
         .send({
           versions: {
             wordpress_version: '6.4.3',
@@ -252,7 +227,7 @@ describe('Websites API - Version Updates', () => {
     it('should work with both versions and other fields', async () => {
       const response = await request(app)
         .put(`/api/websites/${testWebsite.domain}`)
-        .set('X-API-Key', adminApiKey.token)
+        .set('X-API-Key', adminApiKey)
         .send({
           title: 'Updated Test Website',
           is_dev: true,
@@ -273,7 +248,7 @@ describe('Websites API - Version Updates', () => {
     });
 
     it('should work without versions object (backward compatibility)', async () => {
-      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', adminApiKey.token).send({
+      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', adminApiKey).send({
         title: 'Another Update',
       });
 
@@ -300,7 +275,7 @@ describe('Websites API - Version Updates', () => {
 
   describe('PUT /api/websites/:domain/versions (deprecated)', () => {
     it('should still work for backward compatibility', async () => {
-      const response = await request(app).put(`/api/websites/${testWebsite.domain}/versions`).set('X-API-Key', adminApiKey.token).send({
+      const response = await request(app).put(`/api/websites/${testWebsite.domain}/versions`).set('X-API-Key', adminApiKey).send({
         wordpress_version: '6.4.1',
         php_version: '8.2.13',
         db_server_type: 'mysql',
@@ -328,14 +303,13 @@ describe('Websites API - Version Updates', () => {
       // Create a regular user for testing
       regularUser = await createTestUser(db, {
         username: 'regular@example.com',
-        email: 'regular@example.com',
         role: 'user',
       });
       regularApiKey = await createTestApiKey(db, regularUser.id, 'Regular Test Key');
     });
 
     it('should allow admin to change website owner', async () => {
-      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', adminApiKey.token).send({
+      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', adminApiKey).send({
         user_id: regularUser.id,
       });
 
@@ -354,7 +328,7 @@ describe('Websites API - Version Updates', () => {
       // First give the website to regular user
       await db.query('UPDATE websites SET user_id = ? WHERE id = ?', [regularUser.id, testWebsite.id]);
 
-      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', regularApiKey.token).send({
+      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', regularApiKey).send({
         user_id: adminUser.id,
       });
 
@@ -367,7 +341,7 @@ describe('Websites API - Version Updates', () => {
     });
 
     it('should reject null user_id', async () => {
-      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', adminApiKey.token).send({
+      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', adminApiKey).send({
         user_id: null,
       });
 
@@ -377,7 +351,7 @@ describe('Websites API - Version Updates', () => {
     });
 
     it('should reject empty string user_id', async () => {
-      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', adminApiKey.token).send({
+      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', adminApiKey).send({
         user_id: '',
       });
 
@@ -387,7 +361,7 @@ describe('Websites API - Version Updates', () => {
     });
 
     it('should reject non-existent user_id', async () => {
-      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', adminApiKey.token).send({
+      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', adminApiKey).send({
         user_id: 999999,
       });
 

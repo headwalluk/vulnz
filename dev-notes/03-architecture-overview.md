@@ -278,6 +278,7 @@ cron.schedule('0 0 * * *', async () => {
 ```
 
 **Process:**
+
 1. Query users with `reporting_weekday` matching current day
 2. Filter by `reporting_hour` matching current hour
 3. For each user:
@@ -296,6 +297,7 @@ cron.schedule('*/30 * * * *', async () => {
 ```
 
 **Process:**
+
 1. Get cursor from `app_settings` table
 2. Fetch next component from local database
 3. Query wordpress.org API for metadata
@@ -370,12 +372,14 @@ Log result in email_logs table
 ### Templates
 
 Located in `src/emails/`:
+
 - `vulnerability-report.hbs` - Weekly vulnerability summary
 - `password-reset.hbs` - Password reset link
 
 ### White-Label Support
 
 Users can customize email header:
+
 - `enable_white_label`: boolean flag
 - `white_label_html`: custom HTML (max 16KB)
 - HTML sanitized before sending
@@ -404,10 +408,11 @@ Database Storage (parameterized queries)
 ### SQL Injection Prevention
 
 - **Always use parameterized queries**:
+
   ```javascript
   // SAFE
   db.query('SELECT * FROM users WHERE id = ?', [userId]);
-  
+
   // DANGEROUS (never do this)
   db.query(`SELECT * FROM users WHERE id = ${userId}`);
   ```
@@ -508,6 +513,7 @@ process.on('uncaughtException', (err) => {
 ### API Call Logs
 
 Every API request logged to `api_call_logs`:
+
 - User ID (if authenticated)
 - HTTP method and path
 - Status code
@@ -518,6 +524,7 @@ Every API request logged to `api_call_logs`:
 ### Email Logs
 
 Every email attempt logged to `email_logs`:
+
 - Recipient
 - Subject
 - Type (vulnerability-report, password-reset, etc.)
@@ -527,6 +534,7 @@ Every email attempt logged to `email_logs`:
 ### Application Logs
 
 Console output (managed by PM2):
+
 - Request logs
 - Error logs
 - Cron job execution logs
@@ -579,6 +587,7 @@ Planned simplification:
 ```
 
 Benefits:
+
 - Simpler security model (no session management for admin)
 - Better automation support
 - Cleaner separation of concerns

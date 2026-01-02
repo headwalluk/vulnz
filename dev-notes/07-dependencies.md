@@ -9,11 +9,13 @@ Key dependencies and their purposes in VULNZ.
 ### Core Framework
 
 #### express (^5.1.0)
+
 - **Purpose**: Web application framework
 - **Why chosen**: Industry standard, mature, extensive middleware ecosystem
 - **Usage**: All HTTP routing, middleware, request/response handling
 
 #### helmet (^8.1.0)
+
 - **Purpose**: Security HTTP headers
 - **Why chosen**: Essential security middleware for Express
 - **Usage**: Sets secure headers (CSP, X-Frame-Options, etc.)
@@ -21,12 +23,14 @@ Key dependencies and their purposes in VULNZ.
 ### Database
 
 #### mariadb (^3.4.5)
+
 - **Purpose**: MySQL/MariaDB driver
 - **Why chosen**: Native promise support, better performance than mysql package
 - **Usage**: All database connections and queries
 - **Note**: Compatible with MySQL as well
 
 #### express-mysql-session (^3.0.3)
+
 - **Purpose**: MySQL session store
 - **Why chosen**: Stores sessions in database instead of memory
 - **Usage**: Shared session storage across PM2 instances
@@ -34,52 +38,62 @@ Key dependencies and their purposes in VULNZ.
 ### Authentication
 
 #### passport (^0.7.0)
+
 - **Purpose**: Authentication middleware
 - **Why chosen**: Flexible authentication strategies
 - **Usage**: Session and API key authentication
 
 #### passport-local (^1.0.0)
+
 - **Purpose**: Username/password authentication
 - **Usage**: User login with credentials
 
 #### passport-headerapikey (^1.2.2)
+
 - **Purpose**: API key authentication via HTTP headers
 - **Usage**: API key authentication (`X-API-Key` header)
 
 #### bcrypt (^6.0.0)
+
 - **Purpose**: Password hashing
 - **Why chosen**: Industry standard, configurable work factor
 - **Usage**: Hash and verify user passwords
 - **Note**: Native implementation (faster than bcryptjs)
 
 #### express-session (^1.18.2)
+
 - **Purpose**: Session management
 - **Usage**: Cookie-based sessions for web UI
 
 ### Security & Validation
 
 #### sanitize-html (^2.17.0)
+
 - **Purpose**: HTML sanitization
 - **Why chosen**: Configurable whitelist-based sanitizer
 - **Usage**: Clean user-provided HTML in email templates
 - **Pattern**: Allow specific tags/attributes, block dangerous content
 
 #### express-rate-limit (^8.1.0)
+
 - **Purpose**: Rate limiting middleware
 - **Usage**: Limit unauthenticated requests, prevent abuse
 
 #### cors (^2.8.5)
+
 - **Purpose**: CORS middleware
 - **Usage**: Enable cross-origin API access when needed
 
 ### Email
 
 #### nodemailer (^7.0.9)
+
 - **Purpose**: Email sending
 - **Why chosen**: Reliable, supports all major transports (SMTP, SendGrid, etc.)
 - **Usage**: Send vulnerability reports and password reset emails
 
 #### handlebars (^4.7.8)
+
 - **Purpose**: Email templating
 - **Why chosen**: Simple, logic-less templates
 - **Usage**: Generate HTML emails from templates
@@ -87,42 +101,50 @@ Key dependencies and their purposes in VULNZ.
 ### Utilities
 
 #### node-cron (^4.2.1)
+
 - **Purpose**: Scheduled tasks
 - **Why chosen**: Simple cron-like syntax
 - **Usage**: Weekly reports, wordpress.org metadata sync
 
 #### node-fetch (^3.3.2)
+
 - **Purpose**: HTTP client
 - **Why chosen**: Modern fetch API for Node.js
 - **Usage**: Fetch data from wordpress.org API
 
 #### maxmind (^5.0.1)
+
 - **Purpose**: GeoIP lookups
 - **Why chosen**: Fast local lookups, no external API calls
 - **Usage**: Resolve IP addresses to countries for security events
 - **Note**: Requires GeoLite2 database (free from MaxMind)
 
 #### dotenv (^17.2.3)
+
 - **Purpose**: Environment variable loading
 - **Usage**: Load `.env` file configuration
 
 ### API Documentation
 
 #### swagger-jsdoc (^6.2.8)
+
 - **Purpose**: Generate OpenAPI spec from JSDoc comments
 - **Usage**: Auto-generate API documentation from code
 
 #### swagger-ui-express (^5.0.1)
+
 - **Purpose**: Serve Swagger UI
 - **Usage**: Interactive API documentation at `/doc`
 
 ### Frontend (Client-Side)
 
 #### select2 (^4.1.0-rc.0)
+
 - **Purpose**: Enhanced select dropdowns
 - **Usage**: Website and component selection in UI
 
 #### select2-bootstrap-5-theme (^1.3.0)
+
 - **Purpose**: Bootstrap 5 theme for Select2
 - **Usage**: Style Select2 to match Bootstrap UI
 
@@ -133,20 +155,24 @@ Key dependencies and their purposes in VULNZ.
 ### Testing
 
 #### jest (^30.2.0)
+
 - **Purpose**: Testing framework
 - **Why chosen**: Comprehensive, fast, good mocking support
 - **Usage**: All unit and integration tests
 
 #### supertest (^7.1.4)
+
 - **Purpose**: HTTP assertion library
 - **Usage**: Test API endpoints
 
 #### sqlite3 (^5.1.7)
+
 - **Purpose**: In-memory database for tests
 - **Why chosen**: Fast, no external dependencies
 - **Usage**: Test database (instead of MySQL)
 
 #### bcryptjs (^3.0.3)
+
 - **Purpose**: JavaScript bcrypt implementation
 - **Why chosen**: No native dependencies (easier in tests)
 - **Usage**: Password hashing in tests (faster than native bcrypt)
@@ -154,62 +180,76 @@ Key dependencies and their purposes in VULNZ.
 ### Code Quality
 
 #### eslint (^9.38.0)
+
 - **Purpose**: JavaScript linter
 - **Why chosen**: Industry standard, extensive plugins
 - **Usage**: Enforce coding standards
 
 #### @eslint/js (^9.38.0)
+
 - **Purpose**: ESLint recommended rules
 - **Usage**: Base ESLint configuration
 
 #### eslint-config-prettier (^10.1.8)
+
 - **Purpose**: Disable ESLint rules that conflict with Prettier
 - **Usage**: Integration with Prettier
 
 #### prettier (^3.6.2)
+
 - **Purpose**: Code formatter
 - **Why chosen**: Opinionated, consistent formatting
 - **Usage**: Auto-format code on save
 
 #### prettier-plugin-sh (^0.18.0)
+
 - **Purpose**: Shell script formatting
 - **Usage**: Format bash scripts
 
 #### globals (^16.4.0)
+
 - **Purpose**: Global variable definitions for ESLint
 - **Usage**: Define browser/node/jest globals
 
 ### Build & Development
 
 #### nodemon (^3.1.10)
+
 - **Purpose**: Auto-restart on file changes
 - **Usage**: Development mode (`npm run dev`)
 
 #### terser (^5.36.0)
+
 - **Purpose**: JavaScript minifier
 - **Usage**: Minify JS for production build
 
 #### cssnano (^7.0.6)
+
 - **Purpose**: CSS optimizer
 - **Usage**: Minify CSS for production build
 
 #### postcss (^8.4.49)
+
 - **Purpose**: CSS transformation
 - **Usage**: Process CSS during build
 
 #### postcss-url (^10.1.3)
+
 - **Purpose**: URL rewriting in CSS
 - **Usage**: Resolve asset paths in CSS
 
 #### html-minifier-terser (^7.2.0)
+
 - **Purpose**: HTML minifier
 - **Usage**: Minify HTML for production build
 
 #### html-validate (^10.2.1)
+
 - **Purpose**: HTML validation
 - **Usage**: Validate HTML templates during build
 
 #### fast-glob (^3.3.2)
+
 - **Purpose**: File pattern matching
 - **Usage**: Build script file discovery
 
@@ -357,6 +397,7 @@ npm audit fix --force
 ## Summary
 
 VULNZ uses a lean, focused set of dependencies:
+
 - Express for web framework
 - MariaDB for database
 - Passport for authentication

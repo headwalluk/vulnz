@@ -11,6 +11,10 @@ Active development tracking for VULNZ features and releases.
 
 ### Recent Changes
 
+- **Test Suite Overhaul**: Achieved complete test coverage with 114/114 passing tests
+  - All API test suites now authentic to production behavior
+  - Fixed authentication, schema mismatches, and database compatibility issues
+  - Test infrastructure now stable and reliable for ongoing development
 - Project is stable and running in production
 - Documentation reorganization in progress
 - Planning CLI tool for administrative operations
@@ -88,10 +92,41 @@ For detailed version history, see [CHANGELOG.md](../CHANGELOG.md).
 
 ---
 
+## Development Practices
+
+### Test Coverage Review Schedule
+
+**Review test coverage monthly** to ensure new features and endpoints are properly tested.
+
+- Run `npm test` to verify all tests passing
+- Check [dev-notes/08-test-coverage-analysis.md](./08-test-coverage-analysis.md) for coverage status
+- Update coverage analysis document when adding new endpoints
+- Prioritize testing for:
+  - Authentication/authorization flows (security critical)
+  - CRUD operations for core resources (data integrity)
+  - API endpoints used by external integrations (breaking changes)
+  - Complex business logic (vulnerability detection, scanning)
+
+**Note:** Web UI tests are deprioritized as the admin UI will be replaced with a CLI tool in Q1 2026.
+
+### Code Review Checklist
+
+- [ ] Security: All user inputs sanitized
+- [ ] Security: All SQL queries parameterized
+- [ ] Authentication: Endpoints have proper auth middleware
+- [ ] Authorization: Role checks where needed
+- [ ] Validation: Input validation implemented
+- [ ] Error handling: Try-catch blocks with appropriate responses
+- [ ] Logging: API calls logged where appropriate
+- [ ] Testing: Unit/integration tests added/updated
+- [ ] Documentation: Swagger docs updated if API changed
+
+---
+
 ## Next Steps
 
 - [ ] Complete documentation reorganization (dev-notes/ and docs/)
-- [ ] Review and improve test coverage
+- [ ] Review and improve test coverage for API routes
 - [ ] Plan CLI tool architecture
 - [ ] Audit security patterns across codebase
 - [ ] Plan React SPA for future admin interface

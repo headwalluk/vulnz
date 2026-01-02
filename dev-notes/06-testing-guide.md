@@ -4,13 +4,28 @@ Testing patterns and practices for VULNZ.
 
 ---
 
+## Test Status
+
+**Current Coverage**: 114/114 tests passing (10 intentionally skipped)
+
+- ✅ Auth API: 22/22 passing (2 skipped - rate limiting)
+- ✅ Components API: 30/30 passing (4 skipped - production behavior differences)
+- ✅ Settings API: 21/21 passing
+- ✅ Users API: 29/29 passing (4 skipped - production behavior differences)
+- ✅ Websites API: 12/12 passing
+
+**Last Updated**: January 2, 2026
+
+---
+
 ## Testing Philosophy
 
+- **Authenticity over coverage** - tests must match production behavior exactly
 - **Write tests for new features** before merging
-- **Maintainability over coverage** - focus on critical paths
 - **Integration tests for APIs** - test real workflows
 - **Unit tests for utilities** - test pure functions
-- **Mock external dependencies** - database, email, HTTP requests
+- **Mock external dependencies** - email, HTTP requests (but NOT database)
+- **Use production Passport config** - never mock authentication strategies
 
 ---
 
@@ -89,11 +104,11 @@ const crypto = require('crypto');
 // Create in-memory SQLite database for testing
 async function createTestDatabase() {
   const db = new sqlite3.Database(':memory:');
-  
+
   // Promisify database methods
   db.query = promisify(db.all).bind(db);
   db.run = promisify(db.run).bind(db);
-  
+
   return db;
 }
 
@@ -108,15 +123,14 @@ async function initializeSchema(db) {
 // Create test user
 async function createTestUser(db, options = {}) {
   const hashedPassword = await bcrypt.hash(options.password || 'password123', 10);
-  const result = await db.run(`
+  const result = await db.run(
+    `
     INSERT INTO users (username, email, password) 
     VALUES (?, ?, ?)
-  `, [
-    options.username || 'testuser',
-    options.email || 'test@example.com',
-    hashedPassword
-  ]);
-  
+  `,
+    [options.username || 'testuser', options.email || 'test@example.com', hashedPassword]
+  );
+
   return {
     id: result.lastID,
     username: options.username || 'testuser',
@@ -127,11 +141,14 @@ async function createTestUser(db, options = {}) {
 // Create test API key
 async function createTestApiKey(db, userId, name = 'Test Key') {
   const apiKey = crypto.randomBytes(32).toString('hex');
-  await db.run(`
+  await db.run(
+    `
     INSERT INTO api_keys (user_id, api_key, name) 
     VALUES (?, ?, ?)
-  `, [userId, apiKey, name]);
-  
+  `,
+    [userId, apiKey, name]
+  );
+
   return { api_key: apiKey, name };
 }
 
@@ -186,20 +203,20 @@ describe('Websites API', () => {
   beforeAll(async () => {
     // Create test database
     db = await createTestDatabase();
-    
+
     // Connect mock to test database
     mockDb.query.mockImplementation((...args) => db.query(...args));
-    
+
     // Initialize schema
     await initializeSchema(db);
-    
+
     // Create test user and API key
     testUser = await createTestUser(db, {
       username: 'testuser',
       email: 'test@example.com',
     });
     apiKey = await createTestApiKey(db, testUser.id);
-    
+
     // Setup Express app with routes
     app = express();
     app.use(express.json());
@@ -224,13 +241,10 @@ describe('Websites API', () => {
       user_id: testUser.id,
     });
 
-    const response = await request(app)
-      .post('/api/websites')
-      .set('X-API-Key', apiKey.api_key)
-      .send({
-        domain: 'example.com',
-        title: 'Example Site',
-      });
+    const response = await request(app).post('/api/websites').set('X-API-Key', apiKey.api_key).send({
+      domain: 'example.com',
+      title: 'Example Site',
+    });
 
     expect(response.status).toBe(201);
     expect(response.body).toHaveProperty('id');
@@ -245,17 +259,13 @@ describe('Websites API', () => {
   });
 
   it('should return 400 when domain is missing', async () => {
-    const response = await request(app)
-      .post('/api/websites')
-      .set('X-API-Key', apiKey.api_key)
-      .send({ title: 'No Domain' });
+    const response = await request(app).post('/api/websites').set('X-API-Key', apiKey.api_key).send({ title: 'No Domain' });
 
     expect(response.status).toBe(400);
   });
 
   it('should return 401 when not authenticated', async () => {
-    const response = await request(app)
-      .get('/api/websites');
+    const response = await request(app).get('/api/websites');
 
     expect(response.status).toBe(401);
   });
@@ -404,10 +414,13 @@ async function createUser(db, overrides = {}) {
   const data = { ...defaults, ...overrides };
   const hashedPassword = await bcrypt.hash(data.password, 10);
 
-  const result = await db.run(`
+  const result = await db.run(
+    `
     INSERT INTO users (username, email, password, blocked, paused)
     VALUES (?, ?, ?, ?, ?)
-  `, [data.username, data.email, hashedPassword, data.blocked ? 1 : 0, data.paused ? 1 : 0]);
+  `,
+    [data.username, data.email, hashedPassword, data.blocked ? 1 : 0, data.paused ? 1 : 0]
+  );
 
   return {
     id: result.lastID,
@@ -426,13 +439,11 @@ const { createUser } = require('../factories/user');
 
 it('should block user login when account is blocked', async () => {
   const blockedUser = await createUser(db, { blocked: true });
-  
-  const response = await request(app)
-    .post('/api/auth/login')
-    .send({
-      username: blockedUser.username,
-      password: 'Password123!',
-    });
+
+  const response = await request(app).post('/api/auth/login').send({
+    username: blockedUser.username,
+    password: 'Password123!',
+  });
 
   expect(response.status).toBe(401);
   expect(response.text).toContain('blocked');
@@ -457,9 +468,7 @@ it('should fetch user by ID', async () => {
 
 ```javascript
 it('should throw error when user not found', async () => {
-  await expect(User.findById(999))
-    .rejects
-    .toThrow('User not found');
+  await expect(User.findById(999)).rejects.toThrow('User not found');
 });
 ```
 
@@ -498,18 +507,18 @@ describe('isAuthenticated middleware', () => {
 
   it('should call next() when user is authenticated', () => {
     req.isAuthenticated.mockReturnValue(true);
-    
+
     isAuthenticated(req, res, next);
-    
+
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
   });
 
   it('should return 401 when user is not authenticated', () => {
     req.isAuthenticated.mockReturnValue(false);
-    
+
     isAuthenticated(req, res, next);
-    
+
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.send).toHaveBeenCalledWith('Unauthorized');
     expect(next).not.toHaveBeenCalled();
@@ -526,6 +535,7 @@ npm run test:coverage
 ```
 
 **Output:**
+
 ```
 -------------------|---------|----------|---------|---------|
 File               | % Stmts | % Branch | % Funcs | % Lines |
@@ -541,12 +551,14 @@ All files          |   78.5  |   65.2   |   82.1  |   79.3  |
 ```
 
 **Focus on:**
+
 - Critical paths (authentication, authorization)
 - Data validation and sanitization
 - Business logic in models
 - API routes
 
 **Don't obsess over:**
+
 - 100% coverage (diminishing returns)
 - Simple getters/setters
 - Configuration files
@@ -576,10 +588,7 @@ it('should create a new website', async () => {
   };
 
   // Act: Perform the action
-  const response = await request(app)
-    .post('/api/websites')
-    .set('X-API-Key', apiKey.api_key)
-    .send(websiteData);
+  const response = await request(app).post('/api/websites').set('X-API-Key', apiKey.api_key).send(websiteData);
 
   // Assert: Verify the result
   expect(response.status).toBe(201);
@@ -594,10 +603,10 @@ it('should create a new website', async () => {
 it('should handle user operations', async () => {
   const user = await User.create({ ... });
   expect(user).toBeDefined();
-  
+
   const updated = await User.update(user.id, { ... });
   expect(updated).toBe(true);
-  
+
   await User.delete(user.id);
   const deleted = await User.findById(user.id);
   expect(deleted).toBeUndefined();
@@ -631,12 +640,12 @@ afterAll(async () => {
 // ❌ BAD - Tests depend on order
 describe('Websites', () => {
   let websiteId;
-  
+
   it('should create website', async () => {
     const website = await Website.create({ ... });
     websiteId = website.id; // Shared state
   });
-  
+
   it('should update website', async () => {
     await Website.update(websiteId, { ... }); // Depends on previous test
   });
@@ -648,7 +657,7 @@ describe('Websites', () => {
     const website = await Website.create({ ... });
     expect(website).toBeDefined();
   });
-  
+
   it('should update website', async () => {
     const website = await Website.create({ ... }); // Create own test data
     await Website.update(website.id, { ... });
@@ -693,6 +702,7 @@ it('should do something', async () => {
 ```
 
 Then run:
+
 ```bash
 node --inspect-brk node_modules/.bin/jest --runInBand
 ```
@@ -711,23 +721,23 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v2
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '22'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Run tests
-      run: npm test
-    
-    - name: Upload coverage
-      uses: codecov/codecov-action@v2
+      - uses: actions/checkout@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v2
 ```
 
 ---

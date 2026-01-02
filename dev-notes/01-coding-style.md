@@ -13,12 +13,14 @@ Follow the established patterns in the codebase. When in doubt, look at similar 
 ### Avoid Magic Strings and Numbers
 
 **Bad:**
+
 ```javascript
 if (user.role === 'admin') { ... }
 setTimeout(callback, 300000);
 ```
 
 **Good:**
+
 ```javascript
 const ROLE_ADMIN = 'administrator';
 if (user.role === ROLE_ADMIN) { ... }
@@ -134,7 +136,7 @@ router.post('/api/websites', async (req, res) => {
 
 /**
  * Multi-line JSDoc for functions exported from modules
- * 
+ *
  * @param {number} websiteId - The website ID
  * @param {Object} versions - Version information
  * @returns {Promise<boolean>} - Success status
@@ -153,10 +155,7 @@ async function updateVersions(websiteId, versions) { ... }
 const users = await db.query('SELECT * FROM users WHERE id = ?', [userId]);
 
 // For multiple parameters
-const results = await db.query(
-  'SELECT * FROM websites WHERE user_id = ? AND domain LIKE ?',
-  [userId, `%${search}%`]
-);
+const results = await db.query('SELECT * FROM websites WHERE user_id = ? AND domain LIKE ?', [userId, `%${search}%`]);
 
 // Never concatenate user input into SQL strings
 // BAD: await db.query(`SELECT * FROM users WHERE id = ${userId}`);
@@ -314,11 +313,11 @@ async function fetchWebsites() {
         'X-API-Key': apiKey,
       },
     });
-    
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
-    
+
     const data = await response.json();
     return data;
   } catch (err) {
@@ -338,23 +337,23 @@ async function fetchWebsites() {
 describe('Websites API', () => {
   let db;
   let testUser;
-  
+
   beforeAll(async () => {
     db = await createTestDatabase();
     testUser = await createTestUser(db);
   });
-  
+
   afterAll(async () => {
     await cleanupTestDatabase(db);
   });
-  
+
   it('should create a new website', async () => {
     const website = await Website.create({
       user_id: testUser.id,
       domain: 'test.com',
       title: 'Test Site',
     });
-    
+
     expect(website).toBeDefined();
     expect(website.domain).toBe('test.com');
   });
@@ -403,6 +402,7 @@ module.exports = [
 ```
 
 Run linting:
+
 ```bash
 npm run lint
 ```
@@ -425,6 +425,7 @@ chore: Update dependencies to latest versions
 ## Summary
 
 The codebase follows a straightforward, maintainable style:
+
 - CommonJS modules
 - Async/await for asynchronous operations
 - Raw SQL with parameter binding
