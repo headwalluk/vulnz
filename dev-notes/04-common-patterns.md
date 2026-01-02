@@ -31,10 +31,7 @@ const createTable = async () => {
 };
 
 const findAll = async (userId) => {
-  const rows = await db.query(
-    'SELECT * FROM examples WHERE user_id = ? ORDER BY created_at DESC',
-    [userId]
-  );
+  const rows = await db.query('SELECT * FROM examples WHERE user_id = ? ORDER BY created_at DESC', [userId]);
   return Array.isArray(rows) ? rows : [];
 };
 
@@ -45,10 +42,7 @@ const findById = async (id) => {
 
 const create = async (example) => {
   const { user_id, name, description } = example;
-  const result = await db.query(
-    'INSERT INTO examples (user_id, name, description) VALUES (?, ?, ?)',
-    [user_id, name, description]
-  );
+  const result = await db.query('INSERT INTO examples (user_id, name, description) VALUES (?, ?, ?)', [user_id, name, description]);
   const insertId = result.insertId || result[0]?.insertId;
   return { id: insertId, ...example };
 };
@@ -56,15 +50,15 @@ const create = async (example) => {
 const update = async (id, data) => {
   const fields = Object.keys(data);
   const values = Object.values(data);
-  
+
   if (fields.length === 0) {
     return false;
   }
-  
+
   const setClause = fields.map((field) => `${field} = ?`).join(', ');
   const query = `UPDATE examples SET ${setClause} WHERE id = ?`;
   const params = [...values, id];
-  
+
   await db.query(query, params);
   return true;
 };
@@ -187,17 +181,17 @@ router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
 router.get('/:id', apiOrSessionAuth, logApiCall, async (req, res) => {
   try {
     const example = await Example.findById(req.params.id);
-    
+
     if (!example) {
       return res.status(404).send('Example not found');
     }
-    
+
     // Check ownership or admin role
     const roles = await User.getRoles(req.user.id);
     if (example.user_id !== req.user.id && !roles.includes('administrator')) {
       return res.status(403).send('Forbidden');
     }
-    
+
     res.json(example);
   } catch (err) {
     console.error(err);
@@ -229,23 +223,23 @@ router.get('/:id', apiOrSessionAuth, logApiCall, async (req, res) => {
 router.post('/', apiOrSessionAuth, logApiCall, async (req, res) => {
   try {
     const { name, description } = req.body;
-    
+
     // Validate required fields
     if (!name) {
       return res.status(400).send('Name is required');
     }
-    
+
     // Sanitize input
     const sanitizedName = sanitizer.stripAll(name);
     const sanitizedDescription = description ? sanitizer.stripAll(description) : null;
-    
+
     // Create example
     const example = await Example.create({
       user_id: req.user.id,
       name: sanitizedName,
       description: sanitizedDescription,
     });
-    
+
     res.status(201).json(example);
   } catch (err) {
     console.error(err);
@@ -264,11 +258,11 @@ router.post('/', apiOrSessionAuth, logApiCall, async (req, res) => {
 router.put('/:id', apiOrSessionAuth, logApiCall, async (req, res) => {
   try {
     const example = await Example.findById(req.params.id);
-    
+
     if (!example) {
       return res.status(404).send('Example not found');
     }
-    
+
     // Check ownership
     if (example.user_id !== req.user.id) {
       const roles = await User.getRoles(req.user.id);
@@ -276,7 +270,7 @@ router.put('/:id', apiOrSessionAuth, logApiCall, async (req, res) => {
         return res.status(403).send('Forbidden');
       }
     }
-    
+
     // Build update object
     const updates = {};
     if (req.body.name) {
@@ -285,7 +279,7 @@ router.put('/:id', apiOrSessionAuth, logApiCall, async (req, res) => {
     if (req.body.description !== undefined) {
       updates.description = req.body.description ? sanitizer.stripAll(req.body.description) : null;
     }
-    
+
     await Example.update(req.params.id, updates);
     res.status(204).send();
   } catch (err) {
@@ -305,11 +299,11 @@ router.put('/:id', apiOrSessionAuth, logApiCall, async (req, res) => {
 router.delete('/:id', apiOrSessionAuth, logApiCall, async (req, res) => {
   try {
     const example = await Example.findById(req.params.id);
-    
+
     if (!example) {
       return res.status(404).send('Example not found');
     }
-    
+
     // Check ownership or admin
     if (example.user_id !== req.user.id) {
       const roles = await User.getRoles(req.user.id);
@@ -317,7 +311,7 @@ router.delete('/:id', apiOrSessionAuth, logApiCall, async (req, res) => {
         return res.status(403).send('Forbidden');
       }
     }
-    
+
     await Example.remove(req.params.id);
     res.status(204).send();
   } catch (err) {
@@ -350,46 +344,45 @@ app.use('/api/examples', exampleRoutes);
 **File**: `src/emails/example-notification.hbs`
 
 ```handlebars
-<!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{subject}}</title>
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-  <table width="100%" cellpadding="0" cellspacing="0">
-    {{#if whiteLabel}}
-    <tr>
-      <td>{{{whiteLabel}}}</td>
-    </tr>
-    {{/if}}
-    
-    <tr>
-      <td style="padding: 20px;">
-        <h1>{{title}}</h1>
-        <p>Hello {{userName}},</p>
-        <p>{{message}}</p>
-        
-        {{#if actionUrl}}
-        <p>
-          <a href="{{actionUrl}}" style="background: #007bff; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
-            {{actionText}}
-          </a>
-        </p>
-        {{/if}}
-        
-        <p>Thank you!</p>
-      </td>
-    </tr>
-    
-    <tr>
-      <td style="padding: 20px; background: #f8f9fa; text-align: center; font-size: 12px; color: #666;">
-        <p>This email was sent from VULNZ</p>
-      </td>
-    </tr>
-  </table>
-</body>
+  <head>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <title>{{subject}}</title>
+  </head>
+  <body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>
+    <table width='100%' cellpadding='0' cellspacing='0'>
+      {{#if whiteLabel}}
+        <tr>
+          <td>{{{whiteLabel}}}</td>
+        </tr>
+      {{/if}}
+
+      <tr>
+        <td style='padding: 20px;'>
+          <h1>{{title}}</h1>
+          <p>Hello {{userName}},</p>
+          <p>{{message}}</p>
+
+          {{#if actionUrl}}
+            <p>
+              <a href='{{actionUrl}}' style='background: #007bff; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;'>
+                {{actionText}}
+              </a>
+            </p>
+          {{/if}}
+
+          <p>Thank you!</p>
+        </td>
+      </tr>
+
+      <tr>
+        <td style='padding: 20px; background: #f8f9fa; text-align: center; font-size: 12px; color: #666;'>
+          <p>This email was sent from VULNZ</p>
+        </td>
+      </tr>
+    </table>
+  </body>
 </html>
 ```
 
@@ -401,7 +394,7 @@ const { sendEmail } = require('./lib/email');
 async function sendExampleNotification(user, data) {
   const template = 'example-notification';
   const subject = 'Example Notification';
-  
+
   const templateData = {
     subject,
     userName: user.username,
@@ -411,15 +404,8 @@ async function sendExampleNotification(user, data) {
     actionText: 'View Details',
     whiteLabel: user.enable_white_label ? user.white_label_html : null,
   };
-  
-  await sendEmail(
-    user.email,
-    subject,
-    template,
-    templateData,
-    user.id,
-    'example-notification'
-  );
+
+  await sendEmail(user.email, subject, template, templateData, user.id, 'example-notification');
 }
 ```
 
@@ -455,6 +441,7 @@ cron.schedule('30 * * * *', async () => {
 ```
 
 **Cron Syntax:**
+
 ```
 ┌─────────── minute (0 - 59)
 │ ┌───────── hour (0 - 23)
@@ -466,6 +453,7 @@ cron.schedule('30 * * * *', async () => {
 ```
 
 **Examples:**
+
 - `0 0 * * *` - Daily at midnight
 - `0 */6 * * *` - Every 6 hours
 - `*/15 * * * *` - Every 15 minutes
@@ -482,17 +470,17 @@ cron.schedule('30 * * * *', async () => {
 ```javascript
 function validateDomain(req, res, next) {
   const { domain } = req.body;
-  
+
   if (!domain) {
     return res.status(400).send('Domain is required');
   }
-  
+
   // Basic domain validation
   const domainRegex = /^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,}$/i;
   if (!domainRegex.test(domain)) {
     return res.status(400).send('Invalid domain format');
   }
-  
+
   next();
 }
 
@@ -579,7 +567,7 @@ describe('Examples API', () => {
     db = await createTestDatabase();
     mockDb.query.mockImplementation((...args) => db.query(...args));
     await initializeSchema(db);
-    
+
     testUser = await createTestUser(db, {
       username: 'testuser',
       email: 'test@example.com',
@@ -607,10 +595,7 @@ describe('Examples API', () => {
       ...exampleData,
     });
 
-    const response = await request(app)
-      .post('/api/examples')
-      .set('X-API-Key', apiKey.api_key)
-      .send({ name: 'Test Example', description: 'Test description' });
+    const response = await request(app).post('/api/examples').set('X-API-Key', apiKey.api_key).send({ name: 'Test Example', description: 'Test description' });
 
     expect(response.status).toBe(201);
     expect(response.body).toHaveProperty('id');
@@ -618,10 +603,7 @@ describe('Examples API', () => {
   });
 
   it('should return 400 when name is missing', async () => {
-    const response = await request(app)
-      .post('/api/examples')
-      .set('X-API-Key', apiKey.api_key)
-      .send({ description: 'No name' });
+    const response = await request(app).post('/api/examples').set('X-API-Key', apiKey.api_key).send({ description: 'No name' });
 
     expect(response.status).toBe(400);
   });
@@ -736,6 +718,7 @@ const apiKey = process.env.NEW_FEATURE_API_KEY;
 ## Summary
 
 When adding features:
+
 1. **Model** - Database operations
 2. **Route** - API endpoints with Swagger docs
 3. **Middleware** - Reusable request processing

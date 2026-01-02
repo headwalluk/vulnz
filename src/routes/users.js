@@ -190,7 +190,7 @@ router.post('/', apiKeyOrSessionAdminAuth, async (req, res) => {
     const newUser = await user.createUser(username, password, roles, blocked, max_api_keys, reporting_weekday, reporting_email, null, null, null, paused);
     res.status(201).json(newUser);
   } catch (err) {
-    if (err.code === 'ER_DUP_ENTRY') {
+    if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT') {
       return res.status(409).send('An account with that username already exists.');
     }
     if (err.message.includes('Password must') || err.message.includes('Username must')) {

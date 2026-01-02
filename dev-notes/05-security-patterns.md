@@ -19,19 +19,16 @@ Security best practices and patterns used in VULNZ.
 ### Always Use Parameterized Queries
 
 **✅ GOOD - Parameterized Query:**
+
 ```javascript
-const users = await db.query(
-  'SELECT * FROM users WHERE email = ?',
-  [userEmail]
-);
+const users = await db.query('SELECT * FROM users WHERE email = ?', [userEmail]);
 ```
 
 **❌ BAD - String Concatenation:**
+
 ```javascript
 // NEVER DO THIS
-const users = await db.query(
-  `SELECT * FROM users WHERE email = '${userEmail}'`
-);
+const users = await db.query(`SELECT * FROM users WHERE email = '${userEmail}'`);
 ```
 
 ### Dynamic WHERE Clauses
@@ -74,7 +71,7 @@ if (fields.length === 0) {
   return res.status(400).send('No fields to update');
 }
 
-const setClause = fields.map(field => `${field} = ?`).join(', ');
+const setClause = fields.map((field) => `${field} = ?`).join(', ');
 const query = `UPDATE websites SET ${setClause} WHERE id = ?`;
 const params = [...values, websiteId];
 
@@ -106,6 +103,7 @@ const safeHtml = sanitizeEmailHtml(userProvidedHtml);
 ```
 
 **Allowed Tags:**
+
 - Text: `p`, `h1`-`h6`, `span`, `div`, `strong`, `em`, `b`, `i`, `u`, `br`
 - Structure: `table`, `tr`, `td`, `th`, `thead`, `tbody`
 - Links: `a` (with restricted `href`)
@@ -113,6 +111,7 @@ const safeHtml = sanitizeEmailHtml(userProvidedHtml);
 - Inline SVG: `svg`, `path` (for logos)
 
 **Blocked:**
+
 - `<script>` tags
 - Event handlers (`onclick`, `onerror`, etc.)
 - `javascript:` URLs
@@ -144,6 +143,7 @@ const isValid = await bcrypt.compare(plainPassword, hashedPassword);
 ```
 
 **Never:**
+
 - Store passwords in plain text
 - Log passwords
 - Send passwords in responses
@@ -161,6 +161,7 @@ if (!result.isValid) {
 ```
 
 **Requirements:**
+
 - Minimum 8 characters
 - At least one uppercase letter
 - At least one lowercase letter
@@ -170,18 +171,20 @@ if (!result.isValid) {
 ### Session Security
 
 ```javascript
-app.use(session({
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  store: sessionStore,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-    httpOnly: true,                                 // Prevent JavaScript access
-    sameSite: 'strict',                             // CSRF protection
-    maxAge: 24 * 60 * 60 * 1000,                   // 24 hours
-  },
-}));
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    store: sessionStore,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+      httpOnly: true, // Prevent JavaScript access
+      sameSite: 'strict', // CSRF protection
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  })
+);
 ```
 
 ### API Key Security
@@ -196,6 +199,7 @@ const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
 ```
 
 **Best Practices:**
+
 - Generate keys with sufficient entropy (32+ bytes)
 - Never log API keys
 - Allow users to revoke keys
@@ -210,17 +214,17 @@ const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
 ```javascript
 router.get('/api/websites/:domain', apiOrSessionAuth, async (req, res) => {
   const website = await Website.findByDomain(req.params.domain);
-  
+
   if (!website) {
     return res.status(404).send('Website not found');
   }
-  
+
   // Check ownership or admin role
   const roles = await User.getRoles(req.user.id);
   if (website.user_id !== req.user.id && !roles.includes('administrator')) {
     return res.status(403).send('Forbidden');
   }
-  
+
   // User has access
   res.json(website);
 });
@@ -292,7 +296,7 @@ router.get('/api/components/search', searchLimiter, async (req, res) => {
 ```javascript
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,                   // 5 attempts
+  max: 5, // 5 attempts
   message: 'Too many login attempts, please try again later',
 });
 
@@ -311,18 +315,18 @@ router.post('/api/auth/login', authLimiter, async (req, res) => {
 const corsOptions = {
   origin: function (origin, callback) {
     if (!origin) return callback(null, true); // Allow requests with no origin
-    
+
     const allowedOrigins = process.env.CORS_ORIGIN || '*';
-    
+
     if (allowedOrigins === '*') {
       return callback(null, true);
     }
-    
-    const originsArray = allowedOrigins.split(',').map(o => o.trim());
+
+    const originsArray = allowedOrigins.split(',').map((o) => o.trim());
     if (originsArray.includes(origin)) {
       return callback(null, true);
     }
-    
+
     callback(null, false); // Reject
   },
   credentials: process.env.CORS_CREDENTIALS === 'true',
@@ -348,12 +352,12 @@ app.use(cors(corsOptions));
 ```javascript
 router.post('/api/websites', async (req, res) => {
   const { domain, title } = req.body;
-  
+
   // Check required fields
   if (!domain || !title) {
     return res.status(400).send('Domain and title are required');
   }
-  
+
   // Continue processing
 });
 ```
@@ -418,6 +422,7 @@ const upload = multer({
 ```
 
 **Best Practices:**
+
 - Limit file size
 - Validate MIME types
 - Scan for malware
@@ -438,12 +443,14 @@ checkEnvFilePermissions();
 ```
 
 **Checks:**
+
 - File permissions should be `0600` (read/write for owner only)
 - Warns if world-readable or group-readable
 
 ### Sensitive Data
 
 **Never commit to git:**
+
 ```gitignore
 .env
 .env.local
@@ -451,6 +458,7 @@ checkEnvFilePermissions();
 ```
 
 **Generate secrets securely:**
+
 ```bash
 ./scripts/generate-session-secret.sh
 ```
@@ -462,6 +470,7 @@ checkEnvFilePermissions();
 ### Don't Leak Information
 
 **❌ BAD - Reveals internal details:**
+
 ```javascript
 catch (err) {
   res.status(500).send(err.message);
@@ -470,6 +479,7 @@ catch (err) {
 ```
 
 **✅ GOOD - Generic error message:**
+
 ```javascript
 catch (err) {
   console.error('Database error:', err); // Log detailed error
@@ -485,7 +495,7 @@ try {
 } catch (err) {
   // Log full error for debugging
   console.error('User lookup failed:', err);
-  
+
   // Send safe message to client
   res.status(500).send('An error occurred');
 }
@@ -512,12 +522,13 @@ npm outdated
 
 ```bash
 # Use package-lock.json in production
-npm ci  # Install from lockfile exactly
+npm ci # Install from lockfile exactly
 ```
 
 ### Audit New Dependencies
 
 Before adding a new package:
+
 1. Check npm downloads and GitHub stars
 2. Review recent issues and PRs
 3. Check for known vulnerabilities
@@ -573,6 +584,7 @@ If a security issue is discovered:
 ## Summary
 
 Security is built into every layer:
+
 1. **Input** - Validate and sanitize
 2. **Authentication** - Strong passwords, secure sessions, API keys
 3. **Authorization** - Role-based access, resource ownership

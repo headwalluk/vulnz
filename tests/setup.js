@@ -15,7 +15,15 @@ const bcrypt = require('bcryptjs');
 async function createTestDatabase() {
   const db = new sqlite3.Database(':memory:');
 
-  // Prom isify database methods
+  // Enable foreign keys for SQLite
+  await new Promise((resolve, reject) => {
+    db.run('PRAGMA foreign_keys = ON', (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+
+  // Promisify database methods
   const get = promisify(db.get.bind(db));
   const all = promisify(db.all.bind(db));
   const exec = promisify(db.exec.bind(db));
@@ -34,6 +42,19 @@ async function createTestDatabase() {
   const query = async (sql, params = []) => {
     // Convert MySQL syntax to SQLite
     let convertedSql = sql;
+
+    // Convert boolean values to integers for SQLite
+    const convertedParams = params.map((param) => {
+      if (typeof param === 'boolean') {
+        return param ? 1 : 0;
+      }
+      return param;
+    });
+
+    // Handle INSERT IGNORE -> INSERT OR IGNORE
+    if (convertedSql.match(/INSERT\s+IGNORE/i)) {
+      convertedSql = convertedSql.replace(/INSERT\s+IGNORE/gi, 'INSERT OR IGNORE');
+    }
 
     // Handle ON DUPLICATE KEY UPDATE -> INSERT OR REPLACE or UPSERT
     if (convertedSql.includes('ON DUPLICATE KEY UPDATE')) {
@@ -61,9 +82,9 @@ async function createTestDatabase() {
     }
 
     if (convertedSql.trim().toUpperCase().startsWith('SELECT') || convertedSql.trim().toUpperCase().startsWith('SHOW')) {
-      return all(convertedSql, params);
+      return all(convertedSql, convertedParams);
     } else {
-      const result = await run(convertedSql, params);
+      const result = await run(convertedSql, convertedParams);
       return {
         affectedRows: result.changes || 0,
         insertId: result.lastID || 0,
@@ -88,34 +109,71 @@ async function createTestDatabase() {
  * @param {Object} db - Database connection
  */
 async function initializeSchema(db) {
-  // Create users table
+  // Create users table (matching production schema)
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username VARCHAR(50) NOT NULL UNIQUE,
-      password_hash VARCHAR(255) NOT NULL,
-      email VARCHAR(255) NOT NULL UNIQUE,
-      role VARCHAR(20) NOT NULL DEFAULT 'user',
+      username VARCHAR(255) NOT NULL UNIQUE,
+      password VARCHAR(255) NOT NULL,
+      reporting_email VARCHAR(255),
+      reporting_weekday INTEGER,
+      max_api_keys INTEGER NOT NULL DEFAULT 1,
+      blocked INTEGER NOT NULL DEFAULT 0,
+      paused INTEGER NOT NULL DEFAULT 0,
+      last_summary_sent_at DATETIME,
+      enable_white_label INTEGER NOT NULL DEFAULT 0,
+      white_label_html TEXT,
       is_active INTEGER NOT NULL DEFAULT 1,
+      is_blocked INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
-  // Create api_keys table
+  // Create api_keys table (matching production schema)
   await db.exec(`
     CREATE TABLE IF NOT EXISTS api_keys (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      api_key VARCHAR(64) NOT NULL UNIQUE,
       user_id INTEGER NOT NULL,
-      name VARCHAR(255) NOT NULL,
-      key_hash VARCHAR(64) NOT NULL UNIQUE,
-      is_active INTEGER NOT NULL DEFAULT 1,
-      last_used_at DATETIME,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create password_reset_tokens table (matching production schema)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      token VARCHAR(255) NOT NULL UNIQUE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
 
+  // Create api_call_logs table (matching production schema)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS api_call_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username VARCHAR(255) NOT NULL,
+      route VARCHAR(255) NOT NULL,
+      method VARCHAR(10) NOT NULL,
+      ip_address VARCHAR(45) NOT NULL,
+      status_code INTEGER,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  // Create email_logs table (matching production schema)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS email_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      recipient_email VARCHAR(255) NOT NULL,
+      email_type VARCHAR(255) NOT NULL,
+      status VARCHAR(255) NOT NULL,
+      sent_at DATETIME NOT NULL
+    )
+  `);
   // Create websites table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS websites (
@@ -163,6 +221,67 @@ async function initializeSchema(db) {
   await db.run(`INSERT OR IGNORE INTO roles (name) VALUES ('administrator')`);
   await db.run(`INSERT OR IGNORE INTO roles (name) VALUES ('user')`);
 
+  // Create component_types table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS component_types (
+      slug TEXT PRIMARY KEY,
+      title TEXT NOT NULL
+    )
+  `);
+
+  // Seed component types
+  await db.run(`INSERT OR IGNORE INTO component_types (slug, title) VALUES ('wordpress-plugin', 'WordPress Plugin')`);
+  await db.run(`INSERT OR IGNORE INTO component_types (slug, title) VALUES ('wordpress-theme', 'WordPress Theme')`);
+
+  // Create components table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS components (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT NOT NULL,
+      component_type_slug TEXT NOT NULL,
+      title TEXT NOT NULL,
+      url TEXT,
+      description TEXT,
+      synced_from_wporg INTEGER DEFAULT 0,
+      UNIQUE(slug, component_type_slug),
+      FOREIGN KEY (component_type_slug) REFERENCES component_types(slug)
+    )
+  `);
+
+  // Create releases table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS releases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      component_id INTEGER NOT NULL,
+      version VARCHAR(255) NOT NULL,
+      release_date DATE,
+      FOREIGN KEY (component_id) REFERENCES components(id) ON DELETE CASCADE,
+      UNIQUE(component_id, version)
+    )
+  `);
+
+  // Create vulnerabilities table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS vulnerabilities (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      release_id INTEGER NOT NULL,
+      url VARCHAR(255) NOT NULL,
+      FOREIGN KEY (release_id) REFERENCES releases(id) ON DELETE CASCADE,
+      UNIQUE(release_id, url)
+    )
+  `);
+
+  // Create website_components junction table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS website_components (
+      website_id INTEGER NOT NULL,
+      release_id INTEGER NOT NULL,
+      PRIMARY KEY (website_id, release_id),
+      FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE,
+      FOREIGN KEY (release_id) REFERENCES releases(id) ON DELETE CASCADE
+    )
+  `);
+
   // Create app_settings table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS app_settings (
@@ -205,9 +324,8 @@ async function initializeSchema(db) {
  */
 async function createTestUser(db, userData = {}) {
   const defaultData = {
-    username: 'testuser',
+    username: 'testuser@example.com',
     password: 'password123',
-    email: 'test@example.com',
     role: 'user',
     is_active: 1,
   };
@@ -216,15 +334,14 @@ async function createTestUser(db, userData = {}) {
   const hashedPassword = await bcrypt.hash(user.password, 10);
 
   const result = await db.query(
-    `INSERT INTO users (username, password_hash, email, role, is_active) 
-     VALUES (?, ?, ?, ?, ?)`,
-    [user.username, hashedPassword, user.email, user.role, user.is_active]
+    'INSERT INTO users (username, password, is_active) VALUES (?, ?, ?)',
+    [user.username, hashedPassword, user.is_active]
   );
 
   const userId = result.insertId;
 
   // Assign role to user
-  const roleName = user.role === 'admin' ? 'administrator' : 'user';
+  const roleName = user.role === 'admin' || user.role === 'administrator' ? 'administrator' : 'user';
   const roleRows = await db.query('SELECT id FROM roles WHERE name = ?', [roleName]);
   if (roleRows && roleRows.length > 0) {
     await db.query('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [userId, roleRows[0].id]);
@@ -233,7 +350,6 @@ async function createTestUser(db, userData = {}) {
   return {
     id: userId,
     username: user.username,
-    email: user.email,
     role: user.role,
     password: user.password, // Return plaintext password for testing
   };
@@ -248,21 +364,11 @@ async function createTestUser(db, userData = {}) {
  */
 async function createTestApiKey(db, userId, name = 'Test Key') {
   const crypto = require('crypto');
-  const token = crypto.randomBytes(32).toString('hex');
-  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+  const apiKey = crypto.randomBytes(32).toString('hex');
 
-  const result = await db.query(
-    `INSERT INTO api_keys (user_id, name, key_hash, is_active) 
-     VALUES (?, ?, ?, 1)`,
-    [userId, name, hashedToken]
-  );
+  await db.query('INSERT INTO api_keys (user_id, api_key) VALUES (?, ?)', [userId, apiKey]);
 
-  return {
-    id: result.insertId,
-    token, // Return unhashed token for testing
-    userId,
-    name,
-  };
+  return apiKey; // Return the plaintext API key for use in tests
 }
 
 /**

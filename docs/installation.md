@@ -202,6 +202,7 @@ mysql -u vulnz -p vulnz -e "SHOW TABLES;"
 ```
 
 Expected tables:
+
 - `users`, `roles`, `user_roles`
 - `websites`, `website_components`
 - `components`, `component_types`, `releases`, `vulnerabilities`
@@ -220,6 +221,7 @@ mysql -u vulnz -p vulnz -e "SELECT * FROM migrations ORDER BY created_at;"
 ### Access the UI
 
 Navigate to `http://localhost:3000` and verify:
+
 - Search page loads
 - Can register/login
 - Dashboard is accessible
@@ -243,7 +245,8 @@ curl "http://localhost:3000/api/components/search?query=woocommerce"
 
 **Error**: `ER_ACCESS_DENIED_ERROR: Access denied for user`
 
-**Solution**: 
+**Solution**:
+
 - Verify database credentials in `.env`
 - Ensure MySQL user has correct permissions
 - Check MySQL is running: `sudo systemctl status mysql`
@@ -253,6 +256,7 @@ curl "http://localhost:3000/api/components/search?query=woocommerce"
 **Error**: `Error: listen EADDRINUSE: address already in use :::3000`
 
 **Solution**:
+
 - Change `HTTP_LISTEN_PORT` in `.env`
 - Or stop the process using port 3000
 
@@ -261,6 +265,7 @@ curl "http://localhost:3000/api/components/search?query=woocommerce"
 **Error**: `Warning: SESSION_SECRET not set`
 
 **Solution**:
+
 ```bash
 bash scripts/generate-session-secret.sh
 ```
@@ -269,7 +274,8 @@ bash scripts/generate-session-secret.sh
 
 **Issue**: Registration disabled after setup
 
-**Solution**: 
+**Solution**:
+
 - Check `SETUP_MODE=false` and `REGISTRATION_ENABLED=false` in `.env`
 - Set `REGISTRATION_ENABLED=true` if you want public registration
 - Or create users via API/CLI (future feature)
@@ -279,6 +285,7 @@ bash scripts/generate-session-secret.sh
 **Issue**: Tables not created on startup
 
 **Solution**:
+
 - Check logs for migration errors
 - Verify database user has CREATE TABLE privileges
 - Manually run migrations (not recommended):

@@ -68,6 +68,7 @@ mysql -u vulnz -p vulnz -e "SELECT * FROM migrations ORDER BY created_at;"
 ```
 
 Expected output:
+
 ```
 +----+----------------------------------------------------------+---------------------+
 | id | name                                                     | created_at          |
@@ -85,7 +86,10 @@ Migrations should run automatically. If needed, you can run them manually:
 ```javascript
 // In Node.js REPL
 const migrations = require('./src/migrations');
-migrations.run().then(() => console.log('Done')).catch(console.error);
+migrations
+  .run()
+  .then(() => console.log('Done'))
+  .catch(console.error);
 ```
 
 ---
@@ -245,28 +249,28 @@ OPTIMIZE TABLE users, websites, components, releases, vulnerabilities;
 Remove old security events (e.g., older than 90 days):
 
 ```sql
-DELETE FROM security_events 
+DELETE FROM security_events
 WHERE event_datetime < DATE_SUB(NOW(), INTERVAL 90 DAY);
 ```
 
 #### API Call Logs
 
 ```sql
-DELETE FROM api_call_logs 
+DELETE FROM api_call_logs
 WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY);
 ```
 
 #### Email Logs
 
 ```sql
-DELETE FROM email_logs 
+DELETE FROM email_logs
 WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY);
 ```
 
 ### Check Database Size
 
 ```sql
-SELECT 
+SELECT
   table_name AS 'Table',
   ROUND(((data_length + index_length) / 1024 / 1024), 2) AS 'Size (MB)'
 FROM information_schema.TABLES
@@ -283,6 +287,7 @@ ORDER BY (data_length + index_length) DESC;
 **Error**: `ER_ACCESS_DENIED_ERROR: Access denied for user 'vulnz'@'localhost'`
 
 **Solutions**:
+
 1. Verify credentials in `.env`
 2. Check user exists:
    ```sql
@@ -299,6 +304,7 @@ ORDER BY (data_length + index_length) DESC;
 **Error**: Migration script fails during startup
 
 **Solutions**:
+
 1. Check MySQL error log for details
 2. Verify database user has CREATE/ALTER privileges
 3. Check for conflicting table/column names
@@ -311,6 +317,7 @@ ORDER BY (data_length + index_length) DESC;
 **Cause**: Running migrations twice or manual table creation
 
 **Solution**: Migrations use `CREATE TABLE IF NOT EXISTS`, so this shouldn't happen. If it does:
+
 1. Check `migrations` table to see what has run
 2. Drop and recreate database if starting fresh
 3. Contact support if data is present
@@ -322,6 +329,7 @@ ORDER BY (data_length + index_length) DESC;
 **Cause**: Long-running query or transaction
 
 **Solution**:
+
 ```sql
 -- Show running queries
 SHOW PROCESSLIST;
@@ -356,6 +364,7 @@ ALTER USER 'vulnz'@'%' REQUIRE SSL;
 ```
 
 Update `.env`:
+
 ```plaintext
 DB_SSL=true
 ```

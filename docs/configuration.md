@@ -126,6 +126,7 @@ SMTP_FROM=vulnz@example.com
 **Common SMTP Providers:**
 
 - **Gmail**:
+
   ```plaintext
   SMTP_HOST=smtp.gmail.com
   SMTP_PORT=587
@@ -133,6 +134,7 @@ SMTP_FROM=vulnz@example.com
   ```
 
 - **SendGrid**:
+
   ```plaintext
   SMTP_HOST=smtp.sendgrid.net
   SMTP_PORT=587
@@ -220,7 +222,7 @@ DB_USER=vulnz_prod
 DB_PASSWORD=strong-random-password-here
 DB_NAME=vulnz
 
-# Server  
+# Server
 HTTP_LISTEN_PORT=3000
 BASE_URL=https://vulnz.example.com
 
@@ -282,12 +284,14 @@ VULNZ checks this automatically on startup and warns if permissions are too open
 ### Secrets Management
 
 **Never:**
+
 - Commit `.env` to version control
 - Share `.env` file in plain text
 - Log environment variables containing secrets
 - Use weak or default secrets in production
 
 **Always:**
+
 - Generate random secrets with sufficient entropy
 - Use different secrets for each environment
 - Rotate secrets periodically
@@ -318,6 +322,7 @@ Check startup logs for configuration warnings.
 ### Database Connection Errors
 
 **Check:**
+
 - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` are correct
 - Database server is running
 - Database user has necessary privileges
@@ -328,6 +333,7 @@ Check startup logs for configuration warnings.
 **Issue**: `Warning: connect.session() MemoryStore is not designed for production use`
 
 **Solution**: SESSION_SECRET is missing or invalid. Generate a new one:
+
 ```bash
 bash scripts/generate-session-secret.sh
 ```
@@ -335,6 +341,7 @@ bash scripts/generate-session-secret.sh
 ### Email Not Sending
 
 **Check:**
+
 - SMTP credentials are correct
 - SMTP server allows connections from your IP
 - Firewall allows outbound connections on SMTP port
@@ -345,6 +352,7 @@ bash scripts/generate-session-secret.sh
 **Issue**: Browser blocks API requests
 
 **Solution**:
+
 1. Set `CORS_ENABLED=true`
 2. Add requesting origin to `CORS_ORIGIN`
 3. If sending credentials, set `CORS_CREDENTIALS=true`
@@ -357,16 +365,18 @@ When using PM2, you can also set environment variables in `ecosystem.config.js`:
 
 ```javascript
 module.exports = {
-  apps: [{
-    name: 'vulnz',
-    script: 'src/index.js',
-    instances: 4,
-    exec_mode: 'cluster',
-    env: {
-      NODE_ENV: 'production',
-      HTTP_LISTEN_PORT: 3000,
+  apps: [
+    {
+      name: 'vulnz',
+      script: 'src/index.js',
+      instances: 4,
+      exec_mode: 'cluster',
+      env: {
+        NODE_ENV: 'production',
+        HTTP_LISTEN_PORT: 3000,
+      },
     },
-  }],
+  ],
 };
 ```
 

@@ -7,6 +7,7 @@ Using the VULNZ REST API for automation and integration.
 ## Overview
 
 VULNZ provides a comprehensive REST API for:
+
 - Managing websites and components
 - Tracking vulnerabilities
 - Logging security events
@@ -74,6 +75,7 @@ fetch('http://localhost:3000/api/components/search?query=woocommerce&limit=10')
 ```
 
 **Response:**
+
 ```json
 {
   "components": [
@@ -103,6 +105,7 @@ curl -X POST \
 ```
 
 **Response:**
+
 ```json
 {
   "id": 1,
@@ -198,6 +201,7 @@ curl -X POST \
 ```
 
 **Response:**
+
 ```json
 {
   "created": 2,
@@ -273,7 +277,7 @@ function log_failed_login($username, $ip) {
             'username' => $username
         ]]
     ];
-    
+
     wp_remote_post(
         'https://vulnz.example.com/api/websites/' . $_SERVER['HTTP_HOST'] . '/security-events',
         [
@@ -309,12 +313,12 @@ curl -X PUT \
   "$API_BASE/websites/$DOMAIN"
 
 # Get plugins (WP-CLI)
-PLUGINS=$(wp plugin list --format=json --path=/var/www/html | \
-  jq '[.[] | {slug: .name, version: .version}]')
+PLUGINS=$(wp plugin list --format=json --path=/var/www/html \
+  | jq '[.[] | {slug: .name, version: .version}]')
 
 # Get themes
-THEMES=$(wp theme list --format=json --path=/var/www/html | \
-  jq '[.[] | select(.status == "active") | {slug: .name, version: .version}]')
+THEMES=$(wp theme list --format=json --path=/var/www/html \
+  | jq '[.[] | select(.status == "active") | {slug: .name, version: .version}]')
 
 # Update components
 curl -X POST \
@@ -335,6 +339,7 @@ Public search endpoint is rate-limited (configurable via `UNAUTH_SEARCH_LIMIT_PE
 **Default**: 1 request per second per IP
 
 **Headers returned**:
+
 - `X-RateLimit-Limit`: Maximum requests allowed
 - `X-RateLimit-Remaining`: Requests remaining
 - `Retry-After`: Seconds to wait (if limit exceeded)
@@ -368,6 +373,7 @@ Requests with valid API keys have more generous limits (not currently enforced, 
 ```
 
 Or plain text:
+
 ```
 Domain and title are required
 ```
@@ -384,10 +390,12 @@ curl "http://localhost:3000/api/websites?page=2&limit=20" \
 ```
 
 **Parameters**:
+
 - `page`: Page number (1-indexed)
 - `limit`: Items per page (default: 20, max: 100)
 
 **Response**:
+
 ```json
 {
   "websites": [...],
