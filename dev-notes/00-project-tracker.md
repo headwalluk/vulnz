@@ -323,141 +323,160 @@ Build modern, decoupled admin UI as single-page application (SPA) using React or
 
 ---
 
-### Milestone 5: Multi-Platform Support
+### Milestone 5: Multi-Ecosystem Support
 
 **Status**: Planning  
 **Priority**: High  
 **Target**: Q2-Q3 2026 (May run parallel to Milestone 2)  
-**Dependencies**: Milestone 1 (CLI) complete, architecture review
+**Dependencies**: None (can start immediately)  
+**Planning Document**: [dev-notes/09-multi-platform-support.md](./09-multi-platform-support.md)
 
 #### Objectives
 
-Expand VULNZ beyond WordPress to support vulnerability tracking for Node.js (npm), Python (pip/PyPI), Django, Joomla, and other platforms. Transform VULNZ into a universal vulnerability metabase.
+Expand VULNZ beyond WordPress to support vulnerability tracking for multiple component ecosystems: npm (Node.js packages), PyPI (Python packages), Composer (PHP packages), and others. Transform VULNZ into a universal vulnerability monitoring platform.
 
-**Primary Use Case:** Enable hosting providers to monitor both WordPress websites and Node.js applications for their customers, delivering unified weekly reports across all platforms. Customers running outdated Node.js dependencies represent significant security risk and business opportunity.
+**Primary Use Case:** Enable hosting providers to monitor both WordPress websites and Node.js applications for their customers, delivering unified weekly reports across all ecosystems. Customers running outdated Node.js dependencies represent significant security risk and business opportunity.
 
-#### Strategic Assessment
+#### Key Terminology
 
-**Current Architecture Analysis:**
+- **Ecosystem** = Component ecosystem (wordpress, npm, pypi, composer)
+  - Defines what components/packages we track
+  - Links to vulnerability databases and metadata sources
+  
+- **Platform** = Runtime/infrastructure details (WordPress 6.9, Node.js 20.0.0, Python 3.11)
+  - Stored as flexible JSON metadata per website
+  - Each ecosystem defines its own platform metadata structure
 
-✅ **Platform-agnostic core:**
-- `component_types` table uses slug-based identification
-- `components`, `releases`, `vulnerabilities` tables are generic
-- API endpoints use neutral naming (`/api/components`)
-- No WordPress-specific constraints in core schema
+#### Architecture Decisions ✅ RESOLVED
 
-❌ **WordPress-specific elements:**
-- Websites table assumes WordPress (`wordpress_version`, `php_version`, `db_server_type`)
-- Component types only seeded with `wordpress-plugin`, `wordpress-theme`
-- WordPress.org sync hardcoded in `src/lib/wporg.js`
-- UI/reporting copy references WordPress exclusively
-- No concept of website "platform type"
+**Website-Ecosystem Relationship:**
+- ✅ One ecosystem per website (simple, maintainable)
+- ✅ No hybrid website support initially (edge case, adds complexity)
+- ✅ Platform metadata stored as JSON (flexible, no schema changes needed)
 
-**Verdict:** Extension is feasible without major rewrite. WordPress-specific code is isolated and can be generalized.
+**Database Structure:**
+- ✅ New `ecosystems` table with JSON configuration
+- ✅ `component_types` linked to ecosystems
+- ✅ `websites` table gets `ecosystem_id` and `platform_metadata` JSON field
 
-#### Architecture Decisions
+**Vulnerability Sources:**
+- ✅ WordPress: Wordfence feed (existing)
+- ✅ npm: OSV.dev API (Google's Open Source Vulnerabilities database)
+- ✅ Future ecosystems: OSV.dev covers PyPI, Maven, Go, etc.
 
-- [ ] **Decision: Website Platform Model**
-  - [ ] Option A: Add `platform` ENUM to websites (wordpress, nodejs, django, joomla)
-  - [ ] Option B: Create platform-specific website tables (wordpress_websites, nodejs_websites)
-  - [ ] Option C: Generic website with platform-specific JSON metadata
-  - [ ] Document chosen approach and rationale
-
-- [ ] **Decision: Version Tracking Schema**
-  - [ ] Option A: Platform-specific columns (wordpress_version, nodejs_version, python_version)
-  - [ ] Option B: Generic JSON field for platform versions
-  - [ ] Option C: Separate platform_versions table with key-value pairs
-  - [ ] Document chosen approach and rationale
-
-- [ ] **Decision: Component Sync Architecture**
-  - [ ] Design plugin system for platform integrators
-  - [ ] Define common interface for all platform sync modules
-  - [ ] Plan error handling and rate limiting strategy
+**Processing Strategy:**
+- ✅ Separate feed processor scripts per ecosystem
+- ✅ Batch API queries (not full database downloads)
+- ✅ External scripts like existing Wordfence processor
 
 #### Tasks
 
-- [ ] **Phase 1: Architecture & Planning**
-  - [ ] Research npm registry API (for Node.js packages)
-  - [ ] Research PyPI API (for Python packages)
-  - [ ] Research Packagist API (for PHP/Composer packages)
-  - [ ] Research vulnerability databases (Snyk, GitHub Advisory, CVE)
-  - [ ] Design platform abstraction layer
-  - [ ] Create migration plan for existing WordPress installations
-  - [ ] Document platform plugin interface
+- [ ] **Phase 0: API Versioning (HIGH PRIORITY - Do First)**
+  - [ ] Design API versioning strategy (/api/v1, /api/v2)
+  - [ ] Create v2 API structure with ecosystem support
+  - [ ] Maintain v1 API endpoints (WordPress-only format)
+  - [ ] Add deprecation warnings to v1 API responses
+  - [ ] Update API documentation for both versions
+  - [ ] Update vulnz-agent WordPress plugin to use v2 API
+  - [ ] Update internal scripts to use v2 API
+  - [ ] Test backward compatibility (v1 still works)
+  - [ ] Set deprecation timeline for v1 (e.g., 12 months)
 
-- [ ] **Phase 2: Database Schema Updates**
-  - [ ] Add `platform` field to websites table
-  - [ ] Create platform-agnostic version tracking system
-  - [ ] Add new component_types (npm-package, pip-package, composer-package)
-  - [ ] Create migration scripts
-  - [ ] Update indexes for multi-platform queries
-  - [ ] Add platform-specific metadata fields
+- [ ] **Phase 1: Database Schema**
+  - [ ] Create `ecosystems` table with JSON data field
+  - [ ] Add `ecosystem_id` to `component_types` table
+  - [ ] Add `ecosystem_id` and `platform_metadata` JSON to `websites` table
+  - [ ] Add `severity` ENUM to `vulnerabilities` table (unknown, medium, high)
+  - [ ] Create migration script with rollback capability
+  - [ ] Seed ecosystems: wordpress, npm, pypi
+  - [ ] Migrate existing WordPress websites to new structure
+  - [ ] Add component types: npm-package, pypi-package
+  - [ ] Test migration on development database
+  - [ ] Update indexes for ecosystem queries
 
-- [ ] **Phase 3: Platform Integrators**
-  - [ ] Create base `PlatformIntegrator` class/interface
-  - [ ] Refactor WordPress.org sync to use new interface
-  - [ ] Implement npm registry integrator
-  - [ ] Implement PyPI integrator
-  - [ ] Implement Packagist integrator (optional)
-  - [ ] Create vulnerability feed aggregator (CVE, GitHub, Snyk)
+- [ ] **Phase 2: API Updates**
+  - [ ] Update POST /api/websites to accept ecosystem and platform metadata
+  - [ ] Maintain backward compatibility with old WordPress-only format
+  - [ ] Update GET /api/websites to return ecosystem information
+  - [ ] Add filtering by ecosystem to website endpoints
+  - [ ] Update component endpoints to handle ecosystem filtering
+  - [ ] Create GET /api/ecosystems endpoint
+  - [ ] Add validation for ecosystem-specific data
+  - [ ] Update API documentation
+  - [ ] Write integration tests for new API format
 
-- [ ] **Phase 4: API Updates**
-  - [ ] Update component endpoints to handle multiple platforms
-  - [ ] Add platform filtering to search/list endpoints
-  - [ ] Update website endpoints to accept platform type
-  - [ ] Create platform-specific sync endpoints
-  - [ ] Update vulnerability endpoints for multi-source data
-  - [ ] Add platform statistics endpoints
+- [ ] **Phase 3: npm Ecosystem Support**
+  - [ ] Research OSV.dev API for npm vulnerabilities
+  - [ ] Create `scripts/process-npm-vulnerabilities.sh`
+  - [ ] Implement batch querying of OSV.dev (100 packages at a time)
+  - [ ] Map OSV.dev vulnerability data to Vulnz schema
+  - [ ] Extract and map CVSS scores to severity levels (high/medium/unknown)
+  - [ ] Update Wordfence processor to extract/map severity levels
+  - [ ] Test vulnerability processing with real npm packages
+  - [ ] Add cron schedule for daily npm vulnerability updates
+  - [ ] (Optional) Implement npm registry metadata sync
+  - [ ] Document npm integration for users
+  - [ ] Create example API payloads for npm websites
 
-- [ ] **Phase 5: Website Scanning Updates**
-  - [ ] Design platform detection mechanism
-  - [ ] Update scanner to detect Node.js projects (package.json)
-  - [ ] Update scanner to detect Python projects (requirements.txt, Pipfile)
-  - [ ] Update scanner to extract component versions per platform
-  - [ ] Add platform-specific component matching logic
+- [ ] **Phase 4: Reporting Updates**
+  - [ ] Create component type label mapping (plugin, package, theme, gem)
+  - [ ] Implement dynamic summary generation (single vs multi-ecosystem)
+  - [ ] Add severity-based highlighting (high = red, medium = orange)
+  - [ ] Sort vulnerabilities by severity (high first, then medium)
+  - [ ] Update email template to handle ecosystem-specific sections
+  - [ ] Add ecosystem-aware terminology in report copy
+  - [ ] Test WordPress-only client reports (no npm data shown)
+  - [ ] Test npm-only client reports (no WordPress data shown)
+  - [ ] Test mixed ecosystem client reports (grouped sections)
+  - [ ] Ensure zero-click, non-scary presentation preserved
+  - [ ] Verify white-labeling still works
+  - [ ] Add ecosystem icons/branding to reports
 
-- [ ] **Phase 6: Reporting Engine**
-  - [ ] Update report generator for multi-platform websites
-  - [ ] Create platform-specific report sections
-  - [ ] Add platform-aware vulnerability descriptions
-  - [ ] Update email templates for multi-platform content
-  - [ ] Add platform icons/branding to reports
+- [ ] **Phase 5: CLI Updates** (if Milestone 1 complete)
+  - [ ] `vulnz ecosystems list` - Show supported ecosystems
+  - [ ] `vulnz websites create --ecosystem=npm` - Create ecosystem-specific website
+  - [ ] `vulnz components list --ecosystem=npm` - Filter by ecosystem
+  - [ ] Update existing CLI commands to support ecosystem parameter
+  - [ ] Add ecosystem validation to CLI inputs
 
-- [ ] **Phase 7: CLI Commands**
-  - [ ] `vulnz platforms list` - Show supported platforms
-  - [ ] `vulnz platforms sync <platform>` - Sync specific platform
-  - [ ] `vulnz websites create --platform=nodejs` - Create platform-specific website
-  - [ ] `vulnz components list --platform=npm` - Filter by platform
-  - [ ] Update existing commands to support platform filtering
+- [ ] **Phase 6: Testing & Validation**
+  - [ ] Test WordPress website creation (existing functionality)
+  - [ ] Test npm website creation with components
+  - [ ] Test vulnerability detection for npm packages
+  - [ ] Test mixed user with both WordPress and npm sites
+  - [ ] Test backward compatibility with old API format
+  - [ ] Load test with hundreds of npm packages
+  - [ ] Validate migration on production backup
+  - [ ] Test rollback procedure
 
-- [ ] **Phase 8: Testing**
-  - [ ] Test npm package tracking and vulnerability detection
-  - [ ] Test PyPI package tracking
-  - [ ] Test multi-platform websites
-  - [ ] Test platform detection and scanning
-  - [ ] Test cross-platform reporting
-  - [ ] Integration tests for all platform integrators
+- [ ] **Phase 7: Documentation**
+  - [ ] Update API documentation with ecosystem examples
+  - [ ] Create user guide for npm monitoring
+  - [ ] Document ecosystem data structure and configuration
+  - [ ] Add migration guide for existing WordPress installations
+  - [ ] Create troubleshooting guide for ecosystem issues
+  - [ ] Document vulnerability feed processing for each ecosystem
 
-- [ ] **Phase 9: Documentation**
-  - [ ] Document supported platforms and limitations
-  - [ ] Create platform integrator development guide
-  - [ ] Update user documentation for multi-platform usage
-  - [ ] Add examples for each platform type
-  - [ ] Document migration from WordPress-only to multi-platform
-
-- [ ] **Phase 10: Gradual Rollout**
-  - [ ] Release with WordPress + npm support only
-  - [ ] Gather feedback and iterate
-  - [ ] Add Python/pip support in next release
-  - [ ] Consider community contributions for additional platforms
-
-#### Supported Platforms (Planned)
+- [ ] **Phase 8: Rollout**
+  - [ ] Deploy database migration to staging
+  - [ ] Test all functionality in staging
+  - [ ] Deploy to production during maintenance window
+  - [ ] Monitor for errors and issues
+  - [ ] AnnouncEcosystems (Planned)
 
 **Phase 1 (Initial - Q2 2026):**
 - ✅ WordPress (wordpress-plugin, wordpress-theme) - *Production*
-- 🚀 Node.js (npm-package) - ***Priority: High customer demand***
+- 🚀 npm (npm-package) - ***Priority: High customer demand***
 
 **Phase 2 (Expansion - Q3-Q4 2026):**
+- 🔄 PyPI (pypi-package) - Python packages
+- 🔄 Composer (composer-package) - PHP packages
+
+**Future Consideration:**
+- RubyGems (rubygems-package)
+- Maven (maven-package)
+- Go Modules (go-module)
+- Cargoe 2 (Expansion - Q3-Q4 2026):**
 - 🔄 Python (pip-package)
 - 🔄 PHP (composer-package)
 
@@ -479,27 +498,34 @@ Expand VULNZ beyond WordPress to support vulnerability tracking for Node.js (npm
 - Demonstrates value-add security monitoring service
 
 **Pain Points Addressed:**
-- Customers never update Node.js dependencies (worse than WordPress)
-- No unified view across different platform types
-- Manual tracking is error-prone and time-consuming
-- npm packages have high vulnerability churn rate
-- Hosting providers need to demonstrate security value
-
-#### Success Criteria
-
+- Customers necosystems supported (WordPress + npm)
+- Vulnerability tracking accurate for both ecosystems
+- Reports dynamically adapt to client's ecosystems (no irrelevant data)
+- Zero-click, non-scary report format preserved
+- API accepts ecosystem and platform metadata
+- Backward compatible with existing WordPress-only API
+- Vulnerability feeds processed for each ecosystem (daily)
+- Migration path tested and documented
+- Documentation comprehensive (API, user guides, troubleshooting)
 - At least 2 platforms supported (WordPress + one other)
 - Platform detection works reliably
-- Vulnerability tracking accurate across platforms
-- Reports clearly distinguish platform-specific issues
-- CLI supports all platforms
-- Documentation comprehensive
-- Migration path for existing users documented
-- Community can contribute new platform integrators
+- Vulnerability tracecosystems have different vulnerability disclosure formats  
+**Mitigation:** Use OSV.dev as unified source (covers npm, PyPI, etc.); focus on linking to authoritative sources
 
-#### Risks & Mitigations
+**Risk:** npm packages number in the hundreds per website (vs dozens for WordPress)  
+**Mitigation:** Batch API queries (100 at a time); only query for packages we're tracking
 
-**Risk:** Different platforms have different vulnerability disclosure formats
-**Mitigation:** Design flexible vulnerability schema; focus on linking to authoritative sources
+**Risk:** Vulnerability APIs may have rate limits or access restrictions  
+**Mitigation:** Batch queries, respect rate limits, daily processing (not on-demand)
+
+**Risk:** Complexity increases maintenance burden  
+**Mitigation:** Simple architecture (one ecosystem per website), comprehensive tests, clear documentation
+
+**Risk:** Reporting becomes cluttered with multi-ecosystem data  
+**Mitigation:** Dynamic summary generation - only show relevant ecosystem data per client
+
+**Risk:** Breaking changes to existing WordPress-only users  
+**Mitigation:** Maintain backward compatibility; old API format still works; migration is transparentthoritative sources
 
 **Risk:** Platform APIs may have rate limits or access restrictions
 **Mitigation:** Implement caching, respect rate limits, provide manual import options
