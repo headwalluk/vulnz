@@ -50,7 +50,7 @@ async function createUser(
   const finalBlocked = blocked !== undefined && blocked !== null ? blocked : false;
   const finalPaused = paused !== undefined && paused !== null ? paused : false;
   const finalReportingWeekday = reporting_weekday !== undefined ? reporting_weekday : '';
-  const finalEnableWhiteLabel = enable_white_label !== undefined && enable_white_label !== null ? enable_white_label : false;
+  const finalEnableWhiteLabel = enable_white_label ? true : false;
   const finalWhiteLabelHtml = white_label_html !== undefined ? white_label_html : null;
   const result = await db.query(
     'INSERT INTO users (username, password, blocked, paused, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at, enable_white_label, white_label_html) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',

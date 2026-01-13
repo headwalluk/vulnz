@@ -9,6 +9,24 @@ Active development tracking for VULNZ features and releases.
 **Status**: Production  
 **Last Updated**: January 2, 2026
 
+### Known Issues
+
+#### ✅ User Creation API Failure (FIXED)
+
+**Discovered**: January 13, 2026  
+**Fixed**: January 13, 2026  
+**Priority**: High
+
+**Issue**: Creating new users via the API failed with:
+
+```
+sqlMessage: "Column 'enable_white_label' cannot be null"
+```
+
+**Resolution**: Updated `enable_white_label` normalization logic in [src/models/user.js](../src/models/user.js) to use explicit boolean conversion (`enable_white_label ? true : false`), ensuring `null` and `undefined` values are always converted to `false` before database insertion.
+
+---
+
 ### Recent Changes
 
 - **Test Suite Overhaul**: Achieved complete test coverage with 114/114 passing tests
@@ -342,7 +360,6 @@ Expand VULNZ beyond WordPress to support vulnerability tracking for multiple com
 - **Ecosystem** = Component ecosystem (wordpress, npm, pypi, composer)
   - Defines what components/packages we track
   - Links to vulnerability databases and metadata sources
-  
 - **Platform** = Runtime/infrastructure details (WordPress 6.9, Node.js 20.0.0, Python 3.11)
   - Stored as flexible JSON metadata per website
   - Each ecosystem defines its own platform metadata structure
@@ -350,21 +367,25 @@ Expand VULNZ beyond WordPress to support vulnerability tracking for multiple com
 #### Architecture Decisions ✅ RESOLVED
 
 **Website-Ecosystem Relationship:**
+
 - ✅ One ecosystem per website (simple, maintainable)
 - ✅ No hybrid website support initially (edge case, adds complexity)
 - ✅ Platform metadata stored as JSON (flexible, no schema changes needed)
 
 **Database Structure:**
+
 - ✅ New `ecosystems` table with JSON configuration
 - ✅ `component_types` linked to ecosystems
 - ✅ `websites` table gets `ecosystem_id` and `platform_metadata` JSON field
 
 **Vulnerability Sources:**
+
 - ✅ WordPress: Wordfence feed (existing)
 - ✅ npm: OSV.dev API (Google's Open Source Vulnerabilities database)
 - ✅ Future ecosystems: OSV.dev covers PyPI, Maven, Go, etc.
 
 **Processing Strategy:**
+
 - ✅ Separate feed processor scripts per ecosystem
 - ✅ Batch API queries (not full database downloads)
 - ✅ External scripts like existing Wordfence processor
@@ -465,22 +486,26 @@ Expand VULNZ beyond WordPress to support vulnerability tracking for multiple com
   - [ ] AnnouncEcosystems (Planned)
 
 **Phase 1 (Initial - Q2 2026):**
-- ✅ WordPress (wordpress-plugin, wordpress-theme) - *Production*
-- 🚀 npm (npm-package) - ***Priority: High customer demand***
+
+- ✅ WordPress (wordpress-plugin, wordpress-theme) - _Production_
+- 🚀 npm (npm-package) - **_Priority: High customer demand_**
 
 **Phase 2 (Expansion - Q3-Q4 2026):**
+
 - 🔄 PyPI (pypi-package) - Python packages
 - 🔄 Composer (composer-package) - PHP packages
 
 **Future Consideration:**
+
 - RubyGems (rubygems-package)
 - Maven (maven-package)
 - Go Modules (go-module)
-- Cargoe 2 (Expansion - Q3-Q4 2026):**
+- Cargoe 2 (Expansion - Q3-Q4 2026):\*\*
 - 🔄 Python (pip-package)
 - 🔄 PHP (composer-package)
 
 **Future Consideration:**
+
 - Django (django-package)
 - Joomla (joomla-extension)
 - Ruby (rubygems-package)
@@ -490,6 +515,7 @@ Expand VULNZ beyond WordPress to support vulnerability tracking for multiple com
 #### Real-World Impact
 
 **Hosting Provider Scenario:**
+
 - Monitor 50 WordPress sites + 15 Node.js apps for customers
 - Weekly report shows: "Client ABC has 3 WordPress sites (2 vulnerable plugins) and 1 Node.js app (8 outdated packages with CVEs)"
 - Client receives white-labeled report with hosting company branding
@@ -498,6 +524,7 @@ Expand VULNZ beyond WordPress to support vulnerability tracking for multiple com
 - Demonstrates value-add security monitoring service
 
 **Pain Points Addressed:**
+
 - Customers necosystems supported (WordPress + npm)
 - Vulnerability tracking accurate for both ecosystems
 - Reports dynamically adapt to client's ecosystems (no irrelevant data)
@@ -510,7 +537,7 @@ Expand VULNZ beyond WordPress to support vulnerability tracking for multiple com
 - At least 2 platforms supported (WordPress + one other)
 - Platform detection works reliably
 - Vulnerability tracecosystems have different vulnerability disclosure formats  
-**Mitigation:** Use OSV.dev as unified source (covers npm, PyPI, etc.); focus on linking to authoritative sources
+  **Mitigation:** Use OSV.dev as unified source (covers npm, PyPI, etc.); focus on linking to authoritative sources
 
 **Risk:** npm packages number in the hundreds per website (vs dozens for WordPress)  
 **Mitigation:** Batch API queries (100 at a time); only query for packages we're tracking
