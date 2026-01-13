@@ -20,7 +20,6 @@ Vulnz currently tracks WordPress components (plugins & themes). This document ou
   - Defines what components/packages we track
   - Links to vulnerability databases and metadata sources
   - Examples: WordPress plugins/themes, npm packages, Python packages
-  
 - **Platform** = Runtime/infrastructure details for a specific website
   - WordPress ecosystem → platform: WordPress version, PHP version, database engine/version
   - npm ecosystem → platform: Node.js version, package manager version
@@ -28,6 +27,7 @@ Vulnz currently tracks WordPress components (plugins & themes). This document ou
   - Stored as flexible JSON (varies per ecosystem)
 
 **Why this matters:**
+
 - A website has ONE ecosystem (keeps architecture simple)
 - Each ecosystem defines its own platform metadata requirements
 - Components belong to ecosystems, not platforms
@@ -141,6 +141,7 @@ INSERT INTO ecosystems (slug, name, data) VALUES
 ```
 
 **Rationale:**
+
 - Centralizes ecosystem configuration
 - JSON `data` field provides flexibility for ecosystem-specific settings
 - Makes adding new ecosystems a data operation, not a code change
@@ -157,7 +158,7 @@ ALTER TABLE component_types
   ADD FOREIGN KEY (ecosystem_id) REFERENCES ecosystems(id) ON DELETE CASCADE;
 
 -- Update existing types
-UPDATE component_types 
+UPDATE component_types
   SET ecosystem_id = (SELECT id FROM ecosystems WHERE slug = 'wordpress')
   WHERE slug IN ('wordpress-plugin', 'wordpress-theme');
 
@@ -169,6 +170,7 @@ INSERT INTO component_types (ecosystem_id, slug, name) VALUES
 ```
 
 **Result:**
+
 - Each component type belongs to an ecosystem
 - Can query "all components in the npm ecosystem"
 - Can have multiple types per ecosystem (e.g., wordpress-plugin, wordpress-theme both belong to WordPress)
@@ -196,7 +198,7 @@ UPDATE websites
       );
 
 -- Optional: Remove old columns after migration confirmed
--- ALTER TABLE websites 
+-- ALTER TABLE websites
 --   DROP COLUMN wordpress_version,
 --   DROP COLUMN php_version,
 --   DROP COLUMN db_server_type,
@@ -206,6 +208,7 @@ UPDATE websites
 **Design Decision: One Ecosystem Per Website**
 
 **Why?**
+
 - Keeps architecture simple and maintainable
 - Hybrid websites (e.g., WordPress + npm on same domain) are edge cases
 - Most real-world use cases involve one primary ecosystem per website
@@ -213,6 +216,7 @@ UPDATE websites
 - Easier to reason about and report on
 
 **If hybrid support is needed later:**
+
 - Can add a many-to-many join table
 - Current architecture doesn't prevent future expansion
 - Focus on the 95% use case first
@@ -237,7 +241,7 @@ UPDATE websites
   "packageManagerVersion": "10.2.3"
 }
 
-// PyPI ecosystem  
+// PyPI ecosystem
 {
   "name": "Python",
   "version": "3.11.5",
@@ -249,6 +253,7 @@ UPDATE websites
 ```
 
 **Flexibility:**
+
 - Each ecosystem can define its own platform metadata structure
 - No schema changes needed to track new platform details
 - External tools pushing data can include any relevant platform info
@@ -336,12 +341,13 @@ UPDATE websites
 
 ```bash
 scripts/
-  process-wordfence-feed.sh      # WordPress vulnerabilities (existing)
-  process-npm-vulnerabilities.sh # npm vulnerabilities (new)
-  process-pypi-vulnerabilities.sh # Python vulnerabilities (new)
+process-wordfence-feed.sh       # WordPress vulnerabilities (existing)
+process-npm-vulnerabilities.sh  # npm vulnerabilities (new)
+process-pypi-vulnerabilities.sh # Python vulnerabilities (new)
 ```
 
 **Why separate scripts?**
+
 - Different data sources (Wordfence, OSV.dev, GitHub Advisory, etc.)
 - Different data formats (JSON, API, RSS)
 - Different update frequencies
@@ -368,6 +374,7 @@ scripts/
 **Alternative approach - Download bulk database:**
 
 Some vulnerability sources offer full database dumps:
+
 - OSV.dev provides downloadable snapshots
 - GitHub Advisory Database is on GitHub
 - Could download entire database, process locally
@@ -450,10 +457,12 @@ async function syncComponent(slug, ecosystem) {
 ```
 
 **For npm:**
+
 - API: `https://registry.npmjs.org/${packageName}`
 - Returns: name, description, author, versions, repository, etc.
 
 **For PyPI:**
+
 - API: `https://pypi.org/pypi/${packageName}/json`
 - Returns: name, summary, author, version, etc.
 
@@ -465,7 +474,7 @@ async function syncComponent(slug, ecosystem) {
 
 ✅ **Zero-click experience** - Clients can scan and understand without additional work  
 ✅ **Non-scary presentation** - Feels like actionable tasks, not overwhelming homework  
-✅ **Clear vulnerability list** - Easy to work through critical issues  
+✅ **Clear vulnerability list** - Easy to work through critical issues
 
 **These qualities must be maintained in multi-ecosystem reports.**
 
@@ -484,6 +493,7 @@ async function syncComponent(slug, ecosystem) {
 **Current approach works for all ecosystems - minimal changes needed.**
 
 The vulnerability list format is ecosystem-agnostic:
+
 - Show component name (plugin, package, theme, etc.)
 - Show version
 - Show affected websites
@@ -504,6 +514,7 @@ npm package example:
 ```
 
 Component type determines the label:
+
 - `wordpress-plugin` → "plugin"
 - `wordpress-theme` → "theme"
 - `npm-package` → "package"
@@ -529,6 +540,7 @@ Component type determines the label:
 **Solution: Ecosystem-aware summary generation**
 
 **WordPress-only client:**
+
 ```
 📊 Summary
 - Monitored websites: 5 (WordPress)
@@ -540,6 +552,7 @@ Component type determines the label:
 ```
 
 **npm-only client:**
+
 ```
 📊 Summary
 - Monitored websites: 3 (Node.js)
@@ -549,12 +562,13 @@ Component type determines the label:
 ```
 
 **Mixed ecosystem client:**
+
 ```
 📊 Summary
 - Monitored websites: 7
   - WordPress sites: 5
   - Node.js apps: 2
-  
+
 WordPress Ecosystem:
 - Total components: 42
 - Vulnerable components: 3
@@ -573,7 +587,7 @@ Node.js Ecosystem:
 function generateSummary(user) {
   const websites = await Website.findByUser(user.id);
   const ecosystems = [...new Set(websites.map(w => w.ecosystem_id))];
-  
+
   if (ecosystems.length === 1) {
     // Single ecosystem - show unified summary
     return generateSingleEcosystemSummary(websites, ecosystems[0]);
@@ -627,7 +641,7 @@ const componentTypeLabels = {
   'pypi-package': 'package',
   'composer-package': 'package',
   'rubygems-package': 'gem',
-  'maven-package': 'dependency'
+  'maven-package': 'dependency',
 };
 ```
 
@@ -635,21 +649,21 @@ const componentTypeLabels = {
 
 ```javascript
 const ecosystemPlatformLabels = {
-  'wordpress': {
+  wordpress: {
     runtime: 'WordPress',
     language: 'PHP',
-    database: 'database'
+    database: 'database',
   },
-  'npm': {
+  npm: {
     runtime: 'Node.js',
     language: 'JavaScript',
-    database: 'database' // if applicable
+    database: 'database', // if applicable
   },
-  'pypi': {
+  pypi: {
     runtime: 'Python',
     language: 'Python',
-    database: 'database'
-  }
+    database: 'database',
+  },
 };
 ```
 
@@ -658,13 +672,14 @@ const ecosystemPlatformLabels = {
 **This work comes AFTER structural changes:**
 
 1. ✅ Database schema updates
-2. ✅ API updates  
+2. ✅ API updates
 3. ✅ npm vulnerability feed processing
 4. 🔄 **THEN: Reporting updates**
 
 ### Testing Strategy
 
 **Create test reports for:**
+
 - [ ] WordPress-only client (2 sites, 5 vulnerable components)
 - [ ] npm-only client (1 site, 12 vulnerable packages)
 - [ ] Mixed client (3 WordPress + 1 npm, vulnerabilities in both)
@@ -672,6 +687,7 @@ const ecosystemPlatformLabels = {
 - [ ] Client with outdated platforms (old WordPress, old Node.js)
 
 **Validation criteria:**
+
 - Zero-click readability maintained
 - Non-scary presentation preserved
 - Summary only shows relevant ecosystem data
@@ -748,6 +764,7 @@ const ecosystemPlatformLabels = {
 **Decision:** One ecosystem per website (simple architecture)
 
 **Rationale:**
+
 - Hybrid websites are edge cases
 - Keeps queries simple
 - Easier to maintain and reason about
@@ -758,23 +775,21 @@ const ecosystemPlatformLabels = {
 **For npm packages, which source(s) to use?**
 
 Options:
+
 - **OSV.dev** (Google's Open Source Vulnerabilities)
   - ✅ Free, comprehensive, well-maintained
   - ✅ Covers npm, PyPI, Maven, Go, etc.
   - ✅ Has API and downloadable database
   - ✅ Structured JSON format
-  
 - **GitHub Advisory Database**
   - ✅ Free, comprehensive
   - ✅ Community-maintained
   - ✅ Available as Git repository
   - ❌ Requires parsing different format
-  
 - **npm audit** (npm's built-in audit)
   - ✅ Official npm source
   - ❌ Rate limited
   - ❌ Requires querying per package
-  
 - **Snyk Vulnerability Database**
   - ✅ Very comprehensive
   - ❌ Requires paid API access for bulk queries
@@ -787,11 +802,13 @@ Options:
 **How to process npm vulnerabilities given hundreds of packages?**
 
 **Option A: Download OSV.dev database snapshot**
+
 - Download full database (~GB of data)
 - Process locally with SQL queries
 - Update daily
 
 **Option B: Batch API queries**
+
 - OSV.dev supports batch queries (100+ at once)
 - Query only for packages we're tracking
 - More efficient, less storage
@@ -803,11 +820,13 @@ Options:
 **Should we sync npm package metadata like we do for WordPress.org?**
 
 **Pros:**
+
 - Richer component information
 - Better reporting (show package descriptions, authors)
 - Can display latest available version
 
 **Cons:**
+
 - Not critical for core functionality
 - Adds complexity
 - npm registry has rate limits
@@ -821,6 +840,7 @@ Options:
 **Decision:** External tools specify ecosystem explicitly in API payload
 
 **Rationale:**
+
 - Vulnz receives data via API (doesn't actively scan websites)
 - External tools (WordPress plugin, custom scripts) know what they're scanning
 - Ecosystem detection is the responsibility of the data source
@@ -965,7 +985,7 @@ Response:
 ```javascript
 // migrations/20260105000000-add-multi-ecosystem-support.js
 
-exports.up = async function(db) {
+exports.up = async function (db) {
   // 1. Create ecosystems table
   await db.query(`
     CREATE TABLE ecosystems (
@@ -979,7 +999,7 @@ exports.up = async function(db) {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
   `);
-  
+
   // 2. Insert initial ecosystems
   await db.query(`
     INSERT INTO ecosystems (slug, name, data) VALUES
@@ -1000,18 +1020,18 @@ exports.up = async function(db) {
         'metadataSync', false
       ))
   `);
-  
+
   // 3. Add ecosystem_id to component_types
   await db.query(`ALTER TABLE component_types ADD COLUMN ecosystem_id BIGINT UNSIGNED NOT NULL AFTER id`);
   await db.query(`ALTER TABLE component_types ADD FOREIGN KEY (ecosystem_id) REFERENCES ecosystems(id) ON DELETE CASCADE`);
   await db.query(`UPDATE component_types SET ecosystem_id = (SELECT id FROM ecosystems WHERE slug = 'wordpress')`);
-  
+
   // 4. Add ecosystem fields to websites table
   await db.query(`ALTER TABLE websites ADD COLUMN ecosystem_id BIGINT UNSIGNED NULL AFTER user_id`);
   await db.query(`ALTER TABLE websites ADD COLUMN platform_metadata JSON NULL AFTER meta`);
   await db.query(`ALTER TABLE websites ADD FOREIGN KEY (ecosystem_id) REFERENCES ecosystems(id) ON DELETE SET NULL`);
   await db.query(`ALTER TABLE websites ADD INDEX ecosystem_idx (ecosystem_id)`);
-  
+
   // 5. Migrate existing websites to WordPress ecosystem
   await db.query(`
     UPDATE websites
@@ -1024,7 +1044,7 @@ exports.up = async function(db) {
           'databaseVersion', db_server_version
         )
   `);
-  
+
   // 6. Optional: Remove old columns after confirming migration
   // await db.query(`ALTER TABLE websites DROP COLUMN wordpress_version`);
   // await db.query(`ALTER TABLE websites DROP COLUMN php_version`);
@@ -1032,7 +1052,7 @@ exports.up = async function(db) {
   // await db.query(`ALTER TABLE websites DROP COLUMN db_server_version`);
 };
 
-exports.down = async function(db) {
+exports.down = async function (db) {
   // Rollback logic
   await db.query(`ALTER TABLE websites DROP FOREIGN KEY websites_ibfk_ecosystem`);
   await db.query(`ALTER TABLE websites DROP INDEX ecosystem_idx`);

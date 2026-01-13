@@ -53,7 +53,7 @@ describe('Components API', () => {
   beforeAll(async () => {
     // Set environment variables for tests
     process.env.LIST_PAGE_SIZE = '10';
-    
+
     // Create test database
     db = await createTestDatabase();
 
@@ -101,7 +101,7 @@ describe('Components API', () => {
       const total = components.length;
       const offset = (page - 1) * limit;
       const paged = components.slice(offset, offset + limit);
-      
+
       return {
         components: paged.map((c) => ({
           ...c,
@@ -279,9 +279,12 @@ describe('Components API', () => {
 
   describe('POST /api/components/:componentTypeSlug/:componentSlug/:version', () => {
     test('should add a new release as authenticated user', async () => {
-      const response = await request(app).post(`/api/components/${testComponentType.slug}/${testComponent.slug}/2.0.0`).set('X-API-Key', regularApiKey).send({
-        urls: ['https://example.com/vulnerability'],
-      });
+      const response = await request(app)
+        .post(`/api/components/${testComponentType.slug}/${testComponent.slug}/2.0.0`)
+        .set('X-API-Key', regularApiKey)
+        .send({
+          urls: ['https://example.com/vulnerability'],
+        });
 
       expect(response.status).toBe(200); // Production returns 200, not 201
 
@@ -292,26 +295,34 @@ describe('Components API', () => {
 
     test('should not reject duplicate version', async () => {
       // Production uses INSERT OR IGNORE, so duplicates are silently ignored
-      const response = await request(app).post(`/api/components/${testComponentType.slug}/${testComponent.slug}/1.0.0`).set('X-API-Key', regularApiKey).send({
-        urls: ['https://example.com/vuln'],
-      });
+      const response = await request(app)
+        .post(`/api/components/${testComponentType.slug}/${testComponent.slug}/1.0.0`)
+        .set('X-API-Key', regularApiKey)
+        .send({
+          urls: ['https://example.com/vuln'],
+        });
 
       expect(response.status).toBe(200); // Doesn't validate, just ignores duplicates
     });
 
     test('should not reject invalid version format', async () => {
       // Production doesn't validate version format
-      const response = await request(app).post(`/api/components/${testComponentType.slug}/${testComponent.slug}/invalid-version`).set('X-API-Key', regularApiKey).send({
-        urls: ['https://example.com/vuln'],
-      });
+      const response = await request(app)
+        .post(`/api/components/${testComponentType.slug}/${testComponent.slug}/invalid-version`)
+        .set('X-API-Key', regularApiKey)
+        .send({
+          urls: ['https://example.com/vuln'],
+        });
 
       expect(response.status).toBe(200); // No validation
     });
 
     test('should require authentication', async () => {
-      const response = await request(app).post(`/api/components/${testComponentType.slug}/${testComponent.slug}/3.0.0`).send({
-        urls: ['https://example.com/vuln'],
-      });
+      const response = await request(app)
+        .post(`/api/components/${testComponentType.slug}/${testComponent.slug}/3.0.0`)
+        .send({
+          urls: ['https://example.com/vuln'],
+        });
 
       expect(response.status).toBe(401);
     });
@@ -470,7 +481,7 @@ describe('Components API', () => {
         'release-test-plugin',
         testComponentType.slug,
       ]);
-      
+
       // Add multiple versions
       await db.query('INSERT INTO releases (component_id, version, release_date) VALUES (?, ?, ?)', [freshComponent.insertId, '1.0.0', '2026-01-01']);
       await db.query('INSERT INTO releases (component_id, version, release_date) VALUES (?, ?, ?)', [freshComponent.insertId, '1.1.0', '2026-01-02']);

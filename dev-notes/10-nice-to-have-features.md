@@ -84,7 +84,7 @@ POST /api/v2/webhooks/:id/test  # Send test payload
       ]
     }
   },
-  "signature": "sha256=..."  // HMAC signature for verification
+  "signature": "sha256=..." // HMAC signature for verification
 }
 ```
 
@@ -315,36 +315,43 @@ Integrate static code analysis to detect security issues beyond known vulnerabil
 ## Additional Ideas (Quick Notes)
 
 ### Database Backup Monitoring
+
 - Track database backup status
 - Alert if backups missing or stale
 - Verify backup integrity
 
 ### SSL Certificate Expiry Tracking
+
 - Monitor SSL certificate expiration
 - Alert 30/14/7 days before expiry
 - Track certificate details
 
 ### Uptime Monitoring
+
 - Basic uptime checks
 - Alert if site goes down
 - Track uptime percentage
 
 ### Dependency Tree Visualization
+
 - Show component dependency relationships
 - Identify which components depend on vulnerable packages
 - Visual impact analysis
 
 ### Scheduled Scan Reminders
+
 - Email reminders to run scans
 - "Your WordPress sites haven't been scanned in 7 days"
 - Configurable reminder frequency
 
 ### Bulk Operations
+
 - Update multiple websites at once
 - Bulk acknowledge vulnerabilities
 - Export data in CSV/JSON
 
 ### Custom Report Templates
+
 - Let users customize email report format
 - Choose which sections to include
 - Branding customization beyond white-label HTML

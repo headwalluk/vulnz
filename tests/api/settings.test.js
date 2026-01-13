@@ -33,7 +33,7 @@ describe('Settings API', () => {
   beforeAll(async () => {
     // Set environment variable for tests
     process.env.LIST_PAGE_SIZE = '10';
-    
+
     // Create test database
     db = await createTestDatabase();
 

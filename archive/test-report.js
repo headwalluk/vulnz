@@ -4,8 +4,8 @@
  */
 
 require('dotenv').config();
-const reporting = require('./src/lib/reporting');
-const user = require('./src/models/user');
+const reporting = require('../src/lib/reporting');
+const user = require('../src/models/user');
 
 async function testReport() {
   console.log('Fetching test user...');

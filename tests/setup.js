@@ -333,10 +333,7 @@ async function createTestUser(db, userData = {}) {
   const user = { ...defaultData, ...userData };
   const hashedPassword = await bcrypt.hash(user.password, 10);
 
-  const result = await db.query(
-    'INSERT INTO users (username, password, is_active) VALUES (?, ?, ?)',
-    [user.username, hashedPassword, user.is_active]
-  );
+  const result = await db.query('INSERT INTO users (username, password, is_active) VALUES (?, ?, ?)', [user.username, hashedPassword, user.is_active]);
 
   const userId = result.insertId;
 
@@ -359,10 +356,9 @@ async function createTestUser(db, userData = {}) {
  * Create an API key for a user
  * @param {Object} db - Database connection
  * @param {number} userId - User ID
- * @param {string} name - API key name
  * @returns {Promise<Object>} Created API key with token
  */
-async function createTestApiKey(db, userId, name = 'Test Key') {
+async function createTestApiKey(db, userId) {
   const crypto = require('crypto');
   const apiKey = crypto.randomBytes(32).toString('hex');
 

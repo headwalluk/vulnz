@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.21.3 - 2026-01-13
+
+### Bug Fixes
+
+- **User Creation**: Fixed `enable_white_label` null constraint violation
+  - Simplified boolean normalization logic in `createUser()` function
+  - Now uses explicit boolean conversion (`enable_white_label ? true : false`)
+  - Ensures `null` and `undefined` values are always converted to `false` before database insertion
+  - Resolves "Column 'enable_white_label' cannot be null" error when creating users via API
+
 ## 1.21.2 - 2026-01-02
 
 ### Testing Infrastructure
@@ -11,7 +21,6 @@
   - Fixed null handling for `enable_white_label` field in user creation
   - Added SQLITE_CONSTRAINT error code handling alongside MySQL ER_DUP_ENTRY
   - Updated test expectations to match production API responses (plain text vs JSON)
-  
 - **Test Suite Coverage**:
   - Auth API: 22/22 passing (2 skipped - rate limiting tests)
   - Components API: 30/30 passing (4 skipped - production behavior differences)
