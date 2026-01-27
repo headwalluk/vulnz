@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.21.4 - 2026-01-27
+
+### Maintenance
+
+- **Dependencies**: Updated all npm dependencies to latest versions
+  - Ran `npm update` and `npm audit fix` to ensure all packages are current
+  - Production dependencies: 0 vulnerabilities (all clean)
+  - Dev dependencies: Updated sqlite3 to 5.1.7 (remaining tar vulnerabilities are dev-only and do not affect production)
+- **Reference Data**: Updated WordPress minimum version to 6.8 in reference.json
+
 ## 1.21.3 - 2026-01-13
 
 ### Bug Fixes
