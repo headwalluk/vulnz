@@ -4,10 +4,10 @@ Active development tracking for VULNZ features and releases.
 
 ---
 
-## Current Version: 1.21.4
+## Current Version: 1.21.5
 
 **Status**: Production  
-**Last Updated**: January 27, 2026
+**Last Updated**: February 6, 2026
 
 ### Known Issues
 

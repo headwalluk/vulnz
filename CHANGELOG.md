@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.21.5 - 2026-02-06
+
+### Bug Fixes
+
+- **Wordfence Feed Processing**: Fixed bash arithmetic errors in version comparison
+  - Added newline and carriage return sanitization to version string extraction
+  - Prevents `10#` base conversion errors when version strings contain whitespace
+  - Resolves syntax errors in `scripts/process-wordfence-feed.sh` cron job
+
 ## 1.21.4 - 2026-01-27
 
 ### Maintenance
