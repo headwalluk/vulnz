@@ -181,13 +181,13 @@ for WF_ID in "${WF_IDS[@]}"; do
         VERSION_KEYS=("$(echo "${COMPONENT_META}" | jq .affected_versions | jq -r keys_unsorted[])")
         for VERSION_KEY in "${VERSION_KEYS}"; do
           MIN_VER_INC="$(echo "${COMPONENT_META}" | jq -r ".affected_versions[\"${VERSION_KEY}\"].from_inclusive")"
-          MIN_VER="$(echo "${COMPONENT_META}" | jq -r ".affected_versions[\"${VERSION_KEY}\"].from_version" | grep -oE '[0-9\*\.]+' | head -n 1)"
+          MIN_VER="$(echo "${COMPONENT_META}" | jq -r ".affected_versions[\"${VERSION_KEY}\"].from_version" | grep -oE '[0-9\*\.]+' | head -n 1 | tr -d '\n\r')"
           if [ -z "${MIN_VER}" ]; then
             MIN_VER=0
           fi
 
           MAX_VER_INC="$(echo "${COMPONENT_META}" | jq -r ".affected_versions[\"${VERSION_KEY}\"].to_inclusive")"
-          MAX_VER="$(echo "${COMPONENT_META}" | jq -r ".affected_versions[\"${VERSION_KEY}\"].to_version" | grep -oE '[0-9\*\.]+' | head -n 1)"
+          MAX_VER="$(echo "${COMPONENT_META}" | jq -r ".affected_versions[\"${VERSION_KEY}\"].to_version" | grep -oE '[0-9\*\.]+' | head -n 1 | tr -d '\n\r')"
           if [ -z "${MAX_VER}" ]; then
             MAX_VER=0
           fi
@@ -209,7 +209,7 @@ for WF_ID in "${WF_IDS[@]}"; do
           while [ ${VULNZ_RELEASE_INDEX} -lt ${VULNZ_RELEASE_COUNT} ]; do
             # echo "VULNZ Release ${VULNZ_RELEASE_INDEX}"
 
-            VULNZ_VER="$(echo "${VULNZ_META}" | jq -r ".releases[${VULNZ_RELEASE_INDEX}].version" | grep -oE '[0-9\*\.]+')"
+            VULNZ_VER="$(echo "${VULNZ_META}" | jq -r ".releases[${VULNZ_RELEASE_INDEX}].version" | grep -oE '[0-9\*\.]+' | tr -d '\n\r')"
             if [ -z "${VULNZ_VER}" ]; then
               VULNZ_VER=0
             fi
