@@ -285,6 +285,7 @@ program
         process.stderr.write(`Error: API key not found.\n`);
         await db.end();
         process.exit(1);
+        return;
       }
 
       await apiKey.revokeByKey(key);
