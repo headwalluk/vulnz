@@ -3,7 +3,7 @@ const db = require('../db');
 async function up() {
   await db.query(`
     ALTER TABLE websites
-    ADD COLUMN meta JSON
+    ADD COLUMN IF NOT EXISTS meta JSON
   `);
 }
 

@@ -4,7 +4,7 @@ module.exports = {
   up: async () => {
     await db.query(`
       ALTER TABLE websites
-      ADD COLUMN is_dev BOOLEAN NOT NULL DEFAULT FALSE
+      ADD COLUMN IF NOT EXISTS is_dev BOOLEAN NOT NULL DEFAULT FALSE
     `);
   },
   down: async () => {
