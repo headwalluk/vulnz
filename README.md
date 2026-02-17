@@ -380,7 +380,7 @@ cp env.npm-vulnerabilities.sample .env.npm-vulnerabilities
 bash scripts/process-npm-vulnerabilities.sh
 
 # Or add to crontab (3 AM daily)
-0 3 * * * /path/to/vulnz/scripts/process-npm-vulnerabilities.sh >/dev/null 2>&1
+0 3 * * * /path/to/vulnz/scripts/process-npm-vulnerabilities.sh > /dev/null 2>&1
 ```
 
 See [packages/vulnz-sensor/README.md](packages/vulnz-sensor/README.md) for full vulnz-sensor documentation, including all CLI flags, env vars, and programmatic usage.
