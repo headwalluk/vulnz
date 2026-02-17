@@ -1,10 +1,10 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-02-17T20:40",
+  "last_updated": "2026-02-17T21:00",
   "current_status": {
-    "summary": "M4 in progress — M4.1–M4.5 complete and tested. All 157 tests passing. npm vulnerability processor script created: queries OSV.dev batch API, does semver range matching, records vulns via VULNZ API. M4.6–M4.8 remain.",
-    "next_action": "Coding sprint: M4.6 — create vulnz-sensor npm package (packages/vulnz-sensor/) that reads package.json and posts dependencies to vulnz-api."
+    "summary": "M4 in progress — M4.1–M4.6 complete and tested. All 157 tests passing. vulnz-sensor npm package created in packages/vulnz-sensor/: reads package.json, resolves exact installed versions, posts to PUT /api/websites/:domain with ecosystem=npm. M4.7–M4.8 remain.",
+    "next_action": "Coding sprint: M4.7 — write tests for ecosystem API (GET /api/ecosystems, npm-package components in PUT /api/websites, backward-compat with old wordpress-plugins/themes keys)."
   },
   "milestones": [
     {
@@ -150,7 +150,7 @@
         {
           "id": "M4.6",
           "description": "Create vulnz-sensor npm package (packages/vulnz-sensor/) — reads package.json, posts dependencies to vulnz-api via PUT /api/websites/:domain",
-          "done": false
+          "done": true
         },
         {
           "id": "M4.7",
