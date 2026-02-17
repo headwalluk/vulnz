@@ -79,12 +79,7 @@ async function runCli(args) {
       // Wait for the async command action to call process.exit
       await Promise.race([
         exitPromise,
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error(`CLI did not call process.exit within 5 s for args: ${args.join(' ')}`)),
-            5000
-          )
-        ),
+        new Promise((_, reject) => setTimeout(() => reject(new Error(`CLI did not call process.exit within 5 s for args: ${args.join(' ')}`)), 5000)),
       ]);
     });
   } finally {
