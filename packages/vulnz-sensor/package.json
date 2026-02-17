@@ -1,0 +1,19 @@
+{
+  "name": "vulnz-sensor",
+  "version": "1.0.0",
+  "description": "Reports npm package dependencies to a Vulnz API instance for vulnerability tracking",
+  "main": "src/index.js",
+  "bin": {
+    "vulnz-sensor": "./bin/vulnz-sensor.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": ["vulnz", "vulnerability", "security", "npm", "sensor"],
+  "author": "Paul Faulkner",
+  "license": "MIT",
+  "type": "commonjs"
+}
