@@ -7,6 +7,7 @@ require('dotenv').config();
 const { Command } = require('commander');
 const user = require('../src/models/user');
 const apiKey = require('../src/models/apiKey');
+const feed = require('../src/models/feed');
 const db = require('../src/db');
 
 const program = new Command();
@@ -290,6 +291,137 @@ program
 
       await apiKey.revokeByKey(key);
       console.log(`Revoked API key: ${key}`);
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// feed:status
+// ---------------------------------------------------------------------------
+program
+  .command('feed:status')
+  .description('Show database statistics and last Wordfence sync timestamp')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const status = await feed.getStatus();
+
+      if (opts.json) {
+        console.log(JSON.stringify(status, null, 2));
+      } else {
+        const lastSync = status.lastSyncedAt instanceof Date ? status.lastSyncedAt.toISOString() : status.lastSyncedAt || 'never';
+        const pad = (str, len) => String(str).padStart(len);
+        console.log('Feed Status');
+        console.log('-----------');
+        console.log(`  Components:       ${pad(status.components, 8)}`);
+        console.log(`  Releases:         ${pad(status.releases, 8)}`);
+        console.log(`  Vulnerabilities:  ${pad(status.vulnerabilities, 8)}`);
+        console.log(`  Last wporg sync:  ${lastSync}`);
+      }
+
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// component:find <slug> [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('component:find <slug>')
+  .description('Look up a component by slug')
+  .option('--json', 'Output as JSON')
+  .action(async (slug, opts) => {
+    try {
+      const components = await feed.findComponentBySlug(slug);
+
+      if (opts.json) {
+        console.log(JSON.stringify(components, null, 2));
+      } else {
+        if (components.length === 0) {
+          console.log(`No component found with slug: ${slug}`);
+        } else {
+          const colWidths = {
+            id: Math.max(2, ...components.map((c) => String(c.id).length)),
+            slug: Math.max(4, ...components.map((c) => c.slug.length)),
+            type: Math.max(4, ...components.map((c) => c.type.length)),
+            title: Math.max(5, ...components.map((c) => (c.title || '').length)),
+          };
+
+          const pad = (str, len) => String(str || '').padEnd(len);
+          const header = `${pad('ID', colWidths.id)}  ${pad('SLUG', colWidths.slug)}  ${pad('TYPE', colWidths.type)}  ${pad('TITLE', colWidths.title)}  RELEASES  VULNS`;
+          const divider = '-'.repeat(header.length);
+          console.log(header);
+          console.log(divider);
+
+          for (const c of components) {
+            const vulns = c.vulnCount > 0 ? String(c.vulnCount) : '-';
+            console.log(
+              `${pad(c.id, colWidths.id)}  ${pad(c.slug, colWidths.slug)}  ${pad(c.type, colWidths.type)}  ${pad(c.title, colWidths.title)}  ${String(c.releaseCount).padStart(8)}  ${vulns.padStart(5)}`
+            );
+          }
+        }
+      }
+
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// release:list <slug> [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('release:list <slug>')
+  .description('List known releases for a component slug')
+  .option('--json', 'Output as JSON')
+  .action(async (slug, opts) => {
+    try {
+      const releases = await feed.listReleasesBySlug(slug);
+
+      if (opts.json) {
+        console.log(JSON.stringify(releases, null, 2));
+      } else {
+        if (releases.length === 0) {
+          console.log(`No releases found for component: ${slug}`);
+        } else {
+          const { title, type } = releases[0];
+          console.log(`Component: ${slug} (${title}) — ${type}`);
+          console.log('');
+
+          const colWidths = {
+            version: Math.max(7, ...releases.map((r) => r.version.length)),
+          };
+
+          const pad = (str, len) => String(str).padEnd(len);
+          const header = `${pad('VERSION', colWidths.version)}  VULNS`;
+          const divider = '-'.repeat(header.length);
+          console.log(header);
+          console.log(divider);
+
+          for (const r of releases) {
+            const vulns = r.vulnCount > 0 ? String(r.vulnCount) : '-';
+            console.log(`${pad(r.version, colWidths.version)}  ${vulns}`);
+          }
+
+          console.log('');
+          console.log(`${releases.length} release(s) listed.`);
+        }
+      }
+
       await db.end();
       process.exit(0);
     } catch (err) {
