@@ -31,12 +31,19 @@ const mockApiKey = {
   revokeByKey: jest.fn(),
 };
 
+const mockFeed = {
+  getStatus: jest.fn(),
+  findComponentBySlug: jest.fn(),
+  listReleasesBySlug: jest.fn(),
+};
+
 // ─── Module mocks ─────────────────────────────────────────────────────────────
 
 jest.mock('dotenv', () => ({ config: jest.fn() }));
 jest.mock('../../src/db', () => mockDb);
 jest.mock('../../src/models/user', () => mockUser);
 jest.mock('../../src/models/apiKey', () => mockApiKey);
+jest.mock('../../src/models/feed', () => mockFeed);
 
 // ─── runCli helper ────────────────────────────────────────────────────────────
 
@@ -113,6 +120,9 @@ beforeEach(() => {
   mockApiKey.createForUser.mockReset();
   mockApiKey.findByKey.mockReset();
   mockApiKey.revokeByKey.mockReset();
+  mockFeed.getStatus.mockReset();
+  mockFeed.findComponentBySlug.mockReset();
+  mockFeed.listReleasesBySlug.mockReset();
 });
 
 // ─── user:add ─────────────────────────────────────────────────────────────────
@@ -494,5 +504,214 @@ describe('CLI: key:revoke', () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toMatch(/Error: Delete failed/);
+  });
+});
+
+// ─── feed:status ──────────────────────────────────────────────────────────────
+
+describe('CLI: feed:status', () => {
+  const sampleStatus = {
+    components: 1200,
+    releases: 54321,
+    vulnerabilities: 789,
+    lastSyncedAt: new Date('2026-01-15T10:30:00.000Z'),
+  };
+
+  test('outputs formatted feed status and exits 0', async () => {
+    mockFeed.getStatus.mockResolvedValue(sampleStatus);
+
+    const result = await runCli(['feed:status']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/Feed Status/);
+    expect(result.stdout).toMatch(/Components/);
+    expect(result.stdout).toMatch(/1200/);
+    expect(result.stdout).toMatch(/Releases/);
+    expect(result.stdout).toMatch(/54321/);
+    expect(result.stdout).toMatch(/Vulnerabilities/);
+    expect(result.stdout).toMatch(/789/);
+    expect(result.stdout).toMatch(/2026-01-15T10:30:00.000Z/);
+    expect(result.stderr).toBe('');
+    expect(mockFeed.getStatus).toHaveBeenCalledTimes(1);
+  });
+
+  test('shows "never" when lastSyncedAt is null and exits 0', async () => {
+    mockFeed.getStatus.mockResolvedValue({ ...sampleStatus, lastSyncedAt: null });
+
+    const result = await runCli(['feed:status']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/never/);
+  });
+
+  test('outputs valid JSON with --json flag and exits 0', async () => {
+    mockFeed.getStatus.mockResolvedValue(sampleStatus);
+
+    const result = await runCli(['feed:status', '--json']);
+
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.components).toBe(1200);
+    expect(parsed.releases).toBe(54321);
+    expect(parsed.vulnerabilities).toBe(789);
+  });
+
+  test('writes to stderr and exits 1 on model error', async () => {
+    mockFeed.getStatus.mockRejectedValue(new Error('DB connection lost'));
+
+    const result = await runCli(['feed:status']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/Error: DB connection lost/);
+    expect(result.stdout).toBe('');
+  });
+});
+
+// ─── component:find ───────────────────────────────────────────────────────────
+
+describe('CLI: component:find', () => {
+  const sampleComponents = [
+    { id: 42, slug: 'woocommerce', type: 'plugin', title: 'WooCommerce', url: 'https://example.com', releaseCount: 300, vulnCount: 5 },
+  ];
+
+  test('outputs a formatted component table and exits 0', async () => {
+    mockFeed.findComponentBySlug.mockResolvedValue(sampleComponents);
+
+    const result = await runCli(['component:find', 'woocommerce']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/ID/);
+    expect(result.stdout).toMatch(/SLUG/);
+    expect(result.stdout).toMatch(/TYPE/);
+    expect(result.stdout).toMatch(/TITLE/);
+    expect(result.stdout).toMatch(/woocommerce/);
+    expect(result.stdout).toMatch(/WooCommerce/);
+    expect(result.stdout).toMatch(/plugin/);
+    expect(result.stderr).toBe('');
+    expect(mockFeed.findComponentBySlug).toHaveBeenCalledWith('woocommerce');
+  });
+
+  test('prints "No component found" for an unknown slug and exits 0', async () => {
+    mockFeed.findComponentBySlug.mockResolvedValue([]);
+
+    const result = await runCli(['component:find', 'unknown-slug']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/No component found with slug: unknown-slug/);
+  });
+
+  test('outputs valid JSON with --json flag and exits 0', async () => {
+    mockFeed.findComponentBySlug.mockResolvedValue(sampleComponents);
+
+    const result = await runCli(['component:find', 'woocommerce', '--json']);
+
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].slug).toBe('woocommerce');
+    expect(parsed[0].type).toBe('plugin');
+    expect(parsed[0].vulnCount).toBe(5);
+  });
+
+  test('returns multiple rows when slug matches both plugin and theme', async () => {
+    const dualMatch = [
+      { id: 1, slug: 'hello', type: 'plugin', title: 'Hello Plugin', url: null, releaseCount: 10, vulnCount: 0 },
+      { id: 2, slug: 'hello', type: 'theme', title: 'Hello Theme', url: null, releaseCount: 5, vulnCount: 1 },
+    ];
+    mockFeed.findComponentBySlug.mockResolvedValue(dualMatch);
+
+    const result = await runCli(['component:find', 'hello']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/plugin/);
+    expect(result.stdout).toMatch(/theme/);
+    expect(result.stdout).toMatch(/Hello Plugin/);
+    expect(result.stdout).toMatch(/Hello Theme/);
+  });
+
+  test('writes to stderr and exits 1 on model error', async () => {
+    mockFeed.findComponentBySlug.mockRejectedValue(new Error('Query failed'));
+
+    const result = await runCli(['component:find', 'woocommerce']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/Error: Query failed/);
+    expect(result.stdout).toBe('');
+  });
+});
+
+// ─── release:list ─────────────────────────────────────────────────────────────
+
+describe('CLI: release:list', () => {
+  const sampleReleases = [
+    { id: 10, version: '8.5.0', vulnCount: 2, slug: 'woocommerce', title: 'WooCommerce', type: 'plugin' },
+    { id: 9,  version: '8.4.1', vulnCount: 0, slug: 'woocommerce', title: 'WooCommerce', type: 'plugin' },
+    { id: 8,  version: '8.4.0', vulnCount: 1, slug: 'woocommerce', title: 'WooCommerce', type: 'plugin' },
+  ];
+
+  test('outputs a formatted release table and exits 0', async () => {
+    mockFeed.listReleasesBySlug.mockResolvedValue(sampleReleases);
+
+    const result = await runCli(['release:list', 'woocommerce']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/Component: woocommerce/);
+    expect(result.stdout).toMatch(/WooCommerce/);
+    expect(result.stdout).toMatch(/plugin/);
+    expect(result.stdout).toMatch(/VERSION/);
+    expect(result.stdout).toMatch(/8\.5\.0/);
+    expect(result.stdout).toMatch(/8\.4\.1/);
+    expect(result.stdout).toMatch(/8\.4\.0/);
+    // 3 releases listed
+    expect(result.stdout).toMatch(/3 release\(s\) listed/);
+    expect(result.stderr).toBe('');
+    expect(mockFeed.listReleasesBySlug).toHaveBeenCalledWith('woocommerce');
+  });
+
+  test('shows vuln counts for affected versions and dashes for clean versions', async () => {
+    mockFeed.listReleasesBySlug.mockResolvedValue(sampleReleases);
+
+    const result = await runCli(['release:list', 'woocommerce']);
+
+    expect(result.exitCode).toBe(0);
+    // 8.5.0 has 2 vulns, 8.4.0 has 1 vuln — should show numbers, not dashes
+    expect(result.stdout).toMatch(/8\.5\.0\s+2/);
+    expect(result.stdout).toMatch(/8\.4\.0\s+1/);
+    // 8.4.1 has 0 vulns — should show a dash
+    expect(result.stdout).toMatch(/8\.4\.1\s+-/);
+  });
+
+  test('prints "No releases found" for an unknown slug and exits 0', async () => {
+    mockFeed.listReleasesBySlug.mockResolvedValue([]);
+
+    const result = await runCli(['release:list', 'unknown-plugin']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/No releases found for component: unknown-plugin/);
+  });
+
+  test('outputs valid JSON with --json flag and exits 0', async () => {
+    mockFeed.listReleasesBySlug.mockResolvedValue(sampleReleases);
+
+    const result = await runCli(['release:list', 'woocommerce', '--json']);
+
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed).toHaveLength(3);
+    expect(parsed[0].version).toBe('8.5.0');
+    expect(parsed[0].vulnCount).toBe(2);
+    expect(parsed[1].vulnCount).toBe(0);
+  });
+
+  test('writes to stderr and exits 1 on model error', async () => {
+    mockFeed.listReleasesBySlug.mockRejectedValue(new Error('Timeout'));
+
+    const result = await runCli(['release:list', 'woocommerce']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/Error: Timeout/);
+    expect(result.stdout).toBe('');
   });
 });

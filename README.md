@@ -243,6 +243,91 @@ Revoked API key: abc123def456abc123def456abc123def456
 
 ---
 
+### Diagnostic Commands
+
+These commands query the database directly and are useful for checking ingestion health and inspecting component data.
+
+#### `feed:status [--json]`
+
+Show database statistics and the last Wordfence sync timestamp.
+
+```bash
+# Formatted output
+node bin/vulnz.js feed:status
+
+# JSON output
+node bin/vulnz.js feed:status --json
+```
+
+Output:
+
+```
+Feed Status
+-----------
+  Components:           1200
+  Releases:            54321
+  Vulnerabilities:       789
+  Last wporg sync:  2026-01-15T10:30:00.000Z
+```
+
+Shows `never` if no sync has occurred yet.
+
+---
+
+#### `component:find <slug> [--json]`
+
+Look up a component by its slug. Returns all matches — a slug may exist as both a plugin and a theme.
+
+```bash
+# Formatted table
+node bin/vulnz.js component:find woocommerce
+
+# JSON output
+node bin/vulnz.js component:find woocommerce --json
+```
+
+Output:
+
+```
+ID  SLUG         TYPE    TITLE        RELEASES  VULNS
+------------------------------------------------------
+42  woocommerce  plugin  WooCommerce       300      5
+```
+
+Returns "No component found with slug: …" if the slug is not in the database.
+
+---
+
+#### `release:list <slug> [--json]`
+
+List all known releases for a component slug, with per-release vulnerability counts.
+
+```bash
+# Formatted table
+node bin/vulnz.js release:list woocommerce
+
+# JSON output
+node bin/vulnz.js release:list woocommerce --json
+```
+
+Output:
+
+```
+Component: woocommerce (WooCommerce) — plugin
+
+VERSION  VULNS
+--------------
+8.5.0    2
+8.4.1    -
+8.4.0    1
+
+3 release(s) listed.
+```
+
+A dash (`-`) indicates no known vulnerabilities for that release. Returns "No releases found for component: …" if the slug has no releases.
+
+---
+
 ### Exit Codes
 
 | Code | Meaning                                        |
