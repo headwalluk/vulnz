@@ -1,10 +1,10 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-02-17T19:42",
+  "last_updated": "2026-02-17T20:01",
   "current_status": {
-    "summary": "M4 in progress — M4.1 (ecosystems DB migration) and M4.2 (Ecosystem model + GET /api/ecosystems) complete and tested.",
-    "next_action": "Begin M4.3: update PUT /api/websites to accept npm-package components (backward-compatible with existing wordpress-plugins/themes keys)."
+    "summary": "M4 in progress — M4.1, M4.2, M4.3 complete. PUT /api/websites accepts generic components[] array with type field (backward-compatible). Next: M4.4 — store ecosystem_id and platform_metadata on website create/update.",
+    "next_action": "Coding sprint: M4.4 — Update website model to store ecosystem_id and platform_metadata when creating/updating websites."
   },
   "milestones": [
     {
@@ -135,7 +135,7 @@
         {
           "id": "M4.3",
           "description": "Update PUT /api/websites to accept npm-package components (generic components array with type field, backward-compatible with existing wordpress-plugins/wordpress-themes keys)",
-          "done": false
+          "done": true
         },
         {
           "id": "M4.4",
