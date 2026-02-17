@@ -312,14 +312,27 @@ const processComponents = async (components, componentType) => {
  *                 description: Website title
  *               wordpress-plugins:
  *                 type: array
- *                 description: Array of WordPress plugins
+ *                 description: "Legacy: Array of WordPress plugins. Use components[] instead."
  *                 items:
  *                   type: object
  *               wordpress-themes:
  *                 type: array
- *                 description: Array of WordPress themes
+ *                 description: "Legacy: Array of WordPress themes. Use components[] instead."
  *                 items:
  *                   type: object
+ *               components:
+ *                 type: array
+ *                 description: "Generic components array. Each item must have slug, version, and type (e.g. npm-package, wordpress-plugin, wordpress-theme). Replaces all components of the given type(s) on this website."
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     slug:
+ *                       type: string
+ *                     version:
+ *                       type: string
+ *                     type:
+ *                       type: string
+ *                       example: npm-package
  *               is_dev:
  *                 type: boolean
  *                 description: Whether this is a development website
@@ -358,7 +371,7 @@ const processComponents = async (components, componentType) => {
  */
 router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
   try {
-    const { title, 'wordpress-plugins': wordpressPlugins, 'wordpress-themes': wordpressThemes, is_dev, meta, versions, user_id } = req.body;
+    const { title, 'wordpress-plugins': wordpressPlugins, 'wordpress-themes': wordpressThemes, components, is_dev, meta, versions, user_id } = req.body;
     const websiteData = {};
     if (title) {
       websiteData.title = title;
@@ -408,9 +421,21 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
       await Website.update(req.params.domain, websiteData);
     }
 
+    // Validate components array if provided
+    if (components !== undefined) {
+      if (!Array.isArray(components)) {
+        return res.status(400).json({ success: false, message: 'components must be an array' });
+      }
+      for (const item of components) {
+        if (!item.slug || !item.version || !item.type) {
+          return res.status(400).json({ success: false, message: 'Each component must have slug, version, and type' });
+        }
+      }
+    }
+
     let componentChangeSummary = null;
 
-    if (wordpressPlugins || wordpressThemes) {
+    if (wordpressPlugins || wordpressThemes || (components && components.length > 0)) {
       // Get current components before making changes (for change tracking)
       const oldComponents = await WebsiteComponent.getComponentsForChangeTracking(req.website.id);
 
@@ -450,6 +475,36 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
               component_id: release.component_id,
               release_id: releaseId,
             });
+          }
+        }
+      }
+
+      // Process generic components array (e.g. npm-package, or any future ecosystem type)
+      // Backward-compatible: wordpress-plugins / wordpress-themes above take precedence if both supplied
+      if (components && components.length > 0) {
+        // Group components by type so we can replace all of each type atomically
+        const componentsByType = {};
+        for (const item of components) {
+          if (!componentsByType[item.type]) {
+            componentsByType[item.type] = [];
+          }
+          componentsByType[item.type].push(item);
+        }
+
+        for (const [type, typeComponents] of Object.entries(componentsByType)) {
+          await WebsiteComponent.deleteByType(req.website.id, type);
+          const { releaseIds, componentIds } = await processComponents(typeComponents, type);
+          allComponentIds.push(...componentIds);
+
+          for (const releaseId of releaseIds) {
+            await WebsiteComponent.create(req.website.id, releaseId);
+            const release = await Release.findById(releaseId);
+            if (release) {
+              newComponents.push({
+                component_id: release.component_id,
+                release_id: releaseId,
+              });
+            }
           }
         }
       }
