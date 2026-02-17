@@ -1,10 +1,10 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-02-17T18:50",
+  "last_updated": "2026-02-17T19:10",
   "current_status": {
-    "summary": "M2 complete — API key management CLI commands (key:list, key:generate, key:revoke) implemented, tested (11 tests), and documented. README updated with full API key management section. Full test suite 143/153 passing (10 skipped). All format checks clean.",
-    "next_action": "Coding sprint: Begin M3 — Feed & Component Inspection Tools (feed:status, component:find, release:list)."
+    "summary": "M3 in progress — M3.1–M3.3 implemented and tested (143 tests passing). M3.4 (write tests + update documentation) still to do.",
+    "next_action": "Coding sprint for M3.4: write CLI tests for feed:status, component:find, release:list commands and update documentation."
   },
   "milestones": [
     {
@@ -91,23 +91,23 @@
     {
       "id": "M3",
       "title": "Feed & Component Inspection Tools",
-      "status": "planned",
+      "status": "in_progress",
       "notes": "Useful diagnostic commands for checking database state and ingestion health.",
       "tasks": [
         {
           "id": "M3.1",
           "description": "Implement feed:status — show last Wordfence ingestion timestamp",
-          "done": false
+          "done": true
         },
         {
           "id": "M3.2",
           "description": "Implement component:find <slug> — quick DB lookup",
-          "done": false
+          "done": true
         },
         {
           "id": "M3.3",
           "description": "Implement release:list <slug> — list known releases for a component",
-          "done": false
+          "done": true
         },
         {
           "id": "M3.4",
