@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Database](https://img.shields.io/badge/database-MySQL%2FMariaDB-blue)](https://mariadb.org/)
 [![Security](https://img.shields.io/badge/security-bcrypt%20%7C%20helmet-success)](docs/roadmap.md)
-[![Tests](https://img.shields.io/badge/tests-132%20passing-brightgreen)](tests/README.md)
+[![Tests](https://img.shields.io/badge/tests-143%20passing-brightgreen)](tests/README.md)
 
 Self-hosted vulnerability database for WordPress plugins and themes. Track vulnerabilities, monitor security events, and manage WordPress installations across your infrastructure.
 
@@ -180,6 +180,65 @@ Output:
 
 ```
 Password reset for user: alice@example.com (id=2)
+```
+
+---
+
+### API Key Management Commands
+
+API keys are used by WordPress sites and other clients to authenticate with the VULNZ REST API. Keys can be managed via the web admin interface or the CLI commands below.
+
+#### `key:list <email> [--json]`
+
+List all API keys associated with a user account.
+
+```bash
+# Formatted table
+node bin/vulnz.js key:list alice@example.com
+
+# JSON output (useful for scripting)
+node bin/vulnz.js key:list alice@example.com --json
+```
+
+Output:
+
+```
+ID  API KEY                               CREATED
+------------------------------------------------------------------
+1   abc123def456abc123def456abc123def456  2026-02-01T10:00:00.000Z
+2   789xyz789xyz789xyz789xyz789xyz789xyz  2026-02-10T14:30:00.000Z
+```
+
+---
+
+#### `key:generate <email>`
+
+Generate a new API key for a user account. The new key is printed to stdout — copy it immediately, as it cannot be retrieved later.
+
+```bash
+node bin/vulnz.js key:generate alice@example.com
+```
+
+Output:
+
+```
+Generated API key for alice@example.com: abc123def456abc123def456abc123def456
+```
+
+---
+
+#### `key:revoke <key>`
+
+Permanently revoke an API key. Any client using this key will immediately lose API access.
+
+```bash
+node bin/vulnz.js key:revoke abc123def456abc123def456abc123def456
+```
+
+Output:
+
+```
+Revoked API key: abc123def456abc123def456abc123def456
 ```
 
 ---
@@ -377,7 +436,7 @@ npm run test:watch
 npm run test:coverage
 ```
 
-**Current coverage**: 132 tests across Settings API, Websites API, and CLI user management commands. See [Testing Guide](tests/README.md) for details.
+**Current coverage**: 143 tests across Settings API, Websites API, CLI user management commands, and CLI API key management commands. See [Testing Guide](tests/README.md) for details.
 
 ## License
 
