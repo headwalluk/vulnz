@@ -58,10 +58,7 @@ async function createUser(
   );
   const userId = result.insertId;
 
-  let finalRoleNames = roleNames || [];
-  if (process.env.SETUP_MODE === 'true') {
-    finalRoleNames.push('user', 'administrator');
-  }
+  const finalRoleNames = roleNames || [];
 
   if (finalRoleNames.length > 0) {
     const uniqueRoleNames = [...new Set(finalRoleNames)];
