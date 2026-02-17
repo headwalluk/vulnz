@@ -5,9 +5,7 @@ const db = require('../db');
  * @returns {Promise<Array>} Array of ecosystem records
  */
 async function findAll() {
-  const rows = await db.query(
-    'SELECT id, slug, name, description, active FROM ecosystems WHERE active = TRUE ORDER BY name ASC'
-  );
+  const rows = await db.query('SELECT id, slug, name, description, active FROM ecosystems WHERE active = TRUE ORDER BY name ASC');
   return Array.isArray(rows) ? rows : [];
 }
 
