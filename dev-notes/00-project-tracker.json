@@ -3,8 +3,8 @@
   "lead": "Zee",
   "last_updated": "2026-02-17",
   "current_status": {
-    "summary": "M1.1–M1.3 complete — CLI scaffold, user:add, and user:list implemented and tested. All 114 tests passing. Next: implement user:delete, user:block, user:unblock.",
-    "next_action": "Coding sprint: implement M1.4 (user:delete), M1.5 (user:block / user:unblock)"
+    "summary": "M1.1–M1.5 complete — CLI scaffold, user:add, user:list, user:delete, user:block, user:unblock implemented and tested. All 114 tests passing. Next: implement user:reset-password.",
+    "next_action": "Coding sprint: implement M1.6 (user:reset-password)"
   },
   "milestones": [
     {
@@ -31,12 +31,12 @@
         {
           "id": "M1.4",
           "description": "Implement user:delete <email> command",
-          "done": false
+          "done": true
         },
         {
           "id": "M1.5",
           "description": "Implement user:block <email> and user:unblock <email> commands",
-          "done": false
+          "done": true
         },
         {
           "id": "M1.6",
