@@ -60,13 +60,13 @@ VULNZ includes a CLI tool (`bin/vulnz.js`) for managing user accounts directly f
 From the project root directory (development):
 
 ```bash
-node bin/vulnz.js <command> [arguments]
+node bin/vulnz.js < command > [arguments]
 ```
 
 If installed globally via npm, use `vulnz` directly:
 
 ```bash
-vulnz <command> [arguments]
+vulnz < command > [arguments]
 ```
 
 The CLI reads your `.env` file automatically. Run it from the project root directory where `.env` lives.
