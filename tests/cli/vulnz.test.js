@@ -24,11 +24,19 @@ const mockUser = {
   updatePassword: jest.fn(),
 };
 
+const mockApiKey = {
+  listByUserId: jest.fn(),
+  createForUser: jest.fn(),
+  findByKey: jest.fn(),
+  revokeByKey: jest.fn(),
+};
+
 // ─── Module mocks ─────────────────────────────────────────────────────────────
 
 jest.mock('dotenv', () => ({ config: jest.fn() }));
 jest.mock('../../src/db', () => mockDb);
 jest.mock('../../src/models/user', () => mockUser);
+jest.mock('../../src/models/apiKey', () => mockApiKey);
 
 // ─── runCli helper ────────────────────────────────────────────────────────────
 
@@ -101,6 +109,10 @@ async function runCli(args) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockDb.end.mockResolvedValue(undefined);
+  mockApiKey.listByUserId.mockReset();
+  mockApiKey.createForUser.mockReset();
+  mockApiKey.findByKey.mockReset();
+  mockApiKey.revokeByKey.mockReset();
 });
 
 // ─── user:add ─────────────────────────────────────────────────────────────────
@@ -341,5 +353,146 @@ describe('CLI: user:reset-password', () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toMatch(/Error: Hash failed/);
+  });
+});
+
+// ─── key:list ─────────────────────────────────────────────────────────────────
+
+describe('CLI: key:list', () => {
+  const sampleKeys = [
+    { id: 1, api_key: 'aabbcc1122334455aabbcc1122334455aabbcc1122334455aabbcc1122334455', createdAt: new Date('2026-01-01T10:00:00.000Z') },
+    { id: 2, api_key: 'ddeeff6677889900ddeeff6677889900ddeeff6677889900ddeeff6677889900', createdAt: new Date('2026-01-15T10:00:00.000Z') },
+  ];
+
+  test('outputs a formatted table of keys and exits 0', async () => {
+    mockUser.findUserByUsername.mockResolvedValue({ id: 3, username: 'alice@example.com' });
+    mockApiKey.listByUserId.mockResolvedValue(sampleKeys);
+
+    const result = await runCli(['key:list', 'alice@example.com']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/aabbcc1122334455/);
+    expect(result.stdout).toMatch(/ddeeff6677889900/);
+    expect(result.stdout).toMatch(/API KEY/);
+    expect(mockApiKey.listByUserId).toHaveBeenCalledWith(3);
+  });
+
+  test('prints "No API keys found" when user has no keys and exits 0', async () => {
+    mockUser.findUserByUsername.mockResolvedValue({ id: 3, username: 'alice@example.com' });
+    mockApiKey.listByUserId.mockResolvedValue([]);
+
+    const result = await runCli(['key:list', 'alice@example.com']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/No API keys found/);
+  });
+
+  test('outputs valid JSON with --json flag and exits 0', async () => {
+    mockUser.findUserByUsername.mockResolvedValue({ id: 3, username: 'alice@example.com' });
+    mockApiKey.listByUserId.mockResolvedValue(sampleKeys);
+
+    const result = await runCli(['key:list', 'alice@example.com', '--json']);
+
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0].api_key).toBe(sampleKeys[0].api_key);
+  });
+
+  test('writes to stderr and exits 1 when user is not found', async () => {
+    mockUser.findUserByUsername.mockResolvedValue(null);
+
+    const result = await runCli(['key:list', 'ghost@example.com']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/not found/i);
+    expect(mockApiKey.listByUserId).not.toHaveBeenCalled();
+  });
+
+  test('writes to stderr and exits 1 on model error', async () => {
+    mockUser.findUserByUsername.mockResolvedValue({ id: 3, username: 'alice@example.com' });
+    mockApiKey.listByUserId.mockRejectedValue(new Error('DB timeout'));
+
+    const result = await runCli(['key:list', 'alice@example.com']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/Error: DB timeout/);
+  });
+});
+
+// ─── key:generate ─────────────────────────────────────────────────────────────
+
+describe('CLI: key:generate', () => {
+  const SAMPLE_KEY = 'aabbcc1122334455aabbcc1122334455aabbcc1122334455aabbcc1122334455';
+
+  test('generates a new key and exits 0', async () => {
+    mockUser.findUserByUsername.mockResolvedValue({ id: 4, username: 'bob@example.com' });
+    mockApiKey.createForUser.mockResolvedValue(SAMPLE_KEY);
+
+    const result = await runCli(['key:generate', 'bob@example.com']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/Generated API key for bob@example\.com/);
+    expect(result.stdout).toMatch(SAMPLE_KEY);
+    expect(mockApiKey.createForUser).toHaveBeenCalledWith(4);
+  });
+
+  test('writes to stderr and exits 1 when user is not found', async () => {
+    mockUser.findUserByUsername.mockResolvedValue(null);
+
+    const result = await runCli(['key:generate', 'ghost@example.com']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/not found/i);
+    expect(mockApiKey.createForUser).not.toHaveBeenCalled();
+  });
+
+  test('writes to stderr and exits 1 on model error', async () => {
+    mockUser.findUserByUsername.mockResolvedValue({ id: 4, username: 'bob@example.com' });
+    mockApiKey.createForUser.mockRejectedValue(new Error('Insert failed'));
+
+    const result = await runCli(['key:generate', 'bob@example.com']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/Error: Insert failed/);
+  });
+});
+
+// ─── key:revoke ───────────────────────────────────────────────────────────────
+
+describe('CLI: key:revoke', () => {
+  const SAMPLE_KEY = 'aabbcc1122334455aabbcc1122334455aabbcc1122334455aabbcc1122334455';
+
+  test('revokes an existing key and exits 0', async () => {
+    mockApiKey.findByKey.mockResolvedValue({ id: 1, api_key: SAMPLE_KEY, user_id: 3 });
+    mockApiKey.revokeByKey.mockResolvedValue(undefined);
+
+    const result = await runCli(['key:revoke', SAMPLE_KEY]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/Revoked API key/);
+    expect(result.stdout).toMatch(SAMPLE_KEY);
+    expect(mockApiKey.revokeByKey).toHaveBeenCalledWith(SAMPLE_KEY);
+  });
+
+  test('writes to stderr and exits 1 when key is not found', async () => {
+    mockApiKey.findByKey.mockResolvedValue(null);
+
+    const result = await runCli(['key:revoke', 'nonexistentkey']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/not found/i);
+    expect(mockApiKey.revokeByKey).not.toHaveBeenCalled();
+  });
+
+  test('writes to stderr and exits 1 on model error', async () => {
+    mockApiKey.findByKey.mockResolvedValue({ id: 1, api_key: SAMPLE_KEY, user_id: 3 });
+    mockApiKey.revokeByKey.mockRejectedValue(new Error('Delete failed'));
+
+    const result = await runCli(['key:revoke', SAMPLE_KEY]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/Error: Delete failed/);
   });
 });
