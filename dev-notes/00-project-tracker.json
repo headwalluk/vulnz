@@ -3,8 +3,8 @@
   "lead": "Zee",
   "last_updated": "2026-02-17",
   "current_status": {
-    "summary": "M1.1–M1.6 complete — CLI scaffold, user:add, user:list, user:delete, user:block, user:unblock, user:reset-password implemented and tested. All 114 tests passing. Next: M1.7 remove SETUP_MODE code.",
-    "next_action": "Coding sprint: M1.7 (remove SETUP_MODE auto-admin code from src/)"
+    "summary": "M1.1–M1.7 complete — CLI scaffold, user:add, user:list, user:delete, user:block, user:unblock, user:reset-password implemented and tested. SETUP_MODE auto-admin code removed from src/. All 114 tests passing. Next: M1.8 write CLI tests.",
+    "next_action": "Coding sprint: M1.8 (write tests for CLI commands)"
   },
   "milestones": [
     {
@@ -46,7 +46,7 @@
         {
           "id": "M1.7",
           "description": "Remove SETUP_MODE auto-admin creation code from src/ once CLI is proven",
-          "done": false
+          "done": true
         },
         {
           "id": "M1.8",
