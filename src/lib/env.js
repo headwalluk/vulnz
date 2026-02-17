@@ -42,7 +42,6 @@ function normalizeEnv() {
 
   // Boolean-like vars normalization: coerce to literal strings 'true' or 'false'
   const boolVars = [
-    { name: 'SETUP_MODE', defaultValue: false },
     { name: 'REGISTRATION_ENABLED', defaultValue: true },
     { name: 'CRON_ENABLE', defaultValue: false },
   ];
