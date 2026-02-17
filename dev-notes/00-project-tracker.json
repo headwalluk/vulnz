@@ -1,10 +1,10 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-02-17T19:10",
+  "last_updated": "2026-02-17T19:20",
   "current_status": {
-    "summary": "M3 in progress — M3.1–M3.3 implemented and tested (143 tests passing). M3.4 (write tests + update documentation) still to do.",
-    "next_action": "Coding sprint for M3.4: write CLI tests for feed:status, component:find, release:list commands and update documentation."
+    "summary": "M3 complete — feed:status, component:find, release:list commands implemented, tested (157 tests passing), and documented.",
+    "next_action": "Begin M4: npm Package Support. Review Paul's archived tracker before planning."
   },
   "milestones": [
     {
@@ -91,7 +91,7 @@
     {
       "id": "M3",
       "title": "Feed & Component Inspection Tools",
-      "status": "in_progress",
+      "status": "complete",
       "notes": "Useful diagnostic commands for checking database state and ingestion health.",
       "tasks": [
         {
@@ -112,7 +112,7 @@
         {
           "id": "M3.4",
           "description": "Write tests and update documentation",
-          "done": false
+          "done": true
         }
       ]
     },
