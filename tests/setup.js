@@ -232,6 +232,7 @@ async function initializeSchema(db) {
   // Seed component types
   await db.run(`INSERT OR IGNORE INTO component_types (slug, title) VALUES ('wordpress-plugin', 'WordPress Plugin')`);
   await db.run(`INSERT OR IGNORE INTO component_types (slug, title) VALUES ('wordpress-theme', 'WordPress Theme')`);
+  await db.run(`INSERT OR IGNORE INTO component_types (slug, title) VALUES ('npm-package', 'npm Package')`);
 
   // Create components table
   await db.exec(`
