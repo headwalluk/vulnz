@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Database](https://img.shields.io/badge/database-MySQL%2FMariaDB-blue)](https://mariadb.org/)
 [![Security](https://img.shields.io/badge/security-bcrypt%20%7C%20helmet-success)](docs/roadmap.md)
-[![Tests](https://img.shields.io/badge/tests-114%20passing-brightgreen)](tests/README.md)
+[![Tests](https://img.shields.io/badge/tests-132%20passing-brightgreen)](tests/README.md)
 
 Self-hosted vulnerability database for WordPress plugins and themes. Track vulnerabilities, monitor security events, and manage WordPress installations across your infrastructure.
 
@@ -45,7 +45,155 @@ cp env.sample .env
 npm run dev
 ```
 
-Visit `http://localhost:3000` and register your first user (automatically granted admin privileges in setup mode).
+Visit `http://localhost:3000` to access the application. Create your first admin account using the CLI:
+
+```bash
+node bin/vulnz.js user:add admin@example.com 'your-password' --admin
+```
+
+## CLI Administration Tool
+
+VULNZ includes a CLI tool (`bin/vulnz.js`) for managing user accounts directly from the command line — no web interface required. This is particularly useful for initial setup, scripted provisioning, and recovery scenarios.
+
+### Running the CLI
+
+From the project root directory (development):
+
+```bash
+node bin/vulnz.js <command> [arguments]
+```
+
+If installed globally via npm, use `vulnz` directly:
+
+```bash
+vulnz <command> [arguments]
+```
+
+The CLI reads your `.env` file automatically. Run it from the project root directory where `.env` lives.
+
+---
+
+### User Management Commands
+
+#### `user:add <email> <password> [--admin]`
+
+Create a new user account. Pass `--admin` to grant the administrator role.
+
+```bash
+# Create a standard user
+node bin/vulnz.js user:add alice@example.com 'SecurePass123!'
+
+# Create an administrator
+node bin/vulnz.js user:add admin@example.com 'SecurePass123!' --admin
+```
+
+Output:
+
+```
+Created user: alice@example.com (id=3, roles=user)
+Created user: admin@example.com (id=1, roles=user,administrator)
+```
+
+---
+
+#### `user:list [--json]`
+
+List all user accounts in a formatted table. Pass `--json` for machine-readable output.
+
+```bash
+# Formatted table
+node bin/vulnz.js user:list
+
+# JSON output (useful for scripting)
+node bin/vulnz.js user:list --json
+```
+
+Output:
+
+```
+ID  USERNAME               ROLES              STATUS
+------------------------------------------------------------
+1   admin@example.com      user,administrator  active
+2   alice@example.com      user                active
+3   blocked@example.com    user                BLOCKED
+```
+
+---
+
+#### `user:delete <email>`
+
+Permanently delete a user account. This cannot be undone.
+
+```bash
+node bin/vulnz.js user:delete alice@example.com
+```
+
+Output:
+
+```
+Deleted user: alice@example.com (id=2)
+```
+
+---
+
+#### `user:block <email>`
+
+Block a user account, preventing them from logging in. Their data is preserved.
+
+```bash
+node bin/vulnz.js user:block alice@example.com
+```
+
+Output:
+
+```
+Blocked user: alice@example.com (id=2)
+```
+
+---
+
+#### `user:unblock <email>`
+
+Unblock a previously blocked user, restoring their access.
+
+```bash
+node bin/vulnz.js user:unblock alice@example.com
+```
+
+Output:
+
+```
+Unblocked user: alice@example.com (id=2)
+```
+
+---
+
+#### `user:reset-password <email> <new-password>`
+
+Reset the password for an existing user account.
+
+```bash
+node bin/vulnz.js user:reset-password alice@example.com 'NewSecurePass456!'
+```
+
+Output:
+
+```
+Password reset for user: alice@example.com (id=2)
+```
+
+---
+
+### Exit Codes
+
+| Code | Meaning                                        |
+| ---- | ---------------------------------------------- |
+| `0`  | Success                                        |
+| `1`  | Error (user not found, validation failure, DB) |
+
+Errors are written to stderr so they can be captured separately in scripts.
+
+---
 
 ## Installation
 
@@ -229,7 +377,7 @@ npm run test:watch
 npm run test:coverage
 ```
 
-**Current coverage**: 33 tests across Settings API and Websites API. See [Testing Guide](tests/README.md) for details.
+**Current coverage**: 132 tests across Settings API, Websites API, and CLI user management commands. See [Testing Guide](tests/README.md) for details.
 
 ## License
 
