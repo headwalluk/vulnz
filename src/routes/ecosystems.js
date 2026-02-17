@@ -39,13 +39,15 @@ const { apiOrSessionAuth } = require('../middleware/auth');
 router.get('/', apiOrSessionAuth, async (req, res) => {
   try {
     const ecosystems = await Ecosystem.findAll();
-    res.json(ecosystems.map((eco) => ({
-      id: parseInt(eco.id, 10),
-      slug: eco.slug,
-      name: eco.name,
-      description: eco.description || null,
-      active: Boolean(eco.active),
-    })));
+    res.json(
+      ecosystems.map((eco) => ({
+        id: parseInt(eco.id, 10),
+        slug: eco.slug,
+        name: eco.name,
+        description: eco.description || null,
+        active: Boolean(eco.active),
+      }))
+    );
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');

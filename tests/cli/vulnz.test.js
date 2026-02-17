@@ -570,9 +570,7 @@ describe('CLI: feed:status', () => {
 // ─── component:find ───────────────────────────────────────────────────────────
 
 describe('CLI: component:find', () => {
-  const sampleComponents = [
-    { id: 42, slug: 'woocommerce', type: 'plugin', title: 'WooCommerce', url: 'https://example.com', releaseCount: 300, vulnCount: 5 },
-  ];
+  const sampleComponents = [{ id: 42, slug: 'woocommerce', type: 'plugin', title: 'WooCommerce', url: 'https://example.com', releaseCount: 300, vulnCount: 5 }];
 
   test('outputs a formatted component table and exits 0', async () => {
     mockFeed.findComponentBySlug.mockResolvedValue(sampleComponents);
@@ -646,8 +644,8 @@ describe('CLI: component:find', () => {
 describe('CLI: release:list', () => {
   const sampleReleases = [
     { id: 10, version: '8.5.0', vulnCount: 2, slug: 'woocommerce', title: 'WooCommerce', type: 'plugin' },
-    { id: 9,  version: '8.4.1', vulnCount: 0, slug: 'woocommerce', title: 'WooCommerce', type: 'plugin' },
-    { id: 8,  version: '8.4.0', vulnCount: 1, slug: 'woocommerce', title: 'WooCommerce', type: 'plugin' },
+    { id: 9, version: '8.4.1', vulnCount: 0, slug: 'woocommerce', title: 'WooCommerce', type: 'plugin' },
+    { id: 8, version: '8.4.0', vulnCount: 1, slug: 'woocommerce', title: 'WooCommerce', type: 'plugin' },
   ];
 
   test('outputs a formatted release table and exits 0', async () => {

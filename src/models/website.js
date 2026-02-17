@@ -95,10 +95,15 @@ const findByDomain = async (domain) => {
 
 const create = async (website) => {
   const { user_id, domain, title, is_dev, meta, ecosystem_id, platform_metadata } = website;
-  const result = await db.query(
-    'INSERT INTO websites (user_id, domain, title, is_dev, meta, ecosystem_id, platform_metadata) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [user_id, domain, title, is_dev, JSON.stringify(meta), ecosystem_id || null, platform_metadata ? JSON.stringify(platform_metadata) : null],
-  );
+  const result = await db.query('INSERT INTO websites (user_id, domain, title, is_dev, meta, ecosystem_id, platform_metadata) VALUES (?, ?, ?, ?, ?, ?, ?)', [
+    user_id,
+    domain,
+    title,
+    is_dev,
+    JSON.stringify(meta),
+    ecosystem_id || null,
+    platform_metadata ? JSON.stringify(platform_metadata) : null,
+  ]);
   const insertId = result.insertId || result[0]?.insertId;
   return { id: insertId, ...website };
 };

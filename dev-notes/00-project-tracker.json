@@ -1,10 +1,10 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-02-17T20:01",
+  "last_updated": "2026-02-17T20:20",
   "current_status": {
-    "summary": "M4 in progress — M4.1, M4.2, M4.3 complete. PUT /api/websites accepts generic components[] array with type field (backward-compatible). Next: M4.4 — store ecosystem_id and platform_metadata on website create/update.",
-    "next_action": "Coding sprint: M4.4 — Update website model to store ecosystem_id and platform_metadata when creating/updating websites."
+    "summary": "M4 in progress — M4.1, M4.2, M4.3, M4.4 complete. Website model and API now fully support ecosystem_id and platform_metadata. M4.5–M4.8 remain.",
+    "next_action": "Coding sprint: M4.5 — create scripts/process-npm-vulnerabilities.sh to batch-query OSV.dev and insert vulnerability records."
   },
   "milestones": [
     {
@@ -140,7 +140,7 @@
         {
           "id": "M4.4",
           "description": "Update website model: store ecosystem_id and platform_metadata when creating/updating websites",
-          "done": false
+          "done": true
         },
         {
           "id": "M4.5",
