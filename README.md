@@ -4,24 +4,26 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Database](https://img.shields.io/badge/database-MySQL%2FMariaDB-blue)](https://mariadb.org/)
 [![Security](https://img.shields.io/badge/security-bcrypt%20%7C%20helmet-success)](docs/roadmap.md)
-[![Tests](https://img.shields.io/badge/tests-143%20passing-brightgreen)](tests/README.md)
+[![Tests](https://img.shields.io/badge/tests-184%20passing-brightgreen)](tests/README.md)
 
-Self-hosted vulnerability database for WordPress plugins and themes. Track vulnerabilities, monitor security events, and manage WordPress installations across your infrastructure.
+Self-hosted vulnerability database for WordPress plugins, themes, and npm packages. Track vulnerabilities, monitor security events, and manage web applications across your infrastructure.
 
 ![VULNZ search results](assets/v1.0.0/vulnz-search-results.png 'VULNZ search results')
 
 ## About
 
-VULNZ is a comprehensive security monitoring platform designed for WordPress hosting providers and agencies managing multiple WordPress sites. It helps you:
+VULNZ is a comprehensive security monitoring platform designed for web agencies and hosting providers managing multiple applications. It helps you:
 
-- **Track vulnerabilities** in WordPress plugins and themes
+- **Track vulnerabilities** in WordPress plugins, themes, and npm packages
 - **Monitor security events** like failed logins and attack attempts
-- **Track software versions** (WordPress core, PHP, database)
-- **Audit component changes** (plugin/theme installations and updates)
+- **Track software versions** (WordPress core, PHP, Node.js, database)
+- **Audit component changes** (plugin/theme/package installations and updates)
 - **Manage user accounts** with pause/unpause and block/unblock controls
 - **Generate weekly reports** with actionable security recommendations
 
-The application pulls metadata from wordpress.org and stores links to vulnerability disclosures, acting as a vulnerability metabase rather than duplicating full vulnerability details.
+The application stores links to vulnerability disclosures from sources like Wordfence and OSV.dev, acting as a vulnerability metabase rather than duplicating full vulnerability details.
+
+VULNZ supports multiple component ecosystems — WordPress and npm are available out of the box, with an extensible architecture for adding others (PyPI, Composer, etc.).
 
 ![Websites Dashboard](assets/v1.3.0/vulnz-dashboard-your-websites.png 'Websites managed in VULNZ')
 
@@ -339,6 +341,52 @@ Errors are written to stderr so they can be captured separately in scripts.
 
 ---
 
+## npm Package Tracking (vulnz-sensor)
+
+VULNZ can track dependencies in Node.js projects using **vulnz-sensor** — a zero-dependency CLI tool that reads your `package.json`, resolves exact installed versions, and reports them to VULNZ.
+
+### Quick Start
+
+```bash
+# Install as a dev dependency
+npm install --save-dev vulnz-sensor
+
+# Report your project's dependencies
+npx vulnz-sensor myapp.example.com \
+  --api-url https://vulnz.example.com \
+  --api-key YOUR_API_KEY
+```
+
+### CI/CD (GitHub Actions)
+
+```yaml
+- name: Report dependencies to Vulnz
+  run: npx vulnz-sensor ${{ vars.VULNZ_DOMAIN }}
+  env:
+    VULNZ_API_URL: ${{ vars.VULNZ_API_URL }}
+    VULNZ_API_KEY: ${{ secrets.VULNZ_API_KEY }}
+```
+
+### npm Vulnerability Processing
+
+Run the npm vulnerability processor daily to keep VULNZ up to date with OSV.dev data:
+
+```bash
+# Configure
+cp env.npm-vulnerabilities.sample .env.npm-vulnerabilities
+# Edit with your API key and URL
+
+# Run once manually
+bash scripts/process-npm-vulnerabilities.sh
+
+# Or add to crontab (3 AM daily)
+0 3 * * * /path/to/vulnz/scripts/process-npm-vulnerabilities.sh >/dev/null 2>&1
+```
+
+See [packages/vulnz-sensor/README.md](packages/vulnz-sensor/README.md) for full vulnz-sensor documentation, including all CLI flags, env vars, and programmatic usage.
+
+---
+
 ## Installation
 
 ### Development Setup
@@ -521,7 +569,7 @@ npm run test:watch
 npm run test:coverage
 ```
 
-**Current coverage**: 143 tests across Settings API, Websites API, CLI user management commands, and CLI API key management commands. See [Testing Guide](tests/README.md) for details.
+**Current coverage**: 184 tests across Settings API, Websites API, Ecosystems API, CLI user management commands, and CLI API key management commands. See [Testing Guide](tests/README.md) for details.
 
 ## License
 

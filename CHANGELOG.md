@@ -1,5 +1,54 @@
 # Changelog
 
+## 1.22.0 - 2026-02-17
+
+### npm Ecosystem Support
+
+- **Multi-ecosystem architecture**: Vulnz now tracks vulnerabilities across multiple component ecosystems, not just WordPress.
+  - New `ecosystems` database table with JSON configuration per ecosystem
+  - WordPress and npm ecosystems seeded out of the box (PyPI included for future use)
+  - Websites can now specify an ecosystem (default: backwards-compatible WordPress behaviour)
+  - `component_types` linked to ecosystems via `ecosystem_id` foreign key
+  - `websites` table gains `ecosystem_id` and `platform_metadata` (JSON) columns
+
+- **New endpoint: `GET /api/ecosystems`** (authenticated)
+  - Returns all active ecosystems (`id`, `slug`, `name`, `description`, `active`)
+  - Useful for discovery and dynamic UI generation
+
+- **Updated endpoint: `PUT /api/websites/:domain`**
+  - Now accepts a generic `components` array (each item: `slug`, `version`, `type`)
+  - Supports `npm-package` component type alongside existing WordPress types
+  - Accepts `ecosystem` (string slug, e.g. `"npm"`) and `platform` (object, e.g. `{ "name": "Node.js", "version": "20.11.0" }`)
+  - Fully backward-compatible: `wordpress-plugins` and `wordpress-themes` keys still work unchanged
+  - See [API Usage](docs/api-usage.md) for examples
+
+- **npm vulnerability feed processor**: `scripts/process-npm-vulnerabilities.sh`
+  - Reads tracked npm packages from the VULNZ API
+  - Batch-queries [OSV.dev](https://osv.dev) (Google's Open Source Vulnerability database) for CVEs
+  - Inserts/updates vulnerability records for affected releases
+  - Designed for daily cron execution
+  - Configuration via `.env.npm-vulnerabilities` (separate from main `.env`)
+
+- **`vulnz-sensor` npm package** (`packages/vulnz-sensor/`)
+  - Lightweight CLI tool for Node.js projects — zero runtime dependencies
+  - Reads `package.json` and resolves exact installed versions from `node_modules`
+  - Reports dependencies to VULNZ via `PUT /api/websites/:domain`
+  - Supports `--dry-run`, `--include-dev`, `--dir`, and env-var configuration
+  - Designed for CI/CD pipelines (GitHub Actions example in its README)
+  - Can also be used as a `postinstall` script or programmatic library
+  - See [`packages/vulnz-sensor/README.md`](packages/vulnz-sensor/README.md) for full usage
+
+- **Tests**: 184 tests passing (194 total — 10 pre-existing skips for production-only behaviour)
+  - New test suite covering `GET /api/ecosystems`, npm-package components in `PUT /api/websites`, and WordPress backward-compatibility
+
+### Database Migrations
+
+- `20260117000000-add-ecosystems-table.js` — creates `ecosystems` table and seeds wordpress/npm/pypi
+- `20260117000001-add-ecosystem-to-component-types.js` — adds `ecosystem_id` FK to `component_types`, updates existing types to WordPress ecosystem, seeds `npm-package` type
+- `20260117000002-add-ecosystem-to-websites.js` — adds `ecosystem_id` and `platform_metadata` to `websites`, migrates existing websites to WordPress ecosystem
+
+---
+
 ## 1.21.5 - 2026-02-06
 
 ### Bug Fixes

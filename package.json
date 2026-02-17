@@ -1,6 +1,6 @@
 {
   "name": "vulnz",
-  "version": "1.21.6",
+  "version": "1.22.0",
   "description": "Vulnerability database for WordPress plugins and themes",
   "main": "src/index.js",
   "bin": {

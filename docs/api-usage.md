@@ -210,6 +210,86 @@ curl -X POST \
 }
 ```
 
+### Listing Supported Ecosystems
+
+Discover which component ecosystems are available (requires authentication):
+
+```bash
+curl -H "X-API-Key: your-api-key" \
+  http://localhost:3000/api/ecosystems
+```
+
+**Response:**
+
+```json
+[
+  {
+    "id": 1,
+    "slug": "wordpress",
+    "name": "WordPress",
+    "description": null,
+    "active": true
+  },
+  {
+    "id": 2,
+    "slug": "npm",
+    "name": "npm",
+    "description": null,
+    "active": true
+  }
+]
+```
+
+### Adding a Node.js Application
+
+Track npm packages for a Node.js app using the generic `components` array and `ecosystem` field:
+
+```bash
+curl -X PUT \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{
+    "ecosystem": "npm",
+    "platform": {
+      "name": "Node.js",
+      "version": "20.11.0",
+      "packageManager": "npm"
+    },
+    "components": [
+      { "slug": "express", "version": "4.18.2", "type": "npm-package" },
+      { "slug": "lodash", "version": "4.17.21", "type": "npm-package" }
+    ]
+  }' \
+  http://localhost:3000/api/websites/myapp.example.com
+```
+
+This creates the website if it doesn't exist, or updates it if it does.
+
+### Adding WordPress Components (Modern Format)
+
+The generic `components` array also works for WordPress:
+
+```bash
+curl -X PUT \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{
+    "ecosystem": "wordpress",
+    "platform": {
+      "name": "WordPress",
+      "version": "6.4.2",
+      "phpVersion": "8.2.0",
+      "databaseEngine": "MariaDB",
+      "databaseVersion": "10.11.0"
+    },
+    "components": [
+      { "slug": "woocommerce", "version": "8.5.0", "type": "wordpress-plugin" },
+      { "slug": "twentytwentyfour", "version": "1.0", "type": "wordpress-theme" }
+    ]
+  }' \
+  http://localhost:3000/api/websites/example.com
+```
+
 ---
 
 ## Common Patterns
@@ -287,6 +367,44 @@ function log_failed_login($username, $ip) {
     );
 }
 ```
+
+### Node.js Application Integration (vulnz-sensor)
+
+The easiest way to track npm dependencies is with **vulnz-sensor** — a zero-dependency CLI tool included in this repository:
+
+```bash
+# Install in your Node.js project
+npm install --save-dev vulnz-sensor
+
+# Report dependencies from your project root
+npx vulnz-sensor myapp.example.com \
+  --api-url https://vulnz.example.com \
+  --api-key YOUR_API_KEY
+
+# Using environment variables (recommended for CI/CD)
+VULNZ_API_URL=https://vulnz.example.com \
+VULNZ_API_KEY=YOUR_API_KEY \
+VULNZ_DOMAIN=myapp.example.com \
+npx vulnz-sensor
+
+# Dry-run to preview the payload without sending
+npx vulnz-sensor myapp.example.com \
+  --api-url https://vulnz.example.com \
+  --api-key YOUR_API_KEY \
+  --dry-run
+```
+
+**GitHub Actions example:**
+
+```yaml
+- name: Report dependencies to Vulnz
+  run: npx vulnz-sensor ${{ vars.VULNZ_DOMAIN }}
+  env:
+    VULNZ_API_URL: ${{ vars.VULNZ_API_URL }}
+    VULNZ_API_KEY: ${{ secrets.VULNZ_API_KEY }}
+```
+
+vulnz-sensor reads exact installed versions from `node_modules` (not the semver range in `package.json`) to ensure VULNZ tracks what is actually running. See [packages/vulnz-sensor/README.md](../packages/vulnz-sensor/README.md) for all options.
 
 ### Scheduled Sync Script
 
@@ -502,4 +620,5 @@ curl -X POST \
 - Explore [Interactive API Docs](http://localhost:3000/doc)
 - Set up [Weekly Reports](weekly-reports.md)
 - Configure [WordPress Plugin Integration](https://github.com/headwalluk/vulnz-wordpress-plugin)
+- Track npm packages with [vulnz-sensor](../packages/vulnz-sensor/README.md)
 - Review [Security Best Practices](configuration.md#security)
