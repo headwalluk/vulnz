@@ -1,10 +1,10 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-02-17T17:01",
+  "last_updated": "2026-02-17T17:40",
   "current_status": {
-    "summary": "M1 complete — CLI scaffold, all user management commands implemented and tested. 18 CLI tests added covering user:add, user:list, user:delete, user:block, user:unblock, user:reset-password. Full test suite 132/142 passing. SETUP_MODE auto-admin code removed. README updated with full CLI administration section. M1 fully verified and pushed.",
-    "next_action": "Coding sprint: begin M2 — API Key Management (key:list, key:generate, key:revoke)."
+    "summary": "M2.1–M2.3 complete — key:list, key:generate, and key:revoke CLI commands implemented and tested. 11 CLI tests added covering all three commands. key:revoke exit code regression fixed (added return after process.exit(1) to prevent fallthrough). Full test suite 143/153 passing (10 skipped). All format and lint checks clean.",
+    "next_action": "Coding sprint: M2.4 — update README documentation with API key management CLI section."
   },
   "milestones": [
     {
@@ -63,23 +63,23 @@
     {
       "id": "M2",
       "title": "API Key Management",
-      "status": "planned",
+      "status": "in_progress",
       "notes": "Allow CLI management of API keys without needing to log into the web admin.",
       "tasks": [
         {
           "id": "M2.1",
           "description": "Implement key:list <email> command",
-          "done": false
+          "done": true
         },
         {
           "id": "M2.2",
           "description": "Implement key:generate <email> command",
-          "done": false
+          "done": true
         },
         {
           "id": "M2.3",
           "description": "Implement key:revoke <key> command",
-          "done": false
+          "done": true
         },
         {
           "id": "M2.4",
