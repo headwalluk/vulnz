@@ -1,10 +1,10 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-02-17T20:20",
+  "last_updated": "2026-02-17T20:40",
   "current_status": {
-    "summary": "M4 in progress — M4.1, M4.2, M4.3, M4.4 complete. Website model and API now fully support ecosystem_id and platform_metadata. M4.5–M4.8 remain.",
-    "next_action": "Coding sprint: M4.5 — create scripts/process-npm-vulnerabilities.sh to batch-query OSV.dev and insert vulnerability records."
+    "summary": "M4 in progress — M4.1–M4.5 complete and tested. All 157 tests passing. npm vulnerability processor script created: queries OSV.dev batch API, does semver range matching, records vulns via VULNZ API. M4.6–M4.8 remain.",
+    "next_action": "Coding sprint: M4.6 — create vulnz-sensor npm package (packages/vulnz-sensor/) that reads package.json and posts dependencies to vulnz-api."
   },
   "milestones": [
     {
@@ -145,7 +145,7 @@
         {
           "id": "M4.5",
           "description": "Create scripts/process-npm-vulnerabilities.sh — batch-query OSV.dev for tracked npm packages and insert/update vulnerability records",
-          "done": false
+          "done": true
         },
         {
           "id": "M4.6",

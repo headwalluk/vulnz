@@ -145,7 +145,7 @@ function is_version_affected() {
      | select(.package.name == $pkg and .package.ecosystem == "npm")
      | .versions // []
      | any(. == $ver)' \
-    2>/dev/null)
+    2> /dev/null)
 
   if [[ "${in_list}" == "true" ]]; then
     return 0
@@ -159,10 +159,10 @@ function is_version_affected() {
      | .ranges // []
      | .[]
      | select(.type == "SEMVER")]' \
-    2>/dev/null)
+    2> /dev/null)
 
   local range_count
-  range_count=$(echo "${ranges_json}" | jq 'length' 2>/dev/null)
+  range_count=$(echo "${ranges_json}" | jq 'length' 2> /dev/null)
   range_count="${range_count:-0}"
 
   local range_index=0
@@ -170,10 +170,10 @@ function is_version_affected() {
     local introduced fixed
 
     introduced=$(echo "${ranges_json}" | jq -r --argjson idx "${range_index}" \
-      '.[$idx].events[] | select(has("introduced")) | .introduced' 2>/dev/null | head -1)
+      '.[$idx].events[] | select(has("introduced")) | .introduced' 2> /dev/null | head -1)
 
     fixed=$(echo "${ranges_json}" | jq -r --argjson idx "${range_index}" \
-      '.[$idx].events[] | select(has("fixed")) | .fixed' 2>/dev/null | head -1)
+      '.[$idx].events[] | select(has("fixed")) | .fixed' 2> /dev/null | head -1)
 
     # Strip "v" prefix from version strings
     introduced="${introduced#v}"
@@ -223,21 +223,21 @@ PAGE_SIZE=500
 
 while true; do
   RESPONSE=$(http --ignore-stdin GET "${VULNZ_API_URL}/components?page=${PAGE}&limit=${PAGE_SIZE}" \
-    "X-API-Key: ${VULNZ_API_KEY}" 2>/dev/null)
+    "X-API-Key: ${VULNZ_API_KEY}" 2> /dev/null)
 
   if [ -z "${RESPONSE}" ]; then
     echo "ERROR: Empty response from VULNZ API (page ${PAGE})" >&2
     exit 1
   fi
 
-  ERR=$(echo "${RESPONSE}" | jq -r 'if type == "string" then . else empty end' 2>/dev/null)
+  ERR=$(echo "${RESPONSE}" | jq -r 'if type == "string" then . else empty end' 2> /dev/null)
   if [ -n "${ERR}" ]; then
     echo "ERROR: VULNZ API returned an error: ${ERR}" >&2
     exit 1
   fi
 
   mapfile -t PAGE_SLUGS < <(echo "${RESPONSE}" | jq -r \
-    '.components[] | select(.component_type_slug == "npm-package") | .slug' 2>/dev/null)
+    '.components[] | select(.component_type_slug == "npm-package") | .slug' 2> /dev/null)
   ALL_SLUGS+=("${PAGE_SLUGS[@]}")
 
   TOTAL_PAGES=$(echo "${RESPONSE}" | jq -r '.totalPages // 1')
@@ -274,9 +274,9 @@ while [ "${PACKAGE_INDEX}" -lt "${TOTAL_PACKAGES}" ]; do
   echo "Querying OSV.dev: ${BATCH_COUNT} package(s) [${PACKAGE_INDEX}–$((BATCH_END - 1)) of $((TOTAL_PACKAGES - 1))]"
 
   # Build OSV.dev batch query JSON
-  QUERIES_JSON=$(printf '%s\n' "${BATCH[@]}" | \
-    jq -R '{"package": {"name": ., "ecosystem": "npm"}}' | \
-    jq -s '{"queries": .}')
+  QUERIES_JSON=$(printf '%s\n' "${BATCH[@]}" \
+    | jq -R '{"package": {"name": ., "ecosystem": "npm"}}' \
+    | jq -s '{"queries": .}')
 
   # POST to OSV.dev batch endpoint
   OSV_RESPONSE=$(echo "${QUERIES_JSON}" | curl -sf -X POST \
@@ -297,7 +297,7 @@ while [ "${PACKAGE_INDEX}" -lt "${TOTAL_PACKAGES}" ]; do
   while [ "${RESULT_INDEX}" -lt "${BATCH_COUNT}" ]; do
     PACKAGE_SLUG="${BATCH[${RESULT_INDEX}]}"
 
-    VULN_COUNT=$(echo "${OSV_RESPONSE}" | jq ".results[${RESULT_INDEX}].vulns | length // 0" 2>/dev/null)
+    VULN_COUNT=$(echo "${OSV_RESPONSE}" | jq ".results[${RESULT_INDEX}].vulns | length // 0" 2> /dev/null)
     VULN_COUNT="${VULN_COUNT:-0}"
 
     if [ "${VULN_COUNT}" -eq 0 ]; then
@@ -313,9 +313,9 @@ while [ "${PACKAGE_INDEX}" -lt "${TOTAL_PACKAGES}" ]; do
     # Fetch tracked releases for this package from VULNZ
     PACKAGE_DATA=$(http --ignore-stdin GET \
       "${VULNZ_API_URL}/components/npm-package/${PACKAGE_SLUG}" \
-      "X-API-Key: ${VULNZ_API_KEY}" 2>/dev/null)
+      "X-API-Key: ${VULNZ_API_KEY}" 2> /dev/null)
 
-    mapfile -t TRACKED_VERSIONS < <(echo "${PACKAGE_DATA}" | jq -r '.releases[].version' 2>/dev/null)
+    mapfile -t TRACKED_VERSIONS < <(echo "${PACKAGE_DATA}" | jq -r '.releases[].version' 2> /dev/null)
 
     if [ "${#TRACKED_VERSIONS[@]}" -eq 0 ]; then
       if [ "${ENABLE_DIAGNOSTICS}" == 'true' ]; then
