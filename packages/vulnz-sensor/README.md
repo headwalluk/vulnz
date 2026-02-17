@@ -34,9 +34,9 @@ vulnz-sensor myapp.example.com \
 
 # Using environment variables
 VULNZ_API_URL=https://vulnz.example.com \
-VULNZ_API_KEY=YOUR_API_KEY \
-VULNZ_DOMAIN=myapp.example.com \
-vulnz-sensor
+  VULNZ_API_KEY=YOUR_API_KEY \
+  VULNZ_DOMAIN=myapp.example.com \
+  vulnz-sensor
 
 # Include devDependencies (not sent by default)
 vulnz-sensor myapp.example.com \
@@ -59,16 +59,16 @@ vulnz-sensor myapp.example.com \
 
 ## Options
 
-| Flag | Env var | Description |
-|------|---------|-------------|
-| `domain` (positional) | `VULNZ_DOMAIN` | Website domain to update |
-| `-u`, `--api-url <url>` | `VULNZ_API_URL` | Vulnz API base URL |
-| `-k`, `--api-key <key>` | `VULNZ_API_KEY` | Vulnz API key |
-| `-d`, `--domain <domain>` | `VULNZ_DOMAIN` | Website domain (alternative to positional) |
-| `--dir <path>` | — | Directory containing `package.json` (default: `cwd`) |
-| `--include-dev` | — | Also report `devDependencies` |
-| `--dry-run` | — | Print payload without sending to API |
-| `-h`, `--help` | — | Show help message |
+| Flag                      | Env var         | Description                                          |
+| ------------------------- | --------------- | ---------------------------------------------------- |
+| `domain` (positional)     | `VULNZ_DOMAIN`  | Website domain to update                             |
+| `-u`, `--api-url <url>`   | `VULNZ_API_URL` | Vulnz API base URL                                   |
+| `-k`, `--api-key <key>`   | `VULNZ_API_KEY` | Vulnz API key                                        |
+| `-d`, `--domain <domain>` | `VULNZ_DOMAIN`  | Website domain (alternative to positional)           |
+| `--dir <path>`            | —               | Directory containing `package.json` (default: `cwd`) |
+| `--include-dev`           | —               | Also report `devDependencies`                        |
+| `--dry-run`               | —               | Print payload without sending to API                 |
+| `-h`, `--help`            | —               | Show help message                                    |
 
 ## Using in CI/CD (GitHub Actions example)
 
@@ -103,9 +103,9 @@ await run({
   apiUrl: 'https://vulnz.example.com',
   apiKey: 'YOUR_API_KEY',
   domain: 'myapp.example.com',
-  dir: '/path/to/project',   // default: process.cwd()
-  includeDev: false,          // default: false
-  dryRun: false,              // default: false
+  dir: '/path/to/project', // default: process.cwd()
+  includeDev: false, // default: false
+  dryRun: false, // default: false
 });
 ```
 
@@ -123,7 +123,7 @@ The sensor sends a `PUT` request to `/api/websites/:domain`:
   },
   "components": [
     { "slug": "express", "version": "4.18.2", "type": "npm-package" },
-    { "slug": "lodash",  "version": "4.17.21", "type": "npm-package" }
+    { "slug": "lodash", "version": "4.17.21", "type": "npm-package" }
   ]
 }
 ```
