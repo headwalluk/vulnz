@@ -270,6 +270,28 @@ app.use((req, res, next) => {
 
 async function startServer() {
   try {
+    await role.createTable();
+    await role.seedData();
+    await user.createTable();
+    await userRole.createTable();
+    await session.createTable();
+    await apiKey.createTable();
+    await componentType.createTable();
+    await componentType.seedData();
+    await component.createTable();
+    await apiCallLog.createTable();
+    await emailLog.createTable();
+    await passwordResetToken.createTable();
+    await release.createTable();
+    await vulnerability.createTable();
+    await website.createTable();
+    await websiteComponent.createTable();
+    await securityEventType.createTable();
+    await securityEvent.createTable();
+    await fileSecurityIssue.createTable();
+    await componentChange.createTable();
+    console.log('Database tables created or already exist.');
+
     if (process.env.NODE_APP_INSTANCE === '0') {
       await migrations.run();
       console.log('Migrations complete.');
@@ -389,27 +411,6 @@ async function startServer() {
       });
     }
 
-    await role.createTable();
-    await role.seedData();
-    await user.createTable();
-    await userRole.createTable();
-    await session.createTable();
-    await apiKey.createTable();
-    await componentType.createTable();
-    await componentType.seedData();
-    await component.createTable();
-    await apiCallLog.createTable();
-    await emailLog.createTable();
-    await passwordResetToken.createTable();
-    await release.createTable();
-    await vulnerability.createTable();
-    await website.createTable();
-    await websiteComponent.createTable();
-    await securityEventType.createTable();
-    await securityEvent.createTable();
-    await fileSecurityIssue.createTable();
-    await componentChange.createTable();
-    console.log('Database tables created or already exist.');
     app.listen(port, () => {
       console.log(`Server accessible at ${process.env.BASE_URL} in ${process.env.NODE_ENV || 'development'} mode`);
     });
