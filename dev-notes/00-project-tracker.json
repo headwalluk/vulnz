@@ -1,16 +1,16 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-02-17",
+  "last_updated": "2026-02-17T17:01",
   "current_status": {
-    "summary": "M1.1–M1.8 complete — CLI scaffold, all user management commands implemented and tested. 18 CLI tests added covering user:add, user:list, user:delete, user:block, user:unblock, user:reset-password. Full test suite 132/142 passing. SETUP_MODE auto-admin code removed. Next: M1.9 update README with CLI usage documentation.",
-    "next_action": "Coding sprint: M1.9 (update README with CLI usage docs)"
+    "summary": "M1 complete — CLI scaffold, all user management commands implemented and tested. 18 CLI tests added covering user:add, user:list, user:delete, user:block, user:unblock, user:reset-password. Full test suite 132/142 passing. SETUP_MODE auto-admin code removed. README updated with full CLI administration section. M1 fully verified and pushed.",
+    "next_action": "Coding sprint: begin M2 — API Key Management (key:list, key:generate, key:revoke)."
   },
   "milestones": [
     {
       "id": "M1",
       "title": "CLI Skeleton + User Management",
-      "status": "in_progress",
+      "status": "complete",
       "notes": "Core goal: allow an administrator account to be created on a clean install, and manage user accounts (add/delete/block). Replaces the SETUP_MODE env var approach which is a security risk.",
       "tasks": [
         {
@@ -56,7 +56,7 @@
         {
           "id": "M1.9",
           "description": "Update README with CLI usage documentation",
-          "done": false
+          "done": true
         }
       ]
     },
