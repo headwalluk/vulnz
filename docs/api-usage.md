@@ -383,9 +383,9 @@ npx vulnz-sensor myapp.example.com \
 
 # Using environment variables (recommended for CI/CD)
 VULNZ_API_URL=https://vulnz.example.com \
-VULNZ_API_KEY=YOUR_API_KEY \
-VULNZ_DOMAIN=myapp.example.com \
-npx vulnz-sensor
+  VULNZ_API_KEY=YOUR_API_KEY \
+  VULNZ_DOMAIN=myapp.example.com \
+  npx vulnz-sensor
 
 # Dry-run to preview the payload without sending
 npx vulnz-sensor myapp.example.com \

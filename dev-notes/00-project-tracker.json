@@ -1,10 +1,10 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-02-17T21:21",
+  "last_updated": "2026-02-17T21:40",
   "current_status": {
-    "summary": "M4 in progress — M4.1–M4.7 complete and tested. All 184 tests passing (194 total, 10 skipped pre-existing). M4.8 remains: update documentation (README, CHANGELOG, API docs).",
-    "next_action": "Coding sprint: M4.8 — update documentation for npm ecosystem support."
+    "summary": "All milestones complete — M1 (CLI user management), M2 (API key management), M3 (feed & component tools), M4 (npm package support) all done and tested. 184 tests passing. Documentation (README, CHANGELOG, docs/api-usage.md) updated for v1.22.0.",
+    "next_action": "Documentation sprint: final review of all docs, then mark project complete."
   },
   "milestones": [
     {
@@ -119,7 +119,7 @@
     {
       "id": "M4",
       "title": "npm Package Support",
-      "status": "in_progress",
+      "status": "complete",
       "notes": "Add npm as a first-class ecosystem alongside WordPress. This includes DB schema changes, API updates (backward-compatible), a vulnerability feed processor, and a vulnz-sensor npm package for Node.js projects. See dev-notes/09-multi-platform-support.md for architecture decisions.",
       "tasks": [
         {
@@ -160,7 +160,7 @@
         {
           "id": "M4.8",
           "description": "Update documentation: README, CHANGELOG, API docs",
-          "done": false
+          "done": true
         }
       ]
     }
