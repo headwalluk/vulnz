@@ -12,7 +12,13 @@
   "scripts": {
     "test": "echo \"No tests yet\" && exit 0"
   },
-  "keywords": ["vulnz", "vulnerability", "security", "npm", "sensor"],
+  "keywords": [
+    "vulnz",
+    "vulnerability",
+    "security",
+    "npm",
+    "sensor"
+  ],
   "author": "Paul Faulkner",
   "license": "MIT",
   "type": "commonjs"

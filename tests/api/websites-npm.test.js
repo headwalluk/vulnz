@@ -215,10 +215,7 @@ describe('Websites API — npm-package Component Tests', () => {
     });
 
     it('should return 400 when components is not an array', async () => {
-      const response = await request(app)
-        .put(`/api/websites/${testWebsite.domain}`)
-        .set('X-API-Key', adminApiKey)
-        .send({ components: 'not-an-array' });
+      const response = await request(app).put(`/api/websites/${testWebsite.domain}`).set('X-API-Key', adminApiKey).send({ components: 'not-an-array' });
 
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
