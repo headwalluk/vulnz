@@ -1,0 +1,127 @@
+{
+  "project": "vulnz-api",
+  "lead": "Zee",
+  "last_updated": "2026-02-17",
+  "current_status": {
+    "summary": "M1.1–M1.3 complete — CLI scaffold, user:add, and user:list implemented and tested. All 114 tests passing. Next: implement user:delete, user:block, user:unblock.",
+    "next_action": "Coding sprint: implement M1.4 (user:delete), M1.5 (user:block / user:unblock)"
+  },
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "CLI Skeleton + User Management",
+      "status": "in_progress",
+      "notes": "Core goal: allow an administrator account to be created on a clean install, and manage user accounts (add/delete/block). Replaces the SETUP_MODE env var approach which is a security risk.",
+      "tasks": [
+        {
+          "id": "M1.1",
+          "description": "Create bin/ directory and bin/vulnz.js scaffold using commander",
+          "done": true
+        },
+        {
+          "id": "M1.2",
+          "description": "Implement user:add <email> <password> [--admin] command",
+          "done": true
+        },
+        {
+          "id": "M1.3",
+          "description": "Implement user:list command (table output, --json flag)",
+          "done": true
+        },
+        {
+          "id": "M1.4",
+          "description": "Implement user:delete <email> command",
+          "done": false
+        },
+        {
+          "id": "M1.5",
+          "description": "Implement user:block <email> and user:unblock <email> commands",
+          "done": false
+        },
+        {
+          "id": "M1.6",
+          "description": "Implement user:reset-password <email> <new-password> command",
+          "done": false
+        },
+        {
+          "id": "M1.7",
+          "description": "Remove SETUP_MODE auto-admin creation code from src/ once CLI is proven",
+          "done": false
+        },
+        {
+          "id": "M1.8",
+          "description": "Write tests for CLI commands",
+          "done": false
+        },
+        {
+          "id": "M1.9",
+          "description": "Update README with CLI usage documentation",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "API Key Management",
+      "status": "planned",
+      "notes": "Allow CLI management of API keys without needing to log into the web admin.",
+      "tasks": [
+        {
+          "id": "M2.1",
+          "description": "Implement key:list <email> command",
+          "done": false
+        },
+        {
+          "id": "M2.2",
+          "description": "Implement key:generate <email> command",
+          "done": false
+        },
+        {
+          "id": "M2.3",
+          "description": "Implement key:revoke <key> command",
+          "done": false
+        },
+        {
+          "id": "M2.4",
+          "description": "Write tests and update documentation",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Feed & Component Inspection Tools",
+      "status": "planned",
+      "notes": "Useful diagnostic commands for checking database state and ingestion health.",
+      "tasks": [
+        {
+          "id": "M3.1",
+          "description": "Implement feed:status — show last Wordfence ingestion timestamp",
+          "done": false
+        },
+        {
+          "id": "M3.2",
+          "description": "Implement component:find <slug> — quick DB lookup",
+          "done": false
+        },
+        {
+          "id": "M3.3",
+          "description": "Implement release:list <slug> — list known releases for a component",
+          "done": false
+        },
+        {
+          "id": "M3.4",
+          "description": "Write tests and update documentation",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "npm Package Support",
+      "status": "future",
+      "notes": "Review Paul's archived tracker (00-project-tracker-paul-archive.md) before planning. Add npm-package as a component type. Build npm sensor package for Node projects.",
+      "tasks": []
+    }
+  ]
+}
