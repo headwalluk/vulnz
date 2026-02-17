@@ -169,4 +169,29 @@ program
     }
   });
 
+// ---------------------------------------------------------------------------
+// user:reset-password <email> <new-password>
+// ---------------------------------------------------------------------------
+program
+  .command('user:reset-password <email> <new-password>')
+  .description('Reset the password for an existing user account')
+  .action(async (email, newPassword) => {
+    try {
+      const found = await user.findUserByUsername(email);
+      if (!found) {
+        process.stderr.write(`Error: User '${email}' not found.\n`);
+        await db.end();
+        process.exit(1);
+      }
+      await user.updatePassword(parseInt(found.id, 10), newPassword);
+      console.log(`Password reset for user: ${email} (id=${found.id})`);
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
 program.parseAsync(process.argv);
