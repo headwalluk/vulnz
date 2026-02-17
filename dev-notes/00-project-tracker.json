@@ -1,10 +1,10 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-02-17T17:40",
+  "last_updated": "2026-02-17T18:50",
   "current_status": {
-    "summary": "M2.1–M2.3 complete — key:list, key:generate, and key:revoke CLI commands implemented and tested. 11 CLI tests added covering all three commands. key:revoke exit code regression fixed (added return after process.exit(1) to prevent fallthrough). Full test suite 143/153 passing (10 skipped). All format and lint checks clean.",
-    "next_action": "Coding sprint: M2.4 — update README documentation with API key management CLI section."
+    "summary": "M2 complete — API key management CLI commands (key:list, key:generate, key:revoke) implemented, tested (11 tests), and documented. README updated with full API key management section. Full test suite 143/153 passing (10 skipped). All format checks clean.",
+    "next_action": "Coding sprint: Begin M3 — Feed & Component Inspection Tools (feed:status, component:find, release:list)."
   },
   "milestones": [
     {
@@ -63,7 +63,7 @@
     {
       "id": "M2",
       "title": "API Key Management",
-      "status": "in_progress",
+      "status": "complete",
       "notes": "Allow CLI management of API keys without needing to log into the web admin.",
       "tasks": [
         {
@@ -84,7 +84,7 @@
         {
           "id": "M2.4",
           "description": "Write tests and update documentation",
-          "done": false
+          "done": true
         }
       ]
     },
