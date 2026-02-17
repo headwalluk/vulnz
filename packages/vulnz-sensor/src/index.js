@@ -37,7 +37,7 @@ function resolveInstalledVersion(dir, name, specVersion) {
         return installed.version;
       }
     }
-  } catch (_e) {
+  } catch {
     // Swallow — fall through to specVersion
   }
   // Strip common range prefixes so the API gets a semver-like string
