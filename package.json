@@ -3,6 +3,9 @@
   "version": "1.21.6",
   "description": "Vulnerability database for WordPress plugins and themes",
   "main": "src/index.js",
+  "bin": {
+    "vulnz": "./bin/vulnz.js"
+  },
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
@@ -40,6 +43,7 @@
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "commander": "^14.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",

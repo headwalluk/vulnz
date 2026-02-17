@@ -11,6 +11,7 @@ public/vendor
 
 # Handlebars templates (Prettier struggles with inline blocks)
 src/emails/*.hbs
+src/emails/**/*.hbs
 
 # Minified files
 *.min.js

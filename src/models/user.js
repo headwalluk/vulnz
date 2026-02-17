@@ -219,6 +219,22 @@ async function deleteUser(userId) {
   await db.query('DELETE FROM users WHERE id = ?', [userId]);
 }
 
+async function listAll() {
+  const users = await db.query('SELECT id, username, blocked, paused FROM users ORDER BY id ASC');
+  const result = [];
+  for (const u of users) {
+    const roles = await getRoles(u.id);
+    result.push({
+      id: parseInt(u.id, 10),
+      username: u.username,
+      blocked: Boolean(u.blocked),
+      paused: Boolean(u.paused),
+      roles,
+    });
+  }
+  return result;
+}
+
 module.exports = {
   createTable,
   createUser,
@@ -226,6 +242,7 @@ module.exports = {
   getRoles,
   findUserByUsername,
   findUserById,
+  listAll,
   updatePassword,
   updateUser,
   updateLastSummarySentAt,
