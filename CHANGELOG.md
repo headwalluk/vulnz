@@ -2,6 +2,34 @@
 
 ## 1.22.0 - 2026-02-17
 
+### CLI Administration Tool
+
+- **New CLI tool** (`bin/vulnz.js`) for managing users, API keys, and inspecting the database from the command line — no web interface required.
+  - Reads `.env` automatically; designed for initial setup, scripted provisioning, and recovery scenarios.
+  - If installed globally via npm, invoke as `vulnz <command>`.
+  - Outputs formatted tables by default; supports `--json` flag on all listing commands.
+  - Exits with code `1` on error (stderr), `0` on success (stdout).
+  - Replaces the `SETUP_MODE` auto-admin approach (removed).
+
+- **User management commands:**
+  - `user:add <email> <password> [--admin]` — create a user; `--admin` grants the administrator role
+  - `user:list [--json]` — list all accounts with id, email, roles, and status
+  - `user:delete <email>` — permanently delete a user
+  - `user:block <email>` / `user:unblock <email>` — block/unblock account access
+  - `user:reset-password <email> <new-password>` — reset a user's password
+
+- **API key management commands:**
+  - `key:list <email> [--json]` — list all API keys for a user
+  - `key:generate <email>` — generate a new API key (key printed once to stdout)
+  - `key:revoke <key>` — permanently revoke an API key
+
+- **Diagnostic commands:**
+  - `feed:status [--json]` — show database statistics and last Wordfence sync timestamp
+  - `component:find <slug> [--json]` — look up a component by slug (returns all type matches)
+  - `release:list <slug> [--json]` — list all known releases for a component with per-release vulnerability counts
+
+- **Tests:** CLI commands fully covered by Jest test suite (all 184 tests passing).
+
 ### npm Ecosystem Support
 
 - **Multi-ecosystem architecture**: Vulnz now tracks vulnerabilities across multiple component ecosystems, not just WordPress.

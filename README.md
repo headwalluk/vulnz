@@ -495,7 +495,10 @@ FLUSH PRIVILEGES;
 
 2. **Migrations run automatically** on application startup - no manual steps required.
 
-3. **First user registration** automatically receives admin privileges (setup mode).
+3. **Create your first admin account** using the CLI after the server starts:
+   ```bash
+   node bin/vulnz.js user:add admin@example.com 'your-password' --admin
+   ```
 
 ## Requirements
 

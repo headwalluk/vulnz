@@ -1,10 +1,10 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-02-17T21:40",
+  "last_updated": "2026-02-17T21:50",
   "current_status": {
-    "summary": "All milestones complete — M1 (CLI user management), M2 (API key management), M3 (feed & component tools), M4 (npm package support) all done and tested. 184 tests passing. Documentation (README, CHANGELOG, docs/api-usage.md) updated for v1.22.0.",
-    "next_action": "Documentation sprint: final review of all docs, then mark project complete."
+    "summary": "All milestones complete — M1 (CLI user management), M2 (API key management), M3 (feed & component tools), M4 (npm package support) all done and tested. 184 tests passing. All documentation updated (README, CHANGELOG, docs/api-usage.md). Project ready for review and merge.",
+    "next_action": "None — project complete. Ready for review and merge."
   },
   "milestones": [
     {
