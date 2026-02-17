@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Website = require('../models/website');
 const User = require('../models/user');
+const Ecosystem = require('../models/ecosystem');
 const { apiOrSessionAuth } = require('../middleware/auth');
 const Component = require('../models/component');
 const Release = require('../models/release');
@@ -50,9 +51,11 @@ const tidyWebsite = (website) => {
     ...website,
     id: parseInt(website.id, 10),
     user_id: parseInt(website.user_id, 10),
+    ecosystem_id: website.ecosystem_id ? parseInt(website.ecosystem_id, 10) : null,
     is_ssl: Boolean(website.is_ssl),
     is_dev: Boolean(website.is_dev),
     meta: website.meta || {},
+    platform_metadata: website.platform_metadata || null,
     wordpress_version: website.wordpress_version || null,
     php_version: website.php_version || null,
     db_server_type: website.db_server_type || 'unknown',
@@ -230,7 +233,7 @@ router.get('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
  */
 router.post('/', apiOrSessionAuth, async (req, res) => {
   try {
-    const { domain, title, user_id, is_dev, meta } = req.body;
+    const { domain, title, user_id, is_dev, meta, ecosystem, platform } = req.body;
 
     if (!domain) {
       return res.status(400).send('The domain property must be specified.');
@@ -241,6 +244,16 @@ router.post('/', apiOrSessionAuth, async (req, res) => {
       return res.status(400).send('The domain property is not a valid website hostname.');
     }
 
+    // Resolve ecosystem slug to ID if provided
+    let ecosystemId = null;
+    if (ecosystem) {
+      const ecosystemRecord = await Ecosystem.findBySlug(ecosystem);
+      if (!ecosystemRecord) {
+        return res.status(400).json({ success: false, message: `Unknown ecosystem: ${ecosystem}` });
+      }
+      ecosystemId = ecosystemRecord.id;
+    }
+
     const roles = await User.getRoles(req.user.id);
     let websiteUserId = req.user.id;
 
@@ -248,7 +261,15 @@ router.post('/', apiOrSessionAuth, async (req, res) => {
       websiteUserId = user_id;
     }
 
-    const website = await Website.create({ user_id: websiteUserId, domain, title: title || domain, is_dev: is_dev || false, meta });
+    const website = await Website.create({
+      user_id: websiteUserId,
+      domain,
+      title: title || domain,
+      is_dev: is_dev || false,
+      meta,
+      ecosystem_id: ecosystemId,
+      platform_metadata: platform || null,
+    });
 
     if (roles.includes('administrator')) {
       res.status(201).json({
@@ -371,7 +392,7 @@ const processComponents = async (components, componentType) => {
  */
 router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
   try {
-    const { title, 'wordpress-plugins': wordpressPlugins, 'wordpress-themes': wordpressThemes, components, is_dev, meta, versions, user_id } = req.body;
+    const { title, 'wordpress-plugins': wordpressPlugins, 'wordpress-themes': wordpressThemes, components, is_dev, meta, versions, user_id, ecosystem, platform } = req.body;
     const websiteData = {};
     if (title) {
       websiteData.title = title;
@@ -381,6 +402,24 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
     }
     if (meta) {
       websiteData.meta = meta;
+    }
+
+    // Handle ecosystem slug → ecosystem_id
+    if (ecosystem !== undefined) {
+      if (ecosystem === null || ecosystem === '') {
+        websiteData.ecosystem_id = null;
+      } else {
+        const ecosystemRecord = await Ecosystem.findBySlug(ecosystem);
+        if (!ecosystemRecord) {
+          return res.status(400).json({ success: false, message: `Unknown ecosystem: ${ecosystem}` });
+        }
+        websiteData.ecosystem_id = ecosystemRecord.id;
+      }
+    }
+
+    // Handle platform metadata
+    if (platform !== undefined) {
+      websiteData.platform_metadata = platform;
     }
 
     // Handle user_id change (admin only)
