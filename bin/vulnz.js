@@ -6,6 +6,7 @@ require('dotenv').config();
 
 const { Command } = require('commander');
 const user = require('../src/models/user');
+const apiKey = require('../src/models/apiKey');
 const db = require('../src/db');
 
 const program = new Command();
@@ -185,6 +186,109 @@ program
       }
       await user.updatePassword(parseInt(found.id, 10), newPassword);
       console.log(`Password reset for user: ${email} (id=${found.id})`);
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// key:list <email> [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('key:list <email>')
+  .description('List API keys for a user account')
+  .option('--json', 'Output as JSON')
+  .action(async (email, opts) => {
+    try {
+      const found = await user.findUserByUsername(email);
+      if (!found) {
+        process.stderr.write(`Error: User '${email}' not found.\n`);
+        await db.end();
+        process.exit(1);
+      }
+
+      const keys = await apiKey.listByUserId(parseInt(found.id, 10));
+
+      if (opts.json) {
+        console.log(JSON.stringify(keys, null, 2));
+      } else {
+        if (keys.length === 0) {
+          console.log(`No API keys found for ${email}.`);
+        } else {
+          const colWidths = {
+            id: Math.max(2, ...keys.map((k) => String(k.id).length)),
+            api_key: Math.max(7, ...keys.map((k) => k.api_key.length)),
+          };
+
+          const pad = (str, len) => String(str).padEnd(len);
+          const header = `${pad('ID', colWidths.id)}  ${pad('API KEY', colWidths.api_key)}  CREATED`;
+          const divider = '-'.repeat(header.length + 20);
+          console.log(header);
+          console.log(divider);
+
+          for (const k of keys) {
+            const created = k.createdAt instanceof Date ? k.createdAt.toISOString() : String(k.createdAt);
+            console.log(`${pad(k.id, colWidths.id)}  ${pad(k.api_key, colWidths.api_key)}  ${created}`);
+          }
+        }
+      }
+
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// key:generate <email>
+// ---------------------------------------------------------------------------
+program
+  .command('key:generate <email>')
+  .description('Generate a new API key for a user account')
+  .action(async (email) => {
+    try {
+      const found = await user.findUserByUsername(email);
+      if (!found) {
+        process.stderr.write(`Error: User '${email}' not found.\n`);
+        await db.end();
+        process.exit(1);
+      }
+
+      const newKey = await apiKey.createForUser(parseInt(found.id, 10));
+      console.log(`Generated API key for ${email}: ${newKey}`);
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// key:revoke <key>
+// ---------------------------------------------------------------------------
+program
+  .command('key:revoke <key>')
+  .description('Revoke (delete) an API key')
+  .action(async (key) => {
+    try {
+      const found = await apiKey.findByKey(key);
+      if (!found) {
+        process.stderr.write(`Error: API key not found.\n`);
+        await db.end();
+        process.exit(1);
+      }
+
+      await apiKey.revokeByKey(key);
+      console.log(`Revoked API key: ${key}`);
       await db.end();
       process.exit(0);
     } catch (err) {
