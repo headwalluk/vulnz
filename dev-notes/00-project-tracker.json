@@ -1,10 +1,10 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-02-17T19:20",
+  "last_updated": "2026-02-17T19:30",
   "current_status": {
-    "summary": "M3 complete — feed:status, component:find, release:list commands implemented, tested (157 tests passing), and documented.",
-    "next_action": "Begin M4: npm Package Support. Review Paul's archived tracker before planning."
+    "summary": "M4 in progress — ecosystems table migration created, ecosystem model and GET /api/ecosystems route added.",
+    "next_action": "Run tests (M4.1 complete). Next: M4.2 update PUT /api/websites to accept npm-package components."
   },
   "milestones": [
     {
@@ -119,9 +119,50 @@
     {
       "id": "M4",
       "title": "npm Package Support",
-      "status": "future",
-      "notes": "Review Paul's archived tracker (00-project-tracker-paul-archive.md) before planning. Add npm-package as a component type. Build npm sensor package for Node projects.",
-      "tasks": []
+      "status": "in_progress",
+      "notes": "Add npm as a first-class ecosystem alongside WordPress. This includes DB schema changes, API updates (backward-compatible), a vulnerability feed processor, and a vulnz-sensor npm package for Node.js projects. See dev-notes/09-multi-platform-support.md for architecture decisions.",
+      "tasks": [
+        {
+          "id": "M4.1",
+          "description": "DB migration: create ecosystems table, add ecosystem_id to component_types and websites, add platform_metadata to websites, seed wordpress/npm ecosystems, add npm-package component type",
+          "done": false
+        },
+        {
+          "id": "M4.2",
+          "description": "Add GET /api/ecosystems endpoint and Ecosystem model",
+          "done": false
+        },
+        {
+          "id": "M4.3",
+          "description": "Update PUT /api/websites to accept npm-package components (generic components array with type field, backward-compatible with existing wordpress-plugins/wordpress-themes keys)",
+          "done": false
+        },
+        {
+          "id": "M4.4",
+          "description": "Update website model: store ecosystem_id and platform_metadata when creating/updating websites",
+          "done": false
+        },
+        {
+          "id": "M4.5",
+          "description": "Create scripts/process-npm-vulnerabilities.sh — batch-query OSV.dev for tracked npm packages and insert/update vulnerability records",
+          "done": false
+        },
+        {
+          "id": "M4.6",
+          "description": "Create vulnz-sensor npm package (packages/vulnz-sensor/) — reads package.json, posts dependencies to vulnz-api via PUT /api/websites/:domain",
+          "done": false
+        },
+        {
+          "id": "M4.7",
+          "description": "Write tests for ecosystem API: GET /api/ecosystems, npm-package components in PUT /api/websites, backward-compat with old wordpress-plugins/themes keys",
+          "done": false
+        },
+        {
+          "id": "M4.8",
+          "description": "Update documentation: README, CHANGELOG, API docs",
+          "done": false
+        }
+      ]
     }
   ]
 }
