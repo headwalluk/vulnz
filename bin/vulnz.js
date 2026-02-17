@@ -94,4 +94,79 @@ program
     }
   });
 
+// ---------------------------------------------------------------------------
+// user:delete <email>
+// ---------------------------------------------------------------------------
+program
+  .command('user:delete <email>')
+  .description('Delete a user account')
+  .action(async (email) => {
+    try {
+      const found = await user.findUserByUsername(email);
+      if (!found) {
+        process.stderr.write(`Error: User '${email}' not found.\n`);
+        await db.end();
+        process.exit(1);
+      }
+      await user.deleteUser(parseInt(found.id, 10));
+      console.log(`Deleted user: ${email} (id=${found.id})`);
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// user:block <email>
+// ---------------------------------------------------------------------------
+program
+  .command('user:block <email>')
+  .description('Block a user account (prevents login)')
+  .action(async (email) => {
+    try {
+      const found = await user.findUserByUsername(email);
+      if (!found) {
+        process.stderr.write(`Error: User '${email}' not found.\n`);
+        await db.end();
+        process.exit(1);
+      }
+      await user.updateUser(parseInt(found.id, 10), { blocked: true });
+      console.log(`Blocked user: ${email} (id=${found.id})`);
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// user:unblock <email>
+// ---------------------------------------------------------------------------
+program
+  .command('user:unblock <email>')
+  .description('Unblock a user account (re-enables login)')
+  .action(async (email) => {
+    try {
+      const found = await user.findUserByUsername(email);
+      if (!found) {
+        process.stderr.write(`Error: User '${email}' not found.\n`);
+        await db.end();
+        process.exit(1);
+      }
+      await user.updateUser(parseInt(found.id, 10), { blocked: false });
+      console.log(`Unblocked user: ${email} (id=${found.id})`);
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
 program.parseAsync(process.argv);
