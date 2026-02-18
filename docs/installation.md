@@ -62,10 +62,6 @@ DB_NAME=vulnz
 # Server configuration
 HTTP_LISTEN_PORT=3000
 BASE_URL=http://localhost:3000
-
-# Setup mode (enable for first run)
-SETUP_MODE=true
-REGISTRATION_ENABLED=true
 ```
 
 ### 5. Generate Session Secret
@@ -95,10 +91,15 @@ npm start
 
 ### 7. Create Administrator Account
 
-1. Open your browser and navigate to `http://localhost:3000`
-2. Click "Register" and create a new account
-3. This first user will automatically receive administrator privileges
-4. **Important**: After creating the admin account, stop the application and set `SETUP_MODE=false` in `.env`
+The first admin account **must be created via the CLI** — there is no web-based setup mode. This ensures only someone with shell access to the server can bootstrap the application.
+
+```bash
+node bin/vulnz.js user:add --admin
+```
+
+You will be prompted for a username, email address, and password. The `--admin` flag grants full administrator privileges.
+
+> **Why CLI-only?** A web-based setup mode (e.g. `SETUP_MODE=true`) creates a window where any visitor could initialize the database and create themselves an admin account. The CLI approach eliminates that risk entirely — if you can run this command, you already have shell access.
 
 ---
 
@@ -130,22 +131,20 @@ vulnz/
 
 ## Post-Installation
 
-### Disable Setup Mode
+### Disable Public Registration (Recommended)
 
-**Critical**: After creating your administrator account:
+Once your admin account is created, consider disabling public registration:
 
 ```plaintext
 # In .env file
-SETUP_MODE=false
-```
-
-Optionally disable public registration:
-
-```plaintext
 REGISTRATION_ENABLED=false
 ```
 
-Restart the application for changes to take effect.
+Restart the application for changes to take effect. Additional users can always be created via the CLI:
+
+```bash
+node bin/vulnz.js user:add
+```
 
 ### Configure Email (Optional)
 
@@ -272,13 +271,12 @@ bash scripts/generate-session-secret.sh
 
 ### Cannot Register Users
 
-**Issue**: Registration disabled after setup
+**Issue**: Registration disabled
 
 **Solution**:
 
-- Check `SETUP_MODE=false` and `REGISTRATION_ENABLED=false` in `.env`
-- Set `REGISTRATION_ENABLED=true` if you want public registration
-- Or create users via API/CLI (future feature)
+- Set `REGISTRATION_ENABLED=true` in `.env` if you want public registration
+- Or create users directly via the CLI: `node bin/vulnz.js user:add`
 
 ### Migrations Not Running
 
