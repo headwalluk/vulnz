@@ -34,7 +34,7 @@ const up = async () => {
   // 3. Add ecosystem_id to component_types
   await db.query(`
     ALTER TABLE component_types
-    ADD COLUMN ecosystem_id BIGINT UNSIGNED NULL AFTER id
+    ADD COLUMN ecosystem_id BIGINT UNSIGNED NULL AFTER slug
   `);
 
   await db.query(`
@@ -52,7 +52,7 @@ const up = async () => {
 
   // 5. Add npm-package component type
   await db.query(`
-    INSERT INTO component_types (ecosystem_id, slug, name)
+    INSERT INTO component_types (ecosystem_id, slug, title)
     SELECT e.id, 'npm-package', 'npm Package'
     FROM ecosystems e
     WHERE e.slug = 'npm'
