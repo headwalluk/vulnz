@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.22.1 - 2026-02-22
+
+### Bug Fixes
+
+- **Multi-ecosystem migration**: Fixed `20260217000000-add-multi-ecosystem-support.js` failing on clean installs
+  - `ALTER TABLE component_types ADD COLUMN ecosystem_id ... AFTER id` referenced non-existent `id` column — changed to `AFTER slug` (the actual primary key)
+  - `INSERT INTO component_types` used `name` column — changed to `title` (the actual column name)
+
+---
+
 ## 1.22.0 - 2026-02-17
 
 ### CLI Administration Tool
