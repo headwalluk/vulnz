@@ -120,7 +120,13 @@ app.get('/openapi.json', (req, res) => {
   res.send(swaggerSpec);
 });
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: process.env.NODE_ENV !== 'production'
+      ? { directives: { upgradeInsecureRequests: null } }
+      : undefined,
+  })
+);
 
 // CORS Configuration
 if (process.env.CORS_ENABLED === 'true') {
