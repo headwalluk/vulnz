@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.22.2 - 2026-02-23
+
+### Bug Fixes
+
+- **Helmet CSP**: Disabled `upgrade-insecure-requests` directive in non-production environments so assets load correctly over HTTP when using a custom `BASE_URL` (e.g. LAN hostname)
+
+---
+
 ## 1.22.1 - 2026-02-22
 
 ### Bug Fixes

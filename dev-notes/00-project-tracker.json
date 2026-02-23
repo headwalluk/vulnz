@@ -1,9 +1,9 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-02-22",
+  "last_updated": "2026-02-23",
   "current_status": {
-    "summary": "v1.22.1 released — fixed multi-ecosystem migration (20260217000000) that failed on clean installs due to incorrect column references in component_types table. All milestones (M1–M4) complete, 184 tests passing.",
+    "summary": "v1.22.2 released — disabled Helmet upgrade-insecure-requests CSP directive in non-production environments to fix asset loading over HTTP with custom BASE_URL. All milestones (M1–M4) complete, 184 tests passing.",
     "next_action": "None — project complete. Ready for review and merge."
   },
   "milestones": [
