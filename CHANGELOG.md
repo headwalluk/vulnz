@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.22.3 - 2026-02-23
+
+### Bug Fixes
+
+- **GET /api/component-types**: Replaced `ecosystem_id` (internal FK) with `ecosystem` (ecosystem slug) in the response shape
+- **GET /api/ecosystems**: Removed internal `id` field from the response — `slug` is the stable public identifier
+- Updated Swagger/OpenAPI JSDoc schemas to match the corrected response shapes for both endpoints
+
+---
+
 ## 1.22.2 - 2026-02-23
 
 ### Bug Fixes
