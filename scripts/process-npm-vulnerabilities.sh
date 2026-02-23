@@ -332,7 +332,7 @@ while [ "${PACKAGE_INDEX}" -lt "${TOTAL_PACKAGES}" ]; do
       VULN_ID=$(echo "${VULN_JSON}" | jq -r '.id')
 
       # Build reference URL list; fall back to OSV permalink if none provided
-      REFERENCE_URLS=$(echo "${VULN_JSON}" | jq '[.references[].url] | unique')
+      REFERENCE_URLS=$(echo "${VULN_JSON}" | jq 'if .references then [.references[].url] | unique else [] end')
       if [ -z "${REFERENCE_URLS}" ] || [ "${REFERENCE_URLS}" == 'null' ] || [ "${REFERENCE_URLS}" == '[]' ]; then
         REFERENCE_URLS="[\"https://osv.dev/vulnerability/${VULN_ID}\"]"
       fi
