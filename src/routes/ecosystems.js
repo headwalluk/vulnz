@@ -21,8 +21,7 @@ const { apiOrSessionAuth } = require('../middleware/auth');
  *               items:
  *                 type: object
  *                 properties:
- *                   id:
- *                     type: integer
+
  *                   slug:
  *                     type: string
  *                     example: npm
@@ -41,7 +40,6 @@ router.get('/', apiOrSessionAuth, async (req, res) => {
     const ecosystems = await Ecosystem.findAll();
     res.json(
       ecosystems.map((eco) => ({
-        id: parseInt(eco.id, 10),
         slug: eco.slug,
         name: eco.name,
         description: eco.description || null,

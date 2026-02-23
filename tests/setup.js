@@ -221,18 +221,38 @@ async function initializeSchema(db) {
   await db.run(`INSERT OR IGNORE INTO roles (name) VALUES ('administrator')`);
   await db.run(`INSERT OR IGNORE INTO roles (name) VALUES ('user')`);
 
+  // Create ecosystems table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS ecosystems (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      description TEXT,
+      data TEXT,
+      active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Seed ecosystems
+  await db.run(`INSERT OR IGNORE INTO ecosystems (slug, name) VALUES ('wordpress', 'WordPress')`);
+  await db.run(`INSERT OR IGNORE INTO ecosystems (slug, name) VALUES ('npm', 'npm')`);
+
   // Create component_types table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS component_types (
       slug TEXT PRIMARY KEY,
-      title TEXT NOT NULL
+      ecosystem_id INTEGER,
+      title TEXT NOT NULL,
+      FOREIGN KEY (ecosystem_id) REFERENCES ecosystems(id)
     )
   `);
 
   // Seed component types
-  await db.run(`INSERT OR IGNORE INTO component_types (slug, title) VALUES ('wordpress-plugin', 'WordPress Plugin')`);
-  await db.run(`INSERT OR IGNORE INTO component_types (slug, title) VALUES ('wordpress-theme', 'WordPress Theme')`);
-  await db.run(`INSERT OR IGNORE INTO component_types (slug, title) VALUES ('npm-package', 'npm Package')`);
+  await db.run(`INSERT OR IGNORE INTO component_types (slug, ecosystem_id, title) VALUES ('wordpress-plugin', (SELECT id FROM ecosystems WHERE slug = 'wordpress'), 'WordPress Plugin')`);
+  await db.run(`INSERT OR IGNORE INTO component_types (slug, ecosystem_id, title) VALUES ('wordpress-theme', (SELECT id FROM ecosystems WHERE slug = 'wordpress'), 'WordPress Theme')`);
+  await db.run(`INSERT OR IGNORE INTO component_types (slug, ecosystem_id, title) VALUES ('npm-package', (SELECT id FROM ecosystems WHERE slug = 'npm'), 'npm Package')`);
 
   // Create components table
   await db.exec(`

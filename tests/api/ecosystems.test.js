@@ -46,10 +46,10 @@ describe('Ecosystems API', () => {
     `);
 
     // Seed active ecosystems
-    await db.run(`INSERT INTO ecosystems (slug, name, description, active) VALUES ('wordpress', 'WordPress', 'WordPress plugins and themes', 1)`);
-    await db.run(`INSERT INTO ecosystems (slug, name, description, active) VALUES ('npm', 'npm', 'Node.js npm packages', 1)`);
+    await db.run(`INSERT OR IGNORE INTO ecosystems (slug, name, description, active) VALUES ('wordpress', 'WordPress', 'WordPress plugins and themes', 1)`);
+    await db.run(`INSERT OR IGNORE INTO ecosystems (slug, name, description, active) VALUES ('npm', 'npm', 'Node.js npm packages', 1)`);
     // Seed an inactive ecosystem to verify it is excluded
-    await db.run(`INSERT INTO ecosystems (slug, name, description, active) VALUES ('inactive-eco', 'Inactive', 'An inactive ecosystem', 0)`);
+    await db.run(`INSERT OR IGNORE INTO ecosystems (slug, name, description, active) VALUES ('inactive-eco', 'Inactive', 'An inactive ecosystem', 0)`);
 
     // Create a test user
     adminUser = await createTestUser(db, {
@@ -122,11 +122,10 @@ describe('Ecosystems API', () => {
       const response = await request(app).get('/api/ecosystems').set('X-API-Key', adminApiKey);
       expect(response.status).toBe(200);
       for (const eco of response.body) {
-        expect(eco).toHaveProperty('id');
+        expect(eco).not.toHaveProperty('id');
         expect(eco).toHaveProperty('slug');
         expect(eco).toHaveProperty('name');
         expect(eco).toHaveProperty('active');
-        expect(typeof eco.id).toBe('number');
         expect(typeof eco.slug).toBe('string');
         expect(typeof eco.name).toBe('string');
         expect(typeof eco.active).toBe('boolean');
@@ -141,11 +140,11 @@ describe('Ecosystems API', () => {
       }
     });
 
-    it('should return integer ids (not strings)', async () => {
+    it('should not expose the internal id field', async () => {
       const response = await request(app).get('/api/ecosystems').set('X-API-Key', adminApiKey);
       expect(response.status).toBe(200);
       for (const eco of response.body) {
-        expect(Number.isInteger(eco.id)).toBe(true);
+        expect(eco).not.toHaveProperty('id');
       }
     });
   });

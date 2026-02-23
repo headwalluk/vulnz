@@ -26,13 +26,21 @@ const { logApiCall } = require('../middleware/logApiCall');
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/ComponentType'
+ *       401:
+ *         description: Unauthorized.
+ *       500:
+ *         description: Server error.
  */
 router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
   try {
-    const componentTypes = await db.query('SELECT * FROM component_types');
+    const componentTypes = await db.query(`
+      SELECT ct.slug, e.slug AS ecosystem, ct.title
+      FROM component_types ct
+      LEFT JOIN ecosystems e ON e.id = ct.ecosystem_id
+      ORDER BY ct.slug
+    `);
     res.json(componentTypes);
   } catch (err) {
-    console.error(err);
     res.status(500).send('Server error');
   }
 });
@@ -47,20 +55,20 @@ module.exports = router;
  *       type: object
  *       required:
  *         - slug
- *         - name
+ *         - ecosystem
+ *         - title
  *       properties:
- *         id:
- *           type: integer
- *           description: The component type ID.
- *           readOnly: true
  *         slug:
  *           type: string
  *           description: The component type slug.
- *         name:
+ *         ecosystem:
  *           type: string
- *           description: The component type name.
+ *           description: The slug of the ecosystem this component type belongs to.
+ *         title:
+ *           type: string
+ *           description: The human-readable component type name.
  *       example:
- *         id: 1
  *         slug: "wordpress-plugin"
- *         name: "WordPress Plugin"
+ *         ecosystem: "wordpress"
+ *         title: "WordPress Plugin"
  */
