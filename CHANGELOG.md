@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.23.0 - 2026-03-16
+
+### Security
+
+- **npm audit fixes**: Updated `express-rate-limit`, `qs`, `svgo`, `flatted`, and `ajv` to resolve 5 known vulnerabilities (1 moderate, 4 high)
+  - `express-rate-limit`: Fixed IPv4-mapped IPv6 address bypass for per-client rate limiting on dual-stack networks
+  - `qs`: Fixed arrayLimit bypass in comma parsing (DoS)
+  - `svgo`: Fixed DoS through entity expansion in DOCTYPE (Billion Laughs)
+  - `flatted`: Fixed unbounded recursion DoS in `parse()` revive phase
+  - `ajv`: Fixed ReDoS when using `$data` option
+
+---
+
 ## 1.22.3 - 2026-02-23
 
 ### Bug Fixes
