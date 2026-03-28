@@ -14,6 +14,7 @@ const user = require('../src/models/user');
 const apiKey = require('../src/models/apiKey');
 const feed = require('../src/models/feed');
 const appSetting = require('../src/models/appSetting');
+const userSubscription = require('../src/models/userSubscription');
 const notificationSite = require('../src/models/notificationSite');
 const notificationQueue = require('../src/models/notificationQueue');
 const { processQueue } = require('../src/lib/notificationProcessor');
@@ -196,6 +197,102 @@ program
       }
       await user.updatePassword(parseInt(found.id, 10), newPassword);
       console.log(`Password reset for user: ${email} (id=${found.id})`);
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// user:info <email> [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('user:info <email>')
+  .description('Show full account details for a user')
+  .option('--json', 'Output as JSON')
+  .action(async (email, opts) => {
+    try {
+      const found = await user.findUserByUsername(email);
+      if (!found) {
+        process.stderr.write(`Error: User '${email}' not found.\n`);
+        await db.end();
+        process.exit(1);
+      }
+
+      const userId = parseInt(found.id, 10);
+      const roles = await user.getRoles(userId);
+      const keys = await apiKey.listByUserId(userId);
+      const subs = await userSubscription.findByUserId(userId);
+
+      const status = found.blocked ? 'BLOCKED' : found.paused ? 'paused' : 'active';
+
+      if (opts.json) {
+        console.log(
+          JSON.stringify(
+            {
+              id: userId,
+              username: found.username,
+              status,
+              blocked: Boolean(found.blocked),
+              paused: Boolean(found.paused),
+              roles,
+              max_api_keys: parseInt(found.max_api_keys, 10),
+              reporting_email: found.reporting_email || null,
+              reporting_weekday: found.reporting_weekday || null,
+              enable_white_label: Boolean(found.enable_white_label),
+              api_keys: keys.map((k) => ({
+                id: parseInt(k.id, 10),
+                api_key: k.api_key,
+                created_at: k.createdAt,
+              })),
+              subscriptions: subs.map((s) => ({
+                site_url: s.site_url,
+                wp_user_id: parseInt(s.wp_user_id, 10),
+                subscription_id: s.subscription_id ? parseInt(s.subscription_id, 10) : null,
+                effective_state: s.effective_state,
+                max_sites: parseInt(s.max_sites, 10),
+                perpetual: Boolean(s.perpetual),
+              })),
+            },
+            null,
+            2
+          )
+        );
+      } else {
+        console.log(`User: ${found.username} (id=${userId})`);
+        console.log(`Status: ${status}`);
+        console.log(`Roles: ${roles.join(', ')}`);
+        console.log(`Max API Keys: ${found.max_api_keys}`);
+        console.log(`Reporting Email: ${found.reporting_email || '-'}`);
+        console.log(`Reporting Day: ${found.reporting_weekday || '-'}`);
+        console.log(`White Label: ${found.enable_white_label ? 'yes' : 'no'}`);
+        console.log('');
+
+        if (keys.length === 0) {
+          console.log('API Keys: none');
+        } else {
+          console.log('API Keys:');
+          for (const k of keys) {
+            const created = k.createdAt instanceof Date ? k.createdAt.toISOString() : String(k.createdAt);
+            console.log(`  ${k.api_key}  (created ${created})`);
+          }
+        }
+        console.log('');
+
+        if (subs.length === 0) {
+          console.log('Subscriptions: none');
+        } else {
+          console.log('Subscriptions:');
+          for (const s of subs) {
+            const perp = s.perpetual ? ' [perpetual]' : '';
+            console.log(`  ${s.site_url}  state=${s.effective_state}  max_sites=${s.max_sites}${perp}`);
+          }
+        }
+      }
+
       await db.end();
       process.exit(0);
     } catch (err) {
