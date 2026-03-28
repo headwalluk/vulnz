@@ -1,5 +1,55 @@
 # Changelog
 
+## 1.24.0 - 2026-03-28
+
+### Features
+
+- **WooCommerce subscription integration**: New notification system allows WordPress/WooCommerce sites to sync subscription state with the API. WordPress sends a lightweight notification on subscription changes; the API server pulls full customer and subscription data, provisions user accounts, and manages API keys automatically
+- **Notification queue**: Inbound notifications can be processed immediately or queued for async processing with retry and exponential backoff. Processing mode is configurable via the `notifications.processing_mode` app setting
+- **Multi-source site support**: Multiple WordPress/WooCommerce sites can feed into a single API instance, each with independent credentials. "Active on any site = active" precedence rule resolves conflicts when the same user exists on multiple sites
+- **API key auto-provisioning**: When a subscription notification is processed and the user has no API key, one is generated and pushed back to the originating WordPress site
+- **CLI: app settings management**: New `setting:get`, `setting:set`, and `setting:list` commands for managing database-backed runtime configuration
+- **CLI: notification site management**: New `site:add`, `site:list`, and `site:remove` commands for registering WordPress/WooCommerce notification sources
+- **CLI: notification queue management**: New `queue:status` and `queue:process` commands for monitoring and manually processing the notification queue
+
+### Security
+
+- **Timing-safe secret comparison**: Notification endpoint uses `crypto.timingSafeEqual` to prevent timing attacks on the shared secret
+- **Rate limiting on notifications**: 30 requests per minute per IP on the notification endpoint
+- **Swagger security schemes**: Added `ApiKeyAuth` and `VulnzSecret` security scheme definitions to OpenAPI spec
+- **CORS**: Added `X-Vulnz-Secret` to allowed headers
+- **npm audit fixes**: Updated nodemailer (v7→v8, SMTP command injection fix), handlebars, flatted, brace-expansion, path-to-regexp, picomatch
+- **npm updates**: Updated cssnano, dotenv, html-validate, jest, mariadb, maxmind, nodemon, postcss, sanitize-html, terser to latest minor/patch versions
+
+### Bug Fixes
+
+- **componentTypes route**: Added missing `console.error(err)` in catch block to match project error handling pattern
+- **BigInt serialization in CLI**: Added `BigInt.prototype.toJSON` patch to CLI entrypoint (was only in server)
+
+### Documentation
+
+- **README refactored**: Trimmed to project summary, quick start, and documentation links. Detailed content moved to `docs/`
+- **New `docs/cli.md`**: Full CLI reference covering all 15 commands across 6 sections
+- **Updated `docs/README.md`**: Revised documentation index with architecture diagram
+- **Removed `docs-old-to-be-deleted/`**: Deleted 18 superseded documentation files
+- **Fixed dead links**: Removed broken references to deleted docs across README and `docs/` files
+- **Test count updated**: 202 tests passing (up from 184)
+
+### New Files
+
+- `src/migrations/20260328120000-add-notification-integration.js`
+- `src/migrations/20260328140000-rename-pull-secret-to-data-secret.js`
+- `src/models/notificationSite.js`
+- `src/models/notificationQueue.js`
+- `src/models/userSubscription.js`
+- `src/middleware/notifyAuth.js`
+- `src/routes/notifications.js`
+- `src/lib/notificationProcessor.js`
+- `tests/api/notifications.test.js`
+- `docs/cli.md`
+
+---
+
 ## 1.23.0 - 2026-03-16
 
 ### Security

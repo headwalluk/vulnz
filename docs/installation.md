@@ -82,7 +82,7 @@ For development:
 npm run dev
 ```
 
-For production (see [Deployment Guide](deployment.md)):
+For production:
 
 ```bash
 npm run build
@@ -186,7 +186,7 @@ Configure automated database backups:
 mysqldump -u vulnz -p vulnz > backup.sql
 ```
 
-See [Backup & Restore](backup-restore.md) for more details.
+See [Database Setup](database-setup.md) for more details on backups.
 
 ---
 
@@ -297,7 +297,4 @@ bash scripts/generate-session-secret.sh
 ## Next Steps
 
 - [Configure](configuration.md) additional settings
-- Set up [Production Deployment](deployment.md)
-- Configure [Reverse Proxy](reverse-proxy.md)
-- Enable [Weekly Reports](weekly-reports.md)
 - Explore the [API](api-usage.md)

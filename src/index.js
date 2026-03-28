@@ -62,6 +62,7 @@ const configRoutes = require('./routes/config');
 const reportRoutes = require('./routes/reports');
 const settingsRoutes = require('./routes/settings');
 const ecosystemRoutes = require('./routes/ecosystems');
+const notificationRoutes = require('./routes/notifications');
 const { redirectIfAuthenticated, isAuthenticatedPage, isAdminPage } = require('./middleware/auth');
 const { versionAssets } = require('./middleware/versionAssets');
 const { setCacheControl } = require('./middleware/cacheControl');
@@ -79,6 +80,8 @@ const securityEventType = require('./models/securityEventType');
 const fileSecurityIssue = require('./models/fileSecurityIssue');
 const componentChange = require('./models/componentChange');
 const appSetting = require('./models/appSetting');
+const notificationQueue = require('./models/notificationQueue');
+const { processQueue } = require('./lib/notificationProcessor');
 
 // Swagger definition
 const swaggerOptions = {
@@ -86,7 +89,7 @@ const swaggerOptions = {
     openapi: '3.0.0',
     info: {
       title: 'vulnz API',
-      version: '1.23.0',
+      version: '1.24.0',
       description: 'API for WordPress vulnerability database',
     },
     servers: [
@@ -94,6 +97,22 @@ const swaggerOptions = {
         url: process.env.BASE_URL,
       },
     ],
+    components: {
+      securitySchemes: {
+        ApiKeyAuth: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'X-API-Key',
+          description: 'API key for user authentication',
+        },
+        VulnzSecret: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'X-Vulnz-Secret',
+          description: 'Shared secret for server-to-server notification endpoints',
+        },
+      },
+    },
   },
   apis: ['./src/routes/*.js'], // files containing annotations as above
 };
@@ -122,9 +141,7 @@ app.get('/openapi.json', (req, res) => {
 
 app.use(
   helmet({
-    contentSecurityPolicy: process.env.NODE_ENV !== 'production'
-      ? { directives: { upgradeInsecureRequests: null } }
-      : undefined,
+    contentSecurityPolicy: process.env.NODE_ENV !== 'production' ? { directives: { upgradeInsecureRequests: null } } : undefined,
   })
 );
 
@@ -153,7 +170,7 @@ if (process.env.CORS_ENABLED === 'true') {
     },
     credentials: process.env.CORS_CREDENTIALS === 'true',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Vulnz-Secret'],
   };
 
   app.use(cors(corsOptions));
@@ -265,6 +282,7 @@ app.use('/api/config', configRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/ecosystems', ecosystemRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Serve static assets from the same root
 app.use(setCacheControl);
@@ -404,6 +422,30 @@ async function startServer() {
           console.log(`Purged ${deletedCount} old component change(s).`);
         } catch (err) {
           console.error('Error purging old component changes:', err);
+        }
+      });
+
+      // Process notification queue (every 2 minutes)
+      cron.schedule('*/2 * * * *', async () => {
+        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to process notification queue...');
+        try {
+          const processed = await processQueue(10);
+          if (processed > 0) {
+            console.log(`Processed ${processed} queued notification(s).`);
+          }
+        } catch (err) {
+          console.error('Error processing notification queue:', err);
+        }
+      });
+
+      // Purge old notification queue entries (weekly on Sunday at 4 AM)
+      cron.schedule('0 4 * * 0', async () => {
+        console.log('Running cron job to purge old notification queue entries...');
+        try {
+          const purged = await notificationQueue.purgeOld(30);
+          console.log(`Purged ${purged} old notification queue entry/entries.`);
+        } catch (err) {
+          console.error('Error purging notification queue:', err);
         }
       });
 

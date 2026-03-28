@@ -387,6 +387,4 @@ Note: Sensitive values (passwords, secrets) should still be in `.env`, not the e
 ## Next Steps
 
 - Review [Installation Guide](installation.md)
-- Set up [Production Deployment](deployment.md)
-- Configure [Weekly Reports](weekly-reports.md)
 - Explore [API Usage](api-usage.md)
