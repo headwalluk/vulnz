@@ -3,8 +3,8 @@
   "lead": "Zee",
   "last_updated": "2026-03-28",
   "current_status": {
-    "summary": "v1.24.0 released — WooCommerce subscription notification integration, CLI settings/site/queue management, documentation refactor. 202 tests passing.",
-    "next_action": "End-to-end testing of notification integration with dev WP/Woo site at devx.headwall.tech."
+    "summary": "v1.25.0 released — user:info CLI command, reporting preferences from WP subscriptions, migration fix for fresh installs. 202 tests passing.",
+    "next_action": "Continue end-to-end testing of notification integration with dev WP/Woo site at devx.headwall.tech."
   },
   "milestones": [
     {

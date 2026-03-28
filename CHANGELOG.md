@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.25.0 - 2026-03-28
+
+### Features
+
+- **CLI `user:info`**: New command shows full account details including status, roles, reporting preferences, API keys, and subscription state across all notification sites. Supports `--json` output
+- **Reporting preferences from WP subscriptions**: The notification processor now picks up `reporting_email` and `reporting_weekday` from the WordPress subscription response and applies them to the user account, keeping preferences in sync with the WP/Woo site
+
+### Bug Fixes
+
+- **Safe migration for fresh installs**: The `pull_secret→data_secret` column rename migration now checks whether the old column exists before attempting the rename, preventing errors on fresh installs where the first migration already creates the column as `data_secret`
+
+### Documentation
+
+- **`docs/cli.md`**: Added `user:info` command documentation
+
+---
+
 ## 1.24.0 - 2026-03-28
 
 ### Features

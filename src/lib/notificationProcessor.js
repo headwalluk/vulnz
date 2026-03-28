@@ -147,7 +147,19 @@ async function processNotification(site, wpUserId, event) {
     next_renewal_date: subscription.next_renewal_date || null,
   });
 
-  // 6. Sync blocked state across all sites
+  // 6. Update reporting preferences if provided by the WP subscription
+  const reportingUpdates = {};
+  if (subscription.reporting_email !== undefined) {
+    reportingUpdates.reporting_email = subscription.reporting_email;
+  }
+  if (subscription.reporting_weekday !== undefined) {
+    reportingUpdates.reporting_weekday = subscription.reporting_weekday;
+  }
+  if (Object.keys(reportingUpdates).length > 0) {
+    await user.updateUser(userId, reportingUpdates);
+  }
+
+  // 7. Sync blocked state across all sites
   await syncUserBlockedState(userId);
 
   // 7. Provision API key if the user is active, has none, and is allowed at least one

@@ -89,7 +89,7 @@ const swaggerOptions = {
     openapi: '3.0.0',
     info: {
       title: 'vulnz API',
-      version: '1.24.0',
+      version: '1.25.0',
       description: 'API for WordPress vulnerability database',
     },
     servers: [

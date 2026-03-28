@@ -131,6 +131,38 @@ Password reset for user: alice@example.com (id=2)
 
 ---
 
+### `user:info <email> [--json]`
+
+Show full account details including status, roles, reporting preferences, API keys, and subscription state.
+
+```bash
+# Table view
+node bin/vulnz.js user:info alice@example.com
+
+# JSON output
+node bin/vulnz.js user:info alice@example.com --json
+```
+
+Output:
+
+```
+User: alice@example.com (id=3)
+Status: active
+Roles: user
+Max API Keys: 1
+Reporting Email: alice@example.com
+Reporting Day: MON
+White Label: no
+
+API Keys:
+  abc123def456abc123def456abc123def456  (created 2026-03-28T14:30:00.000Z)
+
+Subscriptions:
+  https://vulnz.net  state=active  max_sites=50
+```
+
+---
+
 ## API Key Management Commands
 
 API keys are used by WordPress sites and other clients to authenticate with the VULNZ REST API.
