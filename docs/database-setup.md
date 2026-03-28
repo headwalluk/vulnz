@@ -394,5 +394,3 @@ When upgrading MySQL/MariaDB:
 
 - [Install VULNZ](installation.md)
 - [Configure Environment](configuration.md)
-- [Set Up Backups](backup-restore.md)
-- [Deploy to Production](deployment.md)

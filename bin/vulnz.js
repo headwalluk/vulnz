@@ -4,10 +4,19 @@
 // dotenv must load before any src/ modules touch process.env
 require('dotenv').config();
 
+// Allow BigInt JSON serialization (same patch as src/index.js)
+BigInt.prototype.toJSON = function () {
+  return this.toString();
+};
+
 const { Command } = require('commander');
 const user = require('../src/models/user');
 const apiKey = require('../src/models/apiKey');
 const feed = require('../src/models/feed');
+const appSetting = require('../src/models/appSetting');
+const notificationSite = require('../src/models/notificationSite');
+const notificationQueue = require('../src/models/notificationQueue');
+const { processQueue } = require('../src/lib/notificationProcessor');
 const db = require('../src/db');
 
 const program = new Command();
@@ -422,6 +431,257 @@ program
         }
       }
 
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// setting:get <key>
+// ---------------------------------------------------------------------------
+program
+  .command('setting:get <key>')
+  .description('Get an app setting value')
+  .option('--json', 'Output as JSON')
+  .action(async (key, opts) => {
+    try {
+      const value = await appSetting.get(key);
+      if (value === null) {
+        process.stderr.write(`Error: Setting '${key}' not found.\n`);
+        await db.end();
+        process.exit(1);
+      }
+
+      if (opts.json) {
+        console.log(JSON.stringify({ key, value }));
+      } else {
+        console.log(value);
+      }
+
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// setting:set <key> <value> [--type <type>] [--description <desc>] [--category <cat>]
+// ---------------------------------------------------------------------------
+program
+  .command('setting:set <key> <value>')
+  .description('Set an app setting value')
+  .option('--type <type>', 'Value type: string, integer, float, boolean', 'string')
+  .option('--description <desc>', 'Human-readable description')
+  .option('--category <cat>', 'Category for grouping')
+  .action(async (key, value, opts) => {
+    try {
+      await appSetting.set(key, value, opts.type, opts.description || null, opts.category || null);
+      const stored = await appSetting.get(key);
+      console.log(`${key} = ${stored}`);
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// setting:list [--category <cat>] [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('setting:list')
+  .description('List app settings')
+  .option('--category <cat>', 'Filter by category')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const settings = await appSetting.getAll(opts.category || null);
+
+      if (opts.json) {
+        console.log(JSON.stringify(settings, null, 2));
+      } else {
+        if (settings.length === 0) {
+          console.log('No settings found.');
+        } else {
+          const colWidths = {
+            key: Math.max(3, ...settings.map((s) => s.key.length)),
+            value: Math.max(5, ...settings.map((s) => String(s.value).length)),
+            type: Math.max(4, ...settings.map((s) => s.type.length)),
+            category: Math.max(8, ...settings.map((s) => (s.category || '').length)),
+          };
+
+          const pad = (str, len) => String(str || '').padEnd(len);
+          const header = `${pad('KEY', colWidths.key)}  ${pad('VALUE', colWidths.value)}  ${pad('TYPE', colWidths.type)}  CATEGORY`;
+          const divider = '-'.repeat(header.length + 5);
+          console.log(header);
+          console.log(divider);
+
+          for (const s of settings) {
+            console.log(`${pad(s.key, colWidths.key)}  ${pad(s.value, colWidths.value)}  ${pad(s.type, colWidths.type)}  ${s.category || '-'}`);
+          }
+        }
+      }
+
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// site:add <url> <data-secret> [--ip-allowlist <ips>]
+// ---------------------------------------------------------------------------
+program
+  .command('site:add <url> <data-secret>')
+  .description('Register a WordPress/WooCommerce notification site')
+  .option('--ip-allowlist <ips>', 'Comma-separated IP allowlist')
+  .action(async (url, dataSecret, opts) => {
+    try {
+      const existing = await notificationSite.findByUrl(url);
+      if (existing) {
+        process.stderr.write(`Error: Site '${url}' is already registered (id=${existing.id}).\n`);
+        await db.end();
+        process.exit(1);
+      }
+
+      const site = await notificationSite.create(url, dataSecret, opts.ipAllowlist || null);
+      console.log(`Registered site: ${url} (id=${parseInt(site.id, 10)})`);
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// site:list [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('site:list')
+  .description('List registered notification sites')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const sites = await notificationSite.findAll();
+
+      if (opts.json) {
+        console.log(JSON.stringify(sites, null, 2));
+      } else {
+        if (sites.length === 0) {
+          console.log('No notification sites registered.');
+        } else {
+          const colWidths = {
+            id: Math.max(2, ...sites.map((s) => String(s.id).length)),
+            site_url: Math.max(8, ...sites.map((s) => s.site_url.length)),
+            active: 6,
+          };
+
+          const pad = (str, len) => String(str).padEnd(len);
+          const header = `${pad('ID', colWidths.id)}  ${pad('SITE URL', colWidths.site_url)}  ${pad('ACTIVE', colWidths.active)}  IP ALLOWLIST`;
+          const divider = '-'.repeat(header.length + 10);
+          console.log(header);
+          console.log(divider);
+
+          for (const s of sites) {
+            const active = s.active ? 'yes' : 'no';
+            const ips = s.ip_allowlist || '-';
+            console.log(`${pad(s.id, colWidths.id)}  ${pad(s.site_url, colWidths.site_url)}  ${pad(active, colWidths.active)}  ${ips}`);
+          }
+        }
+      }
+
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// site:remove <url>
+// ---------------------------------------------------------------------------
+program
+  .command('site:remove <url>')
+  .description('Remove a registered notification site')
+  .action(async (url) => {
+    try {
+      const site = await notificationSite.findByUrl(url);
+      if (!site) {
+        process.stderr.write(`Error: Site '${url}' not found.\n`);
+        await db.end();
+        process.exit(1);
+      }
+
+      await notificationSite.remove(parseInt(site.id, 10));
+      console.log(`Removed site: ${url} (id=${site.id})`);
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// queue:status [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('queue:status')
+  .description('Show notification queue status')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const status = await notificationQueue.getStatus();
+
+      if (opts.json) {
+        console.log(JSON.stringify(status, null, 2));
+      } else {
+        console.log('Notification Queue');
+        console.log('------------------');
+        console.log(`  Pending:     ${String(status.pending).padStart(6)}`);
+        console.log(`  Processing:  ${String(status.processing).padStart(6)}`);
+        console.log(`  Completed:   ${String(status.completed).padStart(6)}`);
+        console.log(`  Failed:      ${String(status.failed).padStart(6)}`);
+      }
+
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// queue:process [--batch-size <n>]
+// ---------------------------------------------------------------------------
+program
+  .command('queue:process')
+  .description('Process pending notifications from the queue')
+  .option('--batch-size <n>', 'Number of notifications to process', '10')
+  .action(async (opts) => {
+    try {
+      const batchSize = parseInt(opts.batchSize, 10) || 10;
+      const processed = await processQueue(batchSize);
+      console.log(`Processed ${processed} notification(s).`);
       await db.end();
       process.exit(0);
     } catch (err) {

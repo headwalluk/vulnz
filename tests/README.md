@@ -230,10 +230,6 @@ Verify that:
 
 Planned test coverage:
 
-- [ ] `/api/websites` - Website CRUD and validation
-- [ ] `/api/users` - User management and roles
-- [ ] `/api/plugins` - Plugin vulnerability checks
-- [ ] `/api/themes` - Theme vulnerability checks
 - [ ] `/api/reports` - Security report generation
 - [ ] `/api/security-events` - Security event logging
 - [ ] Integration tests for cron jobs

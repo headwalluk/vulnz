@@ -79,6 +79,30 @@ async function createTestDatabase() {
           `;
         }
       }
+
+      // For user_subscriptions table with UNIQUE(user_id, site_id)
+      if (convertedSql.includes('user_subscriptions')) {
+        const insertMatch = convertedSql.match(/INSERT INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+        if (insertMatch) {
+          const tableName = insertMatch[1];
+          const columns = insertMatch[2].split(',').map((c) => c.trim());
+
+          convertedSql = `
+            INSERT INTO ${tableName} (${columns.join(', ')})
+            VALUES (${columns.map(() => '?').join(', ')})
+            ON CONFLICT(user_id, site_id) DO UPDATE SET
+              wp_user_id = excluded.wp_user_id,
+              subscription_id = excluded.subscription_id,
+              account_email = excluded.account_email,
+              effective_state = excluded.effective_state,
+              max_sites = excluded.max_sites,
+              perpetual = excluded.perpetual,
+              renewal_amount = excluded.renewal_amount,
+              next_renewal_date = excluded.next_renewal_date,
+              updated_at = CURRENT_TIMESTAMP
+          `;
+        }
+      }
     }
 
     if (convertedSql.trim().toUpperCase().startsWith('SELECT') || convertedSql.trim().toUpperCase().startsWith('SHOW')) {
@@ -250,8 +274,12 @@ async function initializeSchema(db) {
   `);
 
   // Seed component types
-  await db.run(`INSERT OR IGNORE INTO component_types (slug, ecosystem_id, title) VALUES ('wordpress-plugin', (SELECT id FROM ecosystems WHERE slug = 'wordpress'), 'WordPress Plugin')`);
-  await db.run(`INSERT OR IGNORE INTO component_types (slug, ecosystem_id, title) VALUES ('wordpress-theme', (SELECT id FROM ecosystems WHERE slug = 'wordpress'), 'WordPress Theme')`);
+  await db.run(
+    `INSERT OR IGNORE INTO component_types (slug, ecosystem_id, title) VALUES ('wordpress-plugin', (SELECT id FROM ecosystems WHERE slug = 'wordpress'), 'WordPress Plugin')`
+  );
+  await db.run(
+    `INSERT OR IGNORE INTO component_types (slug, ecosystem_id, title) VALUES ('wordpress-theme', (SELECT id FROM ecosystems WHERE slug = 'wordpress'), 'WordPress Theme')`
+  );
   await db.run(`INSERT OR IGNORE INTO component_types (slug, ecosystem_id, title) VALUES ('npm-package', (SELECT id FROM ecosystems WHERE slug = 'npm'), 'npm Package')`);
 
   // Create components table
@@ -314,6 +342,59 @@ async function initializeSchema(db) {
       is_system INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Create notification_sites table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS notification_sites (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      site_url VARCHAR(255) NOT NULL UNIQUE,
+      data_secret VARCHAR(255) NOT NULL,
+      ip_allowlist TEXT,
+      active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Create notification_queue table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS notification_queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      site_id INTEGER NOT NULL,
+      wp_user_id INTEGER NOT NULL,
+      event VARCHAR(50) NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      max_attempts INTEGER NOT NULL DEFAULT 5,
+      next_retry_at DATETIME,
+      error_message TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      processed_at DATETIME,
+      FOREIGN KEY (site_id) REFERENCES notification_sites(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create user_subscriptions table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS user_subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      site_id INTEGER NOT NULL,
+      wp_user_id INTEGER NOT NULL,
+      subscription_id INTEGER,
+      account_email VARCHAR(255) NOT NULL,
+      effective_state VARCHAR(30) NOT NULL DEFAULT 'provisioning',
+      max_sites INTEGER NOT NULL DEFAULT 0,
+      perpetual INTEGER DEFAULT 0,
+      renewal_amount DECIMAL(10, 2),
+      next_renewal_date DATE,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (site_id) REFERENCES notification_sites(id) ON DELETE CASCADE,
+      UNIQUE(user_id, site_id)
     )
   `);
 

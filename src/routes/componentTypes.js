@@ -41,6 +41,7 @@ router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
     `);
     res.json(componentTypes);
   } catch (err) {
+    console.error(err);
     res.status(500).send('Server error');
   }
 });

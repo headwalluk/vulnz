@@ -6,15 +6,19 @@ Testing patterns and practices for VULNZ.
 
 ## Test Status
 
-**Current Coverage**: 114/114 tests passing (10 intentionally skipped)
+**Current Coverage**: 202/202 tests passing (10 intentionally skipped)
 
 - ✅ Auth API: 22/22 passing (2 skipped - rate limiting)
 - ✅ Components API: 30/30 passing (4 skipped - production behavior differences)
+- ✅ Ecosystems API: 9/9 passing
+- ✅ Notifications API: 18/18 passing
 - ✅ Settings API: 21/21 passing
 - ✅ Users API: 29/29 passing (4 skipped - production behavior differences)
 - ✅ Websites API: 12/12 passing
+- ✅ Websites npm API: 18/18 passing
+- ✅ CLI: 43/43 passing
 
-**Last Updated**: January 2, 2026
+**Last Updated**: March 28, 2026
 
 ---
 

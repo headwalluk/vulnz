@@ -618,7 +618,6 @@ curl -X POST \
 ## Next Steps
 
 - Explore [Interactive API Docs](http://localhost:3000/doc)
-- Set up [Weekly Reports](weekly-reports.md)
 - Configure [WordPress Plugin Integration](https://github.com/headwalluk/vulnz-wordpress-plugin)
 - Track npm packages with [vulnz-sensor](../packages/vulnz-sensor/README.md)
 - Review [Security Best Practices](configuration.md#security)

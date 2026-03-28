@@ -1,10 +1,10 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-03-16",
+  "last_updated": "2026-03-28",
   "current_status": {
-    "summary": "v1.23.0 released — npm audit security fixes for express-rate-limit, qs, svgo, flatted, and ajv. All milestones (M1–M4) complete, 184 tests passing.",
-    "next_action": "None — project complete. Ready for review and merge."
+    "summary": "v1.24.0 released — WooCommerce subscription notification integration, CLI settings/site/queue management, documentation refactor. 202 tests passing.",
+    "next_action": "End-to-end testing of notification integration with dev WP/Woo site at devx.headwall.tech."
   },
   "milestones": [
     {
@@ -160,6 +160,59 @@
         {
           "id": "M4.8",
           "description": "Update documentation: README, CHANGELOG, API docs",
+          "done": true
+        }
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "WooCommerce Subscription Integration",
+      "status": "complete",
+      "notes": "Server-to-server notification system linking WordPress/WooCommerce sites to the API. WP sends fat-ping notifications; API pulls data and manages user accounts. Supports multiple source sites with per-site credentials.",
+      "tasks": [
+        {
+          "id": "M5.1",
+          "description": "DB migration: notification_sites, notification_queue, user_subscriptions tables + notifications.processing_mode app setting",
+          "done": true
+        },
+        {
+          "id": "M5.2",
+          "description": "Models: notificationSite, notificationQueue, userSubscription with multi-source precedence logic",
+          "done": true
+        },
+        {
+          "id": "M5.3",
+          "description": "POST /api/notifications/subscription-changed endpoint with X-Vulnz-Secret auth, rate limiting, IP allowlist, queue/immediate mode",
+          "done": true
+        },
+        {
+          "id": "M5.4",
+          "description": "Notification processor: pull from WP REST API, upsert user/subscription, auto-provision API keys, push keys back to WP",
+          "done": true
+        },
+        {
+          "id": "M5.5",
+          "description": "CLI commands: site:add/list/remove, queue:status/process, setting:get/set/list",
+          "done": true
+        },
+        {
+          "id": "M5.6",
+          "description": "Cron jobs: queue processing every 2 minutes, queue purge weekly",
+          "done": true
+        },
+        {
+          "id": "M5.7",
+          "description": "Security: timing-safe secret comparison, rate limiting, Swagger security schemes, CORS header",
+          "done": true
+        },
+        {
+          "id": "M5.8",
+          "description": "Tests: 18 notification API tests covering auth, validation, queue/immediate modes, idempotency, API key provisioning",
+          "done": true
+        },
+        {
+          "id": "M5.9",
+          "description": "Documentation: docs/cli.md, README refactor, changelog, updated test counts",
           "done": true
         }
       ]
