@@ -90,13 +90,28 @@ router.get('/search', unauthenticatedSearchLimiter, optionalApiOrSessionAuth, lo
  *         description: The number of components to retrieve per page.
  *     responses:
  *       200:
- *         description: A list of components.
+ *         description: A paginated list of components.
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Component'
+ *               type: object
+ *               properties:
+ *                 components:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Component'
+ *                 total:
+ *                   type: integer
+ *                 page:
+ *                   type: integer
+ *                 limit:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
  */
 router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
   try {
@@ -188,15 +203,20 @@ router.post('/', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (
  *           schema:
  *             type: object
  *             required:
- *               - url
+ *               - urls
  *             properties:
- *               url:
- *                 type: string
- *               description:
- *                 type: string
+ *               urls:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of vulnerability reference URLs
  *     responses:
- *       201:
- *         description: The created vulnerability.
+ *       200:
+ *         description: Vulnerabilities created for the release
+ *       400:
+ *         description: Invalid input (urls must be an array of valid URLs)
+ *       404:
+ *         description: Component type not found
  */
 router.post('/:componentTypeSlug/:componentSlug/:version', apiOrSessionAuth, logApiCall, sanitiseComponentSlugMiddleware, async (req, res) => {
   try {

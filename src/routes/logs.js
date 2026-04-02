@@ -4,7 +4,58 @@ const db = require('../db');
 const { apiOrSessionAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 
-// Get all API call logs
+/**
+ * @swagger
+ * /api/logs:
+ *   get:
+ *     summary: Get API call logs
+ *     tags:
+ *       - Logs
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Items per page (default 50)
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *         description: Sort order by timestamp (default desc)
+ *       - in: query
+ *         name: username
+ *         schema:
+ *           type: string
+ *         description: Filter logs by username
+ *     responses:
+ *       200:
+ *         description: Paginated list of API call logs
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 logs:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 total:
+ *                   type: integer
+ *                 page:
+ *                   type: integer
+ *                 limit:
+ *                   type: integer
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
 router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;

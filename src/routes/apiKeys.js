@@ -15,6 +15,39 @@ const { logApiCall } = require('../middleware/logApiCall');
 /**
  * @swagger
  * /api/api-keys:
+ *   get:
+ *     summary: List the current user's API keys
+ *     tags: [API Keys]
+ *     responses:
+ *       200:
+ *         description: An array of API key objects.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   api_key:
+ *                     type: string
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
+  try {
+    const rows = await db.query('SELECT api_key FROM api_keys WHERE user_id = ?', [req.user.id]);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+/**
+ * @swagger
+ * /api/api-keys:
  *   post:
  *     summary: Generate a new API key
  *     tags: [API Keys]
@@ -30,17 +63,11 @@ const { logApiCall } = require('../middleware/logApiCall');
  *                   type: string
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Maximum number of API keys reached
+ *       500:
+ *         description: Server error
  */
-router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
-  try {
-    const rows = await db.query('SELECT api_key FROM api_keys WHERE user_id = ?', [req.user.id]);
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Server error');
-  }
-});
-
 router.post('/', apiOrSessionAuth, logApiCall, async (req, res) => {
   try {
     const [user] = await db.query('SELECT max_api_keys FROM users WHERE id = ?', [req.user.id]);
@@ -59,6 +86,27 @@ router.post('/', apiOrSessionAuth, logApiCall, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/api-keys/{key}:
+ *   delete:
+ *     summary: Delete an API key
+ *     tags: [API Keys]
+ *     parameters:
+ *       - in: path
+ *         name: key
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The API key string to delete
+ *     responses:
+ *       204:
+ *         description: API key deleted
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
 router.delete('/:key', apiOrSessionAuth, logApiCall, async (req, res) => {
   try {
     const { key } = req.params;

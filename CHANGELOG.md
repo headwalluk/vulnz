@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.25.1 - 2026-04-02
+
+### Documentation
+
+- **Swagger/OpenAPI completeness**: Added missing Swagger JSDoc annotations for 8 undocumented endpoints (`GET /api/api-keys`, `DELETE /api/api-keys/:key`, `POST /api/auth/reset-password`, `POST /api/auth/update-password`, `GET /api/auth/validate-token/:token`, `GET /api/config`, `GET /api/logs`, `POST /api/reports/summary-email`)
+- **Swagger/OpenAPI accuracy**: Fixed incorrect response schemas and request bodies (`GET /api/components` response shape, `POST /api/components/.../...` `urls` array, response code 200 vs 201), added missing response codes across multiple endpoints
+- **Dynamic OpenAPI version**: Swagger `info.version` now reads from `package.json` instead of a hardcoded string
+
+---
+
 ## 1.25.0 - 2026-03-28
 
 ### Features

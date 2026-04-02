@@ -61,6 +61,10 @@ const { sanitizeEmailHtml } = require('../lib/htmlSanitizer');
  *                         type: string
  *                       reporting_email:
  *                         type: string
+ *                       enable_white_label:
+ *                         type: boolean
+ *                       white_label_html:
+ *                         type: string
  *                       roles:
  *                         type: array
  *                         items:
