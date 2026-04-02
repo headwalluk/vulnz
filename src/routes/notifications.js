@@ -60,8 +60,12 @@ const VALID_EVENTS = new Set(['subscription_created', 'subscription_updated', 's
  *         description: Invalid request body
  *       401:
  *         description: Invalid or missing X-Vulnz-Secret
+ *       403:
+ *         description: IP not in site allowlist
  *       422:
- *         description: Unknown site origin
+ *         description: Unknown or disabled site origin
+ *       500:
+ *         description: Server error
  */
 router.post('/subscription-changed', notifyLimiter, notifyAuth, async (req, res) => {
   try {

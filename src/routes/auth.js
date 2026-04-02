@@ -44,6 +44,12 @@ const { authLimiter } = require('../middleware/rateLimit');
  *     responses:
  *       201:
  *         description: User created
+ *       400:
+ *         description: Missing fields, invalid input, or email already registered
+ *       401:
+ *         description: Registration is disabled
+ *       500:
+ *         description: Server error
  */
 router.post('/register', authLimiter, logApiCall, async (req, res) => {
   if (process.env.REGISTRATION_ENABLED === 'false') {
@@ -208,6 +214,31 @@ router.get('/me', logApiCall, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   post:
+ *     summary: Request a password reset email
+ *     description: Sends a password reset link to the given email address if an account exists. Always returns 200 to prevent user enumeration.
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Reset email sent (or no-op if account does not exist)
+ *       500:
+ *         description: Server error
+ */
 router.post('/reset-password', authLimiter, logApiCall, async (req, res) => {
   try {
     const { email } = req.body;
@@ -239,6 +270,34 @@ router.post('/reset-password', authLimiter, logApiCall, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/auth/update-password:
+ *   post:
+ *     summary: Set a new password using a reset token
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - newPassword
+ *             properties:
+ *               token:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password updated successfully
+ *       400:
+ *         description: Missing fields, invalid/expired token, or password validation failed
+ *       500:
+ *         description: Server error
+ */
 router.post('/update-password', logApiCall, async (req, res) => {
   try {
     const { token, newPassword } = req.body;
@@ -269,6 +328,29 @@ router.post('/update-password', logApiCall, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/auth/validate-token/{token}:
+ *   get:
+ *     summary: Validate a password reset token
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The password reset token to validate
+ *     responses:
+ *       200:
+ *         description: Token is valid
+ *       400:
+ *         description: Token has expired
+ *       404:
+ *         description: Token not found
+ *       500:
+ *         description: Server error
+ */
 router.get('/validate-token/:token', logApiCall, async (req, res) => {
   try {
     const { token } = req.params;

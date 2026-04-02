@@ -1,9 +1,9 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-03-28",
+  "last_updated": "2026-04-02",
   "current_status": {
-    "summary": "v1.25.0 released — user:info CLI command, reporting preferences from WP subscriptions, migration fix for fresh installs. 202 tests passing.",
+    "summary": "v1.25.1 released — Swagger/OpenAPI docs brought to 100% coverage and accuracy, dynamic version from package.json.",
     "next_action": "Continue end-to-end testing of notification integration with dev WP/Woo site at devx.headwall.tech."
   },
   "milestones": [
