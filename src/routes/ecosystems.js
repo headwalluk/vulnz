@@ -24,7 +24,6 @@ const { unauthenticatedSearchLimiter } = require('../middleware/rateLimit');
  *               items:
  *                 type: object
  *                 properties:
-
  *                   slug:
  *                     type: string
  *                     example: npm
