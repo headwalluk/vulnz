@@ -1,0 +1,45 @@
+# Files and directories excluded from release archives.
+# Used by the GitHub Actions release workflow (rsync --exclude format).
+
+# Development and CI
+.claude/
+.github/
+.gitignore
+.prettierignore
+.prettierrc.json
+eslint.config.js
+jest.config.js
+coverage/
+
+# Dev notes and documentation source
+dev-notes/
+docs/
+AGENTS.md
+CLAUDE.md
+
+# Tests
+tests/
+
+# Build tooling (build output dist/ is included)
+scripts/build.js
+scripts/copy-vendor-deps.js
+
+# Source frontend (dist/ contains the built version)
+public/
+
+# Data, archives, and samples
+archive/
+data/
+var/
+assets/
+
+# Environment files
+.env*
+env.wordfence.sample
+
+# Misc
+*.log
+npm-debug.log*
+backups/
+ecosystem.config.js
+ecosystem-sample.config.js

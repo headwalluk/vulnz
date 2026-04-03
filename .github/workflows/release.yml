@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test -- --passWithNoFailures
+
+      - name: Build production assets
+        run: npm run build
+
+      - name: Create release archive
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          ARCHIVE="vulnz-${VERSION}.tar.gz"
+          STAGING="/tmp/vulnz"
+
+          # Build rsync exclusion list from .distignore
+          EXCLUDES=""
+          while IFS= read -r line; do
+            line="$(echo "$line" | sed 's/#.*//' | xargs)"
+            [ -z "$line" ] && continue
+            EXCLUDES="$EXCLUDES --exclude=$line"
+          done < .distignore
+
+          # Copy to staging directory, excluding dev files
+          rsync -a $EXCLUDES \
+            --exclude='.git/' \
+            --exclude='.distignore' \
+            --exclude='node_modules/' \
+            ./ "$STAGING/"
+
+          # Create tarball from staging
+          tar czf "$ARCHIVE" -C /tmp vulnz
+
+          echo "ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+          # Show archive contents for verification
+          echo "Archive contents:"
+          tar tzf "$ARCHIVE" | head -50
+
+      - name: Extract changelog for this version
+        run: |
+          VERSION_NUMBER="${VERSION#v}"
+          BODY=$(awk "/^## ${VERSION_NUMBER} /{found=1; next} /^## [0-9]/{if(found) exit} found" CHANGELOG.md)
+          echo "$BODY" > release-notes.md
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$VERSION" "$ARCHIVE" \
+            --title "$VERSION" \
+            --notes-file release-notes.md
