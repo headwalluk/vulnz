@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.27.1 - 2026-04-03
+
+### Bug Fixes
+
+- **Rate limiter env.js compliance**: `rateLimit.js` now reads pre-normalized env vars instead of doing raw `parseInt` on `process.env`. Auth rate limiter is now configurable via `AUTH_RATE_LIMIT_WINDOW_MINUTES` and `AUTH_RATE_LIMIT_MAX` (previously hardcoded to 15 min / 100 requests)
+- **Ecosystems Swagger schema**: Fixed stray blank line in JSDoc comment that broke the YAML parser, silently truncating the `GET /api/ecosystems` response schema in `/doc`
+
+---
+
 ## 1.27.0 - 2026-04-03
 
 ### Features
