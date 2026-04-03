@@ -98,6 +98,12 @@ function normalizeEnv() {
   }
   process.env.UNAUTH_SEARCH_LIMIT_PER_SECOND = String(uslps);
 
+  // AUTH_RATE_LIMIT_WINDOW_MINUTES normalization: integer >= 1, default 15
+  process.env.AUTH_RATE_LIMIT_WINDOW_MINUTES = String(parseIntEnv('AUTH_RATE_LIMIT_WINDOW_MINUTES', { min: 1, default: 15 }));
+
+  // AUTH_RATE_LIMIT_MAX normalization: integer >= 1, default 100
+  process.env.AUTH_RATE_LIMIT_MAX = String(parseIntEnv('AUTH_RATE_LIMIT_MAX', { min: 1, default: 100 }));
+
   // Additional environment variable normalizations...
   process.env.EMAIL_LOG_MAX_AGE_DAYS = String(parseIntEnv('EMAIL_LOG_MAX_AGE_DAYS', { min: 0, default: 14 }));
 }

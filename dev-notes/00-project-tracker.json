@@ -254,6 +254,49 @@
           "done": true
         }
       ]
+    },
+    {
+      "id": "M7",
+      "title": "Environment Variable Normalization Cleanup",
+      "status": "not-started",
+      "notes": "~40 env vars across 13 files bypass src/lib/env.js and use raw process.env access with inline parseInt/string comparison. Violates the project's no-direct-process.env rule. Risk: NaN bugs from misconfigured integers, boolean parsing failures ('True'/'1'/'yes' all silently fail), and no startup validation for critical vars like SESSION_SECRET.",
+      "tasks": [
+        {
+          "id": "M7.1",
+          "description": "Normalize integer env vars in env.js: SESSION_DURATION_DAYS, PASSWORD_RESET_TOKEN_DURATION, PASSWORD_MIN_* (6 vars), REPORTING_HOUR, REPORTING_BATCH_SIZE, WPORG_RESYNC_DAYS, WEBSITE_AUTO_DELETE_DAYS, API_LOG_RETENTION_DAYS, MAX_API_KEYS_PER_USER, HTTP_LISTEN_PORT, WPORG_TIMEOUT_MS, WPORG_UPDATE_BATCH_SIZE",
+          "done": false
+        },
+        {
+          "id": "M7.2",
+          "description": "Normalize boolean env vars in env.js: CORS_ENABLED, CORS_CREDENTIALS, WEBSITE_AUTO_DELETE_ENABLED, SMTP_IGNORE_TLS",
+          "done": false
+        },
+        {
+          "id": "M7.3",
+          "description": "Normalize enum env vars in env.js: SERVER_MODE, REFERENCE_UPDATE_METHOD",
+          "done": false
+        },
+        {
+          "id": "M7.4",
+          "description": "Normalize string env vars in env.js with validation where appropriate: BASE_URL, SESSION_SECRET, SMTP_HOST/PORT/USER/PASS/FROM, DB_HOST/USER/PASSWORD/NAME, CORS_ORIGIN, VULNZ_NOTIFY_SECRET, GEOIP_DATABASE_PATH, WPORG_API_BASE_URL/PLUGIN_INFO_ENDPOINT/USER_AGENT, REPORTING text vars, EXAMPLE_WP_COMPONENT_*",
+          "done": false
+        },
+        {
+          "id": "M7.5",
+          "description": "Replace all raw process.env reads in src/ with normalized values — update index.js, config/db.js, lib/email.js, lib/geoip.js, lib/passwordValidation.js, lib/referenceData.js, lib/reporting.js, lib/wporg.js, middleware/notifyAuth.js, models/apiCallLog.js, models/user.js, routes/auth.js, routes/config.js",
+          "done": false
+        },
+        {
+          "id": "M7.6",
+          "description": "Update env.sample with any missing vars and add validation notes",
+          "done": false
+        },
+        {
+          "id": "M7.7",
+          "description": "Tests: ensure test suite still passes with normalized env vars, add jest.setup.js entries for any new required vars",
+          "done": false
+        }
+      ]
     }
   ]
 }
