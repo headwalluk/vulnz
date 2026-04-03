@@ -81,9 +81,10 @@ describe('Ecosystems API', () => {
   });
 
   describe('GET /api/ecosystems', () => {
-    it('should return 401 without authentication', async () => {
+    it('should return 200 without authentication (public endpoint)', async () => {
       const response = await request(app).get('/api/ecosystems');
-      expect(response.status).toBe(401);
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
     });
 
     it('should return 200 with a valid API key', async () => {
