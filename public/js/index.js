@@ -25,14 +25,45 @@ $(document).ready(function () {
   $('#search-input').focus();
 
   let currentPage = 1;
+  let currentEcosystem = '';
   const limit = 10;
+
+  // Load ecosystem filters
+  $.ajax({
+    url: '/api/ecosystems',
+    method: 'GET',
+    success: function (ecosystems) {
+      if (ecosystems.length > 1) {
+        const container = $('#ecosystem-filters');
+        container.append('<button class="btn btn-sm btn-light ecosystem-btn active" data-ecosystem="">All</button>');
+        ecosystems.forEach(function (eco) {
+          container.append(`<button class="btn btn-sm btn-outline-light ecosystem-btn" data-ecosystem="${eco.slug}">${eco.name}</button>`);
+        });
+        container.css('display', '').removeClass('d-none');
+      }
+    },
+  });
+
+  $(document).on('click', '.ecosystem-btn', function () {
+    $('.ecosystem-btn').removeClass('active btn-light').addClass('btn-outline-light');
+    $(this).removeClass('btn-outline-light').addClass('active btn-light');
+    currentEcosystem = $(this).data('ecosystem');
+    const query = $('#search-input').val();
+    if (query) {
+      performSearch(query);
+    }
+  });
 
   function performSearch(query, page = 1) {
     currentPage = page;
     $('#spinner').show();
     $('#results-spinner').show();
+    let url = `/api/components/search?query=${encodeURIComponent(query)}&page=${page}&limit=${limit}`;
+    if (currentEcosystem) {
+      url += `&ecosystem=${encodeURIComponent(currentEcosystem)}`;
+    }
     $.ajax({
-      url: `/api/components/search?query=${query}&page=${page}&limit=${limit}`,
+      url: url,
       method: 'GET',
       success: function (data) {
         const { components, total } = data;
@@ -76,7 +107,10 @@ $(document).ready(function () {
                 // console.error('Invalid URL for component:', component.url);
               }
             }
-            titleHtml += `<p class="text-muted font-monospace">${component.slug}</p>`;
+            const typeLabel = component.component_type_title || component.component_type_slug;
+            const badgeClass = component.ecosystem_slug === 'npm' ? 'bg-danger' : 'bg-primary';
+            const badgeHtml = `<span class="badge ${badgeClass} ms-2">${typeLabel}</span>`;
+            titleHtml += `<p class="text-muted font-monospace">${component.slug} ${badgeHtml}</p>`;
             const listItem = $(`<li class="list-group-item text-dark pb-3">${titleHtml}${releasesHtml}</li>`);
             if (index > 0) {
               listItem.addClass('pt-3');

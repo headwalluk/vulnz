@@ -19,27 +19,54 @@ async function createTable() {
   await db.query(sql);
 }
 
-async function search(query, page = 1, limit = 10) {
+async function search(query, page = 1, limit = 10, { type, ecosystem } = {}) {
   const offset = (page - 1) * limit;
   const searchQuery = `%${query}%`;
 
+  // Build optional filter clause and params for type/ecosystem filtering.
+  // Applied to every UNION branch via a JOIN on component_types (and ecosystems if needed).
+  let filterJoin = '';
+  let filterWhere = '';
+  const filterParams = [];
+
+  if (type || ecosystem) {
+    filterJoin = 'JOIN component_types ct ON c.component_type_slug = ct.slug';
+    if (ecosystem) {
+      filterJoin += ' JOIN ecosystems e ON ct.ecosystem_id = e.id';
+    }
+    const conditions = [];
+    if (type) {
+      conditions.push('c.component_type_slug = ?');
+      filterParams.push(type);
+    }
+    if (ecosystem) {
+      conditions.push('e.slug = ?');
+      filterParams.push(ecosystem);
+    }
+    filterWhere = ' AND ' + conditions.join(' AND ');
+  }
+
   // We want all component ids, for all pages.
+  // Each UNION branch gets the same filter JOIN and WHERE clause.
   const componentsSql = `
-    (SELECT id, 1 as priority FROM components WHERE slug = ?)
+    (SELECT c.id, 1 as priority FROM components c ${filterJoin} WHERE c.slug = ?${filterWhere})
     UNION
-    (SELECT id, 2 as priority FROM components WHERE slug LIKE ?)
+    (SELECT c.id, 2 as priority FROM components c ${filterJoin} WHERE c.slug LIKE ?${filterWhere})
     UNION
-    (SELECT id, 3 as priority FROM components WHERE title LIKE ?)
+    (SELECT c.id, 3 as priority FROM components c ${filterJoin} WHERE c.title LIKE ?${filterWhere})
     UNION
-    (SELECT id, 4 as priority FROM components WHERE MATCH(slug, title) AGAINST(? IN BOOLEAN MODE))
+    (SELECT c.id, 4 as priority FROM components c ${filterJoin} WHERE MATCH(c.slug, c.title) AGAINST(? IN BOOLEAN MODE)${filterWhere})
     ORDER BY priority ASC
   `;
 
+  // Each branch has: [branchParam, ...filterParams]
+  const componentsParams = [query, ...filterParams, searchQuery, ...filterParams, searchQuery, ...filterParams, query, ...filterParams];
+
   if (process.env.LOG_LEVEL === 'debug') {
-    console.log('Executing componentsSql with params:', [query, searchQuery, searchQuery, query]);
+    console.log('Executing componentsSql with params:', componentsParams);
   }
 
-  const allComponentIds = (await db.query(componentsSql, [query, searchQuery, searchQuery, query])).map((c) => c.id);
+  const allComponentIds = (await db.query(componentsSql, componentsParams)).map((c) => c.id);
 
   // Remove duplicates while preserving order.
   const uniqueComponentIds = [...new Set(allComponentIds)];
@@ -54,12 +81,17 @@ async function search(query, page = 1, limit = 10) {
     return { components: [], total: 0 };
   }
 
+  // Fetch full component data with ecosystem metadata.
   const dataSql = `
     SELECT
       c.id AS component_id, c.slug, c.component_type_slug, c.title, c.url,
+      ct.title AS component_type_title,
+      e.slug AS ecosystem_slug, e.name AS ecosystem_name,
       r.id AS release_id, r.version,
       v.url AS vulnerability_url
     FROM components c
+    JOIN component_types ct ON c.component_type_slug = ct.slug
+    LEFT JOIN ecosystems e ON ct.ecosystem_id = e.id
     LEFT JOIN releases r ON c.id = r.component_id
     LEFT JOIN vulnerabilities v ON r.id = v.release_id
     WHERE c.id IN (?)
@@ -74,6 +106,9 @@ async function search(query, page = 1, limit = 10) {
         id: row.component_id,
         slug: row.slug,
         component_type_slug: row.component_type_slug,
+        component_type_title: row.component_type_title,
+        ecosystem_slug: row.ecosystem_slug || null,
+        ecosystem_name: row.ecosystem_name || null,
         title: row.title,
         url: row.url,
         releases: new Map(),
