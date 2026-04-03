@@ -10,7 +10,7 @@ VULNZ is a self-hosted vulnerability database API for WordPress plugins/themes a
 
 ```bash
 npm run dev           # Start dev server with nodemon
-npm test              # Run all Jest tests (184 tests, in-memory SQLite)
+npm test              # Run all Jest tests (191 tests, in-memory SQLite)
 npm test -- auth      # Run a single test file by name match
 npm run test:watch    # Jest watch mode
 npm run test:coverage # Coverage report (50% threshold)

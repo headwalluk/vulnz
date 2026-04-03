@@ -1,14 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const Ecosystem = require('../models/ecosystem');
-const { apiOrSessionAuth } = require('../middleware/auth');
+const { optionalApiOrSessionAuth } = require('../middleware/auth');
+const { unauthenticatedSearchLimiter } = require('../middleware/rateLimit');
 
 /**
  * @swagger
  * /api/ecosystems:
  *   get:
  *     summary: List supported ecosystems
- *     description: Returns all active component ecosystems supported by the system (e.g. wordpress, npm).
+ *     description: >
+ *       Returns all active component ecosystems supported by the system (e.g. wordpress, npm).
+ *       This endpoint is publicly accessible and rate-limited for unauthenticated requests.
  *     tags:
  *       - Ecosystems
  *     responses:
@@ -32,10 +35,12 @@ const { apiOrSessionAuth } = require('../middleware/auth');
  *                     type: string
  *                   active:
  *                     type: boolean
+ *       429:
+ *         description: Too many requests (rate-limited)
  *       500:
  *         description: Server error
  */
-router.get('/', apiOrSessionAuth, async (req, res) => {
+router.get('/', unauthenticatedSearchLimiter, optionalApiOrSessionAuth, async (req, res) => {
   try {
     const ecosystems = await Ecosystem.findAll();
     res.json(

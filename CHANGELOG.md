@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.26.0 - 2026-04-03
+
+### Features
+
+- **Public ecosystem and component-type endpoints**: `GET /api/ecosystems` and `GET /api/component-types` are now publicly accessible without authentication, rate-limited for unauthenticated requests via `unauthenticatedSearchLimiter`. This supports upcoming frontend search filtering by ecosystem
+
+### Tests
+
+- **Component-types API tests**: New test suite for `GET /api/component-types` covering public access, response shape, ecosystem associations, and sort order (7 tests)
+- **Updated ecosystem tests**: Adjusted to verify public access (200 without auth instead of 401)
+- Test count: 184 → 191
+
+---
+
 ## 1.25.1 - 2026-04-02
 
 ### Documentation

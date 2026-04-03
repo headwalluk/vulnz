@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { apiOrSessionAuth } = require('../middleware/auth');
+const { optionalApiOrSessionAuth } = require('../middleware/auth');
+const { unauthenticatedSearchLimiter } = require('../middleware/rateLimit');
 const { logApiCall } = require('../middleware/logApiCall');
 
 /**
@@ -16,6 +17,9 @@ const { logApiCall } = require('../middleware/logApiCall');
  * /api/component-types:
  *   get:
  *     summary: Retrieve a list of component types
+ *     description: >
+ *       Returns all component types with their associated ecosystem.
+ *       This endpoint is publicly accessible and rate-limited for unauthenticated requests.
  *     tags: [Component Types]
  *     responses:
  *       200:
@@ -26,12 +30,12 @@ const { logApiCall } = require('../middleware/logApiCall');
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/ComponentType'
- *       401:
- *         description: Unauthorized.
+ *       429:
+ *         description: Too many requests (rate-limited).
  *       500:
  *         description: Server error.
  */
-router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.get('/', unauthenticatedSearchLimiter, optionalApiOrSessionAuth, logApiCall, async (req, res) => {
   try {
     const componentTypes = await db.query(`
       SELECT ct.slug, e.slug AS ecosystem, ct.title
