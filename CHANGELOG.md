@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.27.2 - 2026-04-03
+
+### CI/CD
+
+- **Automated GitHub releases**: New `.github/workflows/release.yml` triggers on version tags (`v*`). Runs lint, tests, and build, then creates a GitHub release with a production-ready tarball and changelog-extracted release notes
+- **`.distignore`**: Controls which files are excluded from release archives (tests, dev-notes, source frontend, build tooling, env files, etc.)
+
+---
+
 ## 1.27.1 - 2026-04-03
 
 ### Bug Fixes
