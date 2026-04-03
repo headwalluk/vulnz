@@ -30,6 +30,7 @@ function sanitiseComponentSlugMiddleware(req, res, next) {
  *     parameters:
  *       - in: query
  *         name: query
+ *         required: true
  *         schema:
  *           type: string
  *         description: The search query.
@@ -37,33 +38,83 @@ function sanitiseComponentSlugMiddleware(req, res, next) {
  *         name: page
  *         schema:
  *           type: integer
+ *           default: 1
  *         description: The page number to retrieve.
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
+ *           default: 10
  *         description: The number of components to retrieve per page.
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *         description: Filter by component type slug (e.g. wordpress-plugin, npm-package).
+ *       - in: query
+ *         name: ecosystem
+ *         schema:
+ *           type: string
+ *         description: Filter by ecosystem slug (e.g. wordpress, npm). Returns all component types within the ecosystem.
  *     responses:
  *       200:
  *         description: A list of components that match the search query.
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Component'
+ *               type: object
+ *               properties:
+ *                 components:
+ *                   type: array
+ *                   items:
+ *                     allOf:
+ *                       - $ref: '#/components/schemas/Component'
+ *                       - type: object
+ *                         properties:
+ *                           component_type_title:
+ *                             type: string
+ *                             description: Human-readable component type name.
+ *                             example: WordPress Plugin
+ *                           ecosystem_slug:
+ *                             type: string
+ *                             nullable: true
+ *                             description: The ecosystem slug.
+ *                             example: wordpress
+ *                           ecosystem_name:
+ *                             type: string
+ *                             nullable: true
+ *                             description: Human-readable ecosystem name.
+ *                             example: WordPress
+ *                           releases:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 version:
+ *                                   type: string
+ *                                 has_vulnerabilities:
+ *                                   type: boolean
+ *                                 vulnerabilities:
+ *                                   type: array
+ *                                   items:
+ *                                     type: string
+ *                 total:
+ *                   type: integer
+ *                   description: Total number of matching components across all pages.
  */
 router.get('/search', unauthenticatedSearchLimiter, optionalApiOrSessionAuth, logApiCall, async (req, res) => {
   try {
     const query = sanitizeSearchQuery(req.query.query || '');
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
+    const type = req.query.type || undefined;
+    const ecosystem = req.query.ecosystem || undefined;
 
     if (!query) {
       return res.status(400).send('Search query is required.');
     }
 
-    const components = await component.search(query, page, limit);
+    const components = await component.search(query, page, limit, { type, ecosystem });
     res.json(components);
   } catch (err) {
     console.error(err);

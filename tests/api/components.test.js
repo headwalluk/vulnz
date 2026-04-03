@@ -95,9 +95,30 @@ describe('Components API', () => {
     // Create a release for the component
     await db.query('INSERT INTO releases (component_id, version, release_date) VALUES (?, ?, ?)', [testComponent.id, '1.0.0', new Date().toISOString().split('T')[0]]);
 
+    // Create an npm component with the same slug to test cross-ecosystem results
+    await db.query('INSERT INTO components (title, slug, component_type_slug, description) VALUES (?, ?, ?, ?)', [
+      'test-plugin',
+      'test-plugin',
+      'npm-package',
+      'An npm package also called test-plugin',
+    ]);
+
     // Setup component model mocks
-    componentModel.search.mockImplementation(async (query, page = 1, limit = 10) => {
-      const components = await db.query('SELECT * FROM components WHERE slug LIKE ?', [`%${query}%`]);
+    componentModel.search.mockImplementation(async (query, page = 1, limit = 10, { type, ecosystem } = {}) => {
+      let sql =
+        'SELECT c.*, ct.title AS component_type_title, e.slug AS ecosystem_slug, e.name AS ecosystem_name FROM components c JOIN component_types ct ON c.component_type_slug = ct.slug LEFT JOIN ecosystems e ON ct.ecosystem_id = e.id WHERE c.slug LIKE ?';
+      const params = [`%${query}%`];
+
+      if (type) {
+        sql += ' AND c.component_type_slug = ?';
+        params.push(type);
+      }
+      if (ecosystem) {
+        sql += ' AND e.slug = ?';
+        params.push(ecosystem);
+      }
+
+      const components = await db.query(sql, params);
       const total = components.length;
       const offset = (page - 1) * limit;
       const paged = components.slice(offset, offset + limit);
@@ -105,6 +126,9 @@ describe('Components API', () => {
       return {
         components: paged.map((c) => ({
           ...c,
+          component_type_title: c.component_type_title,
+          ecosystem_slug: c.ecosystem_slug || null,
+          ecosystem_name: c.ecosystem_name || null,
           releases: [],
         })),
         total,
@@ -172,6 +196,49 @@ describe('Components API', () => {
 
     test('should return empty array for non-matching query', async () => {
       const response = await request(app).get('/api/components/search?query=nonexistentplugin123');
+
+      expect(response.status).toBe(200);
+      expect(response.body.components.length).toBe(0);
+    });
+
+    test('should return results from all ecosystems when no filter is specified', async () => {
+      const response = await request(app).get('/api/components/search?query=test-plugin');
+
+      expect(response.status).toBe(200);
+      const types = response.body.components.map((c) => c.component_type_slug);
+      expect(types).toContain('wordpress-plugin');
+      expect(types).toContain('npm-package');
+    });
+
+    test('should filter by component type', async () => {
+      const response = await request(app).get('/api/components/search?query=test-plugin&type=wordpress-plugin');
+
+      expect(response.status).toBe(200);
+      expect(response.body.components.length).toBe(1);
+      expect(response.body.components[0].component_type_slug).toBe('wordpress-plugin');
+    });
+
+    test('should filter by ecosystem', async () => {
+      const response = await request(app).get('/api/components/search?query=test-plugin&ecosystem=npm');
+
+      expect(response.status).toBe(200);
+      expect(response.body.components.length).toBe(1);
+      expect(response.body.components[0].ecosystem_slug).toBe('npm');
+    });
+
+    test('should include ecosystem metadata in results', async () => {
+      const response = await request(app).get('/api/components/search?query=test-plugin');
+
+      expect(response.status).toBe(200);
+      for (const comp of response.body.components) {
+        expect(comp).toHaveProperty('component_type_title');
+        expect(comp).toHaveProperty('ecosystem_slug');
+        expect(comp).toHaveProperty('ecosystem_name');
+      }
+    });
+
+    test('should return empty results when filtering by non-matching type', async () => {
+      const response = await request(app).get('/api/components/search?query=test-plugin&type=wordpress-theme');
 
       expect(response.status).toBe(200);
       expect(response.body.components.length).toBe(0);

@@ -220,38 +220,38 @@
     {
       "id": "M6",
       "title": "Multi-Ecosystem Search",
-      "status": "in-progress",
+      "status": "complete",
       "notes": "Enhance the component search API and public frontend to support filtering by ecosystem/component type, and visually distinguish results across ecosystems. Driven by vulnz.net frontend integration and upcoming npm package data.",
       "tasks": [
         {
           "id": "M6.1",
           "description": "Backend: add optional `type` and `ecosystem` query params to GET /api/components/search — filter across all 4 UNION branches and the data-fetch query",
-          "done": false
+          "done": true
         },
         {
           "id": "M6.2",
           "description": "Backend: enrich search response with ecosystem metadata — JOIN component_types → ecosystems to include ecosystem_slug and ecosystem_name per result",
-          "done": false
+          "done": true
         },
         {
           "id": "M6.3",
           "description": "Frontend: display ecosystem/type badges on search results (e.g. 'WordPress Plugin', 'npm Package') so duplicate slugs across ecosystems are visually distinct",
-          "done": false
+          "done": true
         },
         {
           "id": "M6.4",
           "description": "Frontend: add ecosystem filter dropdown/pills to the public search UI, wired to the new query params",
-          "done": false
+          "done": true
         },
         {
           "id": "M6.5",
           "description": "Swagger: update /api/components/search docs with new query params and enriched response schema",
-          "done": false
+          "done": true
         },
         {
           "id": "M6.6",
           "description": "Tests: add search tests for type/ecosystem filtering, mixed-ecosystem results, and backward compatibility (no filter = all ecosystems)",
-          "done": false
+          "done": true
         }
       ]
     }

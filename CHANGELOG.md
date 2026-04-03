@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.27.0 - 2026-04-03
+
+### Features
+
+- **Multi-ecosystem search filtering**: `GET /api/components/search` now accepts optional `type` and `ecosystem` query parameters to filter results by component type (e.g. `wordpress-plugin`, `npm-package`) or ecosystem (e.g. `wordpress`, `npm`). Omitting both returns all ecosystems (backward-compatible)
+- **Ecosystem metadata in search results**: Search responses now include `component_type_title`, `ecosystem_slug`, and `ecosystem_name` for each component, enabling frontends to visually distinguish results across ecosystems
+- **Frontend ecosystem badges**: Public search results now show a coloured badge indicating the component type (e.g. "WordPress Plugin", "npm Package")
+- **Frontend ecosystem filter**: Pill buttons dynamically loaded from `GET /api/ecosystems` allow filtering search results by ecosystem
+
+### Tests
+
+- 5 new search tests covering type/ecosystem filtering, mixed-ecosystem results, ecosystem metadata in responses, and backward compatibility
+- Test count: 191 → 213
+
+---
+
 ## 1.26.0 - 2026-04-03
 
 ### Features
