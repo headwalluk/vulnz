@@ -20,8 +20,6 @@ jest.mock('../../src/db', () => mockDb);
 describe('Vulnerabilities API', () => {
   let app;
   let db;
-  let adminUser;
-  let adminApiKey;
   let regularUser;
   let regularApiKey;
 
@@ -29,12 +27,6 @@ describe('Vulnerabilities API', () => {
     db = await createTestDatabase();
     mockDb.query.mockImplementation((...args) => db.query(...args));
     await initializeSchema(db);
-
-    adminUser = await createTestUser(db, {
-      username: 'vuln-admin@example.com',
-      role: 'administrator',
-    });
-    adminApiKey = await createTestApiKey(db, adminUser.id, 'Vuln Admin Key');
 
     regularUser = await createTestUser(db, {
       username: 'vuln-user@example.com',
