@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.28.1 - 2026-04-04
+
+### Bug Fixes
+
+- **Resolve all npm audit vulnerabilities**: Upgrade sqlite3 5.x → 6.x, patch lodash, and override postcss-url's minimatch to ^9.0.0. `npm audit` now reports 0 vulnerabilities
+
+---
+
 ## 1.28.0 - 2026-04-04
 
 ### Features
