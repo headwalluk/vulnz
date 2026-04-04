@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Database](https://img.shields.io/badge/database-MySQL%2FMariaDB-blue)](https://mariadb.org/)
 [![Security](https://img.shields.io/badge/security-bcrypt%20%7C%20helmet-success)](docs/README.md)
-[![Tests](https://img.shields.io/badge/tests-202%20passing-brightgreen)](tests/README.md)
+[![Tests](https://img.shields.io/badge/tests-238%20passing-brightgreen)](tests/README.md)
 
 Self-hosted vulnerability database for WordPress plugins, themes, and npm packages. Track vulnerabilities, monitor security events, and manage web applications across your infrastructure.
 

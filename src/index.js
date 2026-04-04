@@ -63,6 +63,7 @@ const reportRoutes = require('./routes/reports');
 const settingsRoutes = require('./routes/settings');
 const ecosystemRoutes = require('./routes/ecosystems');
 const notificationRoutes = require('./routes/notifications');
+const vulnerabilityRoutes = require('./routes/vulnerabilities');
 const { redirectIfAuthenticated, isAuthenticatedPage, isAdminPage } = require('./middleware/auth');
 const { versionAssets } = require('./middleware/versionAssets');
 const { setCacheControl } = require('./middleware/cacheControl');
@@ -283,6 +284,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/ecosystems', ecosystemRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/vulnerabilities', vulnerabilityRoutes);
 
 // Serve static assets from the same root
 app.use(setCacheControl);
