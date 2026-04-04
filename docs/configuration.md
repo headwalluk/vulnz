@@ -8,7 +8,7 @@ Complete environment variable reference for VULNZ.
 
 All configuration is stored in the `.env` file in the root directory.
 
-**Never commit `.env` to version control**. Use `env.sample` as a template.
+**Never commit `.env` to version control**. Use `.env.example` as a template.
 
 ---
 

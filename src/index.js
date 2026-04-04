@@ -180,7 +180,8 @@ if (process.env.CORS_ENABLED === 'true') {
   console.log('[CORS] Disabled');
 }
 
-app.use(express.json());
+const jsonBodyLimitOpts = process.env.JSON_BODY_LIMIT ? { limit: process.env.JSON_BODY_LIMIT } : {};
+app.use(express.json(jsonBodyLimitOpts));
 
 const sessionStore = new MySQLStore({
   ...dbConfig,

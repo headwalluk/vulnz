@@ -10,7 +10,7 @@ VULNZ is a self-hosted vulnerability database API for WordPress plugins/themes a
 
 ```bash
 npm run dev           # Start dev server with nodemon
-npm test              # Run all Jest tests (213 tests, in-memory SQLite)
+npm test              # Run all Jest tests (238 tests, in-memory SQLite)
 npm test -- auth      # Run a single test file by name match
 npm run test:watch    # Jest watch mode
 npm run test:coverage # Coverage report (50% threshold)
@@ -29,7 +29,7 @@ npm run build         # Build production assets
 - **Passwords via bcrypt** — `bcrypt.hash()` with rounds=10. Never plaintext.
 - **Validate before writing** — use `validateEmailAddress()` and `validatePassword()` from `src/lib/`.
 - **Sanitize HTML** — use `sanitize-html` for user-supplied HTML, `sanitizer.stripAll()` for plain text fields.
-- **No magic strings** — use named constants for roles, statuses, etc.
+- **No magic strings or magic numbers** — use named constants for roles, statuses, etc. Numeric/string literals that configure behaviour must come from env vars (via `src/lib/env.js`) or named constants, never inline.
 
 ## Architecture
 
@@ -69,7 +69,7 @@ Tests mock `src/db` and redirect queries to SQLite. Test files live in `tests/ap
 
 **New table:** Create migration in `src/migrations/YYYYMMDDHHMMSS-description.js` exporting `{ up }`, create model with `createTable()`, call `createTable()` in `src/index.js` startup.
 
-**New env var:** Add to `env.sample`, parse in `src/lib/env.js` using the helper functions, never use raw `process.env` elsewhere.
+**New env var:** Add to `.env.example`, parse in `src/lib/env.js` using the helper functions, never use raw `process.env` elsewhere.
 
 ## Key Documentation
 

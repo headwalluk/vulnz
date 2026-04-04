@@ -46,7 +46,7 @@ FLUSH PRIVILEGES;
 Copy the sample environment file:
 
 ```bash
-cp env.sample .env
+cp .env.example .env
 ```
 
 Edit `.env` and configure at minimum:

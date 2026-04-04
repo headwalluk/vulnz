@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.29.1 - 2026-04-04
+
+### Improvements
+
+- **Configurable JSON body limit**: `express.json()` body size limit is now controlled via the `JSON_BODY_LIMIT` env var instead of being hardcoded. Defaults to Express's built-in `100kb` when unset
+- **Rename `env.sample` to `.env.example`**: Follows the more common Node.js convention. All documentation and scripts updated. Added missing env vars (`SERVER_MODE`, `SMTP_IGNORE_TLS`, `EMAIL_LOG_MAX_AGE_DAYS`) and reorganised with section headers
+- **No magic numbers rule**: Updated CLAUDE.md to explicitly prohibit magic numbers alongside magic strings
+
+---
+
 ## 1.29.0 - 2026-04-04
 
 ### Features

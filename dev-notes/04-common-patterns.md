@@ -687,7 +687,7 @@ if (versionCompare('1.2.3', '1.2.4') < 0) {
 
 Add new environment variables in two places:
 
-### 1. env.sample
+### 1. .env.example
 
 ```plaintext
 # New Feature Configuration

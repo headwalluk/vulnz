@@ -55,7 +55,7 @@ vulnz-api/
 ├── scripts/              # Shell scripts (Wordfence feed ingestion, etc.)
 ├── tests/                # Jest test suite
 ├── dev-notes/            # All project documentation
-├── env.sample            # Template for .env — NEVER copy over existing .env
+├── .env.example            # Template for .env — NEVER copy over existing .env
 └── package.json
 ```
 
@@ -125,7 +125,7 @@ Never create a new mariadb connection directly. Never use `mysql2` or any other 
 
 ## Environment
 
-- Copy `env.sample` to `.env` — **ONLY if `.env` does not already exist**
+- Copy `.env.example` to `.env` — **ONLY if `.env` does not already exist**
 - Always `ls -la .env` before any `cp` or `write` to avoid clobbering a working config
 - `SETUP_MODE=true` in `.env` grants admin to the first registered user — this will be removed once the CLI is in place
 
@@ -167,6 +167,6 @@ Always update `"last_updated"` to today's date when writing the tracker.
 - ❌ Store passwords in plaintext
 - ❌ Start the Express server from the CLI tool
 - ❌ Hardcode magic strings for roles or statuses
-- ❌ Copy `env.sample` over an existing `.env`
+- ❌ Copy `.env.example` over an existing `.env`
 - ❌ Commit a `.env` file
 - ❌ Use Markdown `[x]` checkboxes in the JSON tracker
