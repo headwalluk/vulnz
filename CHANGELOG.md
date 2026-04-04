@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.29.0 - 2026-04-04
+
+### Features
+
+- **Bulk vulnerability import endpoint**: New `POST /api/vulnerabilities/bulk` endpoint accepts up to 500 vulnerability entries per request, each specifying component type, slug, version, and reference URLs. Caches component type, component, and release lookups within a batch to minimise database queries. Auto-creates components and releases as needed. Returns created/duplicate counts with per-item error reporting for partial failures
+
+---
+
 ## 1.28.1 - 2026-04-04
 
 ### Bug Fixes
