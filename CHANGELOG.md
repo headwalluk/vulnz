@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.28.0 - 2026-04-04
+
+### Features
+
+- **CLI `component:add` command**: New `component:add <type> <slug> <versions>` CLI command to quickly add a component with one or more comma-separated release versions. Supports `--title` option. Reuses existing components and skips duplicate releases
+
+---
+
 ## 1.27.2 - 2026-04-03
 
 ### CI/CD

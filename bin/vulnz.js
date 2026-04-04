@@ -13,6 +13,8 @@ const { Command } = require('commander');
 const user = require('../src/models/user');
 const apiKey = require('../src/models/apiKey');
 const feed = require('../src/models/feed');
+const component = require('../src/models/component');
+const release = require('../src/models/release');
 const appSetting = require('../src/models/appSetting');
 const userSubscription = require('../src/models/userSubscription');
 const notificationSite = require('../src/models/notificationSite');
@@ -478,6 +480,55 @@ program
         }
       }
 
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// component:add <type> <slug> <versions>
+// ---------------------------------------------------------------------------
+program
+  .command('component:add <type> <slug> <versions>')
+  .description('Add a component with one or more releases (comma-separated versions)')
+  .option('--title <title>', 'Component title (defaults to slug)')
+  .action(async (type, slug, versions, opts) => {
+    try {
+      const title = opts.title || slug;
+
+      // Check whether the component already exists before findOrCreate
+      const existing = await db.query('SELECT id FROM components WHERE slug = ? AND component_type_slug = ?', [slug, type]);
+      const comp = await component.findOrCreate(slug, type, title);
+      const componentId = parseInt(comp.id, 10);
+
+      if (existing.length === 0) {
+        console.log(`Created component: ${slug} (id=${componentId}, type=${type})`);
+      } else {
+        console.log(`Component already exists: ${slug} (id=${componentId})`);
+      }
+
+      const versionList = versions
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean);
+      let added = 0;
+      let skipped = 0;
+
+      for (const version of versionList) {
+        const existingRelease = await db.query('SELECT id FROM releases WHERE component_id = ? AND version = ?', [componentId, version]);
+        await release.findOrCreate(componentId, version);
+        if (existingRelease.length > 0) {
+          skipped++;
+        } else {
+          added++;
+        }
+      }
+
+      console.log(`Releases: ${added} added, ${skipped} already existed.`);
       await db.end();
       process.exit(0);
     } catch (err) {
