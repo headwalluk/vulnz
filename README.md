@@ -32,7 +32,7 @@ VULNZ supports multiple component ecosystems — WordPress and npm are available
 git clone https://github.com/headwalluk/vulnz
 cd vulnz
 npm install
-cp env.sample .env
+cp .env.example .env
 # Edit .env with your database credentials
 npm run dev
 ```

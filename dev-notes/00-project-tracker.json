@@ -288,7 +288,7 @@
         },
         {
           "id": "M7.6",
-          "description": "Update env.sample with any missing vars and add validation notes",
+          "description": "Update .env.example with any missing vars and add validation notes",
           "done": false
         },
         {

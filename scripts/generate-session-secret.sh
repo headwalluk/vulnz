@@ -19,7 +19,7 @@ ENV_FILE="$(realpath "${PROJECT_ROOT_DIR}/.env")"
 # Check if .env exists
 if [[ ! -f "${ENV_FILE}" ]]; then
   echo "Error: ${ENV_FILE} not found."
-  echo "Please copy env.sample to .env and configure database settings first."
+  echo "Please copy .env.example to .env and configure database settings first."
   exit 1
 fi
 
