@@ -28,6 +28,9 @@ module.exports = {
   // Timeout for tests
   testTimeout: 10000,
 
+  // Force exit after all tests complete (open handles from session stores, etc.)
+  forceExit: true,
+
   // Verbose output
   verbose: true,
 };
