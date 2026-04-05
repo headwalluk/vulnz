@@ -297,6 +297,69 @@
           "done": false
         }
       ]
+    },
+    {
+      "id": "M8",
+      "title": "Remove Legacy Website Version Columns",
+      "status": "not-started",
+      "notes": "Since v1.29.2 platform_metadata and the legacy version columns (wordpress_version, php_version, db_server_type, db_server_version, versions_last_checked_at) are kept in sync. This milestone removes the legacy columns entirely, making platform_metadata the single source of truth. Prerequisite: all API consumers (vulnz-woo plugin, vulnz-sensor) must be updated to read from platform_metadata before the columns are dropped.",
+      "tasks": [
+        {
+          "id": "M8.1",
+          "description": "Audit all API consumers (vulnz-woo plugin, vulnz-sensor, vulnz-ingest) to confirm they read/write platform_metadata rather than the legacy version fields. Document any that still depend on the old fields",
+          "done": false
+        },
+        {
+          "id": "M8.2",
+          "description": "Update API response (tidyWebsite) to populate wordpress_version/php_version/db_server_type/db_server_version from platform_metadata instead of the DB columns, so the response shape stays stable while the underlying source changes",
+          "done": false
+        },
+        {
+          "id": "M8.3",
+          "description": "Refactor updateVersions() in website model to write only to platform_metadata (remove direct column writes and the JSON_SET sync). Update the PUT route platform→version sync to stop writing to legacy columns",
+          "done": false
+        },
+        {
+          "id": "M8.4",
+          "description": "Refactor findOutdatedWordPress() and findOutdatedPhp() to query platform_metadata JSON fields instead of the legacy columns",
+          "done": false
+        },
+        {
+          "id": "M8.5",
+          "description": "Refactor getVersionDistribution() to aggregate from platform_metadata JSON fields instead of the legacy columns",
+          "done": false
+        },
+        {
+          "id": "M8.6",
+          "description": "Update reporting.js to read version data from platform_metadata instead of the legacy columns",
+          "done": false
+        },
+        {
+          "id": "M8.7",
+          "description": "Deprecate PUT /api/websites/:domain/versions endpoint — update Swagger docs with deprecated flag, add console.warn on use, point callers to the platform field in PUT /api/websites/:domain",
+          "done": false
+        },
+        {
+          "id": "M8.8",
+          "description": "Update all tests: replace legacy column assertions with platform_metadata assertions, update test schema (remove columns from tests/setup.js), update mocks",
+          "done": false
+        },
+        {
+          "id": "M8.9",
+          "description": "Create migration to drop legacy columns: wordpress_version, php_version, db_server_type, db_server_version, versions_last_checked_at from the websites table",
+          "done": false
+        },
+        {
+          "id": "M8.10",
+          "description": "Remove VERSION_TO_PLATFORM_KEY/PLATFORM_KEY_TO_VERSION mapping constants and all remaining sync code added in v1.29.2",
+          "done": false
+        },
+        {
+          "id": "M8.11",
+          "description": "Update documentation: CHANGELOG, database schema doc, architecture overview, Swagger response schemas",
+          "done": false
+        }
+      ]
     }
   ]
 }
