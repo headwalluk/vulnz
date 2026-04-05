@@ -213,6 +213,8 @@ async function initializeSchema(db) {
       db_server_type TEXT DEFAULT 'unknown',
       db_server_version VARCHAR(20),
       versions_last_checked_at DATETIME,
+      ecosystem_id INTEGER,
+      platform_metadata TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,

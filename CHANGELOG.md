@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.29.2 - 2026-04-05
+
+### Bug Fixes
+
+- **Sync `platform_metadata` with version columns**: Version updates via the `versions` object now also patch the corresponding keys in `platform_metadata` (and vice versa), preventing the two from drifting out of sync
+- **Fix `platform_metadata` serialization in `update()`**: The generic website `update()` function now correctly JSON-serializes `platform_metadata`, matching the existing handling for `meta`
+
+---
+
 ## 1.29.1 - 2026-04-04
 
 ### Improvements

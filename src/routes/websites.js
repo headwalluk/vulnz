@@ -417,9 +417,16 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
       }
     }
 
-    // Handle platform metadata
+    // Handle platform metadata — sync relevant fields back to version columns
     if (platform !== undefined) {
       websiteData.platform_metadata = platform;
+      if (platform && typeof platform === 'object') {
+        for (const [platformKey, versionCol] of Object.entries(Website.PLATFORM_KEY_TO_VERSION)) {
+          if (platform[platformKey] !== undefined) {
+            websiteData[versionCol] = platform[platformKey];
+          }
+        }
+      }
     }
 
     // Handle user_id change (admin only)

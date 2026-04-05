@@ -115,6 +115,9 @@ const update = async (domain, website) => {
   if (website.meta) {
     website.meta = JSON.stringify(website.meta);
   }
+  if (website.platform_metadata) {
+    website.platform_metadata = JSON.stringify(website.platform_metadata);
+  }
 
   const setClause = fields.map((field) => `${field} = ?`).join(', ');
 
@@ -147,6 +150,22 @@ const removeStaleWebsites = async (days) => {
   return result.affectedRows || 0;
 };
 
+// Maps version column names to their platform_metadata JSON key equivalents
+const VERSION_TO_PLATFORM_KEY = {
+  wordpress_version: 'version',
+  php_version: 'phpVersion',
+  db_server_type: 'databaseEngine',
+  db_server_version: 'databaseVersion',
+};
+
+// Maps platform_metadata JSON keys to their version column equivalents
+const PLATFORM_KEY_TO_VERSION = {
+  version: 'wordpress_version',
+  phpVersion: 'php_version',
+  databaseEngine: 'db_server_type',
+  databaseVersion: 'db_server_version',
+};
+
 const updateVersions = async (websiteId, versions) => {
   const fields = [];
   const values = [];
@@ -170,6 +189,21 @@ const updateVersions = async (websiteId, versions) => {
 
   if (fields.length === 0) {
     return false;
+  }
+
+  // Sync version columns into platform_metadata (when it exists)
+  // Build a nested JSON_SET expression to patch only the changed keys
+  let jsonExpr = 'platform_metadata';
+  const jsonValues = [];
+  for (const [col, platformKey] of Object.entries(VERSION_TO_PLATFORM_KEY)) {
+    if (versions[col] !== undefined) {
+      jsonExpr = `JSON_SET(${jsonExpr}, '$.${platformKey}', ?)`;
+      jsonValues.push(versions[col] || '');
+    }
+  }
+  if (jsonValues.length > 0) {
+    fields.push(`platform_metadata = CASE WHEN platform_metadata IS NOT NULL THEN ${jsonExpr} ELSE platform_metadata END`);
+    values.push(...jsonValues);
   }
 
   // Always update the versions_last_checked_at timestamp
@@ -251,4 +285,5 @@ module.exports = {
   findOutdatedWordPress,
   findOutdatedPhp,
   getVersionDistribution,
+  PLATFORM_KEY_TO_VERSION,
 };
