@@ -24,6 +24,7 @@ jest.mock('../../src/models/user');
 jest.mock('../../src/models/component');
 jest.mock('../../src/models/release');
 jest.mock('../../src/models/websiteComponent');
+jest.mock('../../src/models/ecosystem');
 jest.mock('../../src/models/securityEvent');
 jest.mock('../../src/models/securityEventType');
 jest.mock('../../src/models/fileSecurityIssue');
@@ -72,13 +73,15 @@ describe('Websites API - Version Updates', () => {
     });
 
     Website.update = jest.fn().mockImplementation(async (domain, data) => {
-      const fields = Object.keys(data);
-      const values = Object.values(data);
-
       if (data.meta && typeof data.meta === 'object') {
         data.meta = JSON.stringify(data.meta);
       }
+      if (data.platform_metadata && typeof data.platform_metadata === 'object') {
+        data.platform_metadata = JSON.stringify(data.platform_metadata);
+      }
 
+      const fields = Object.keys(data);
+      const values = Object.values(data);
       const setClause = fields.map((field) => `${field} = ?`).join(', ');
 
       if (fields.length === 0) {
@@ -124,6 +127,14 @@ describe('Websites API - Version Updates', () => {
     });
 
     Website.touch = jest.fn().mockResolvedValue(true);
+
+    // Expose the mapping constant used by the route for platform→version sync
+    Website.PLATFORM_KEY_TO_VERSION = {
+      version: 'wordpress_version',
+      phpVersion: 'php_version',
+      databaseEngine: 'db_server_type',
+      databaseVersion: 'db_server_version',
+    };
 
     User.getRoles = jest.fn().mockImplementation(async (userId) => {
       const userRoles = await db.query('SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?', [userId]);
@@ -368,6 +379,82 @@ describe('Websites API - Version Updates', () => {
       expect(response.status).toBe(404);
       expect(response.body.success).toBe(false);
       expect(response.body.message).toContain('Target user not found');
+    });
+  });
+
+  describe('PUT /api/websites/:domain — platform_metadata ↔ version column sync', () => {
+    it('should sync platform metadata fields to version columns', async () => {
+      const response = await request(app)
+        .put(`/api/websites/${testWebsite.domain}`)
+        .set('X-API-Key', adminApiKey)
+        .send({
+          platform: {
+            name: 'WordPress',
+            version: '6.7.0',
+            phpVersion: '8.3.1',
+            databaseEngine: 'mariadb',
+            databaseVersion: '11.2.2',
+          },
+        });
+
+      expect(response.status).toBe(200);
+
+      // Website.update should have been called with both platform_metadata AND the synced version columns
+      const updateCall = Website.update.mock.calls[Website.update.mock.calls.length - 1];
+      const updateData = updateCall[1];
+
+      const platformMeta = typeof updateData.platform_metadata === 'string' ? JSON.parse(updateData.platform_metadata) : updateData.platform_metadata;
+      expect(platformMeta).toEqual({
+        name: 'WordPress',
+        version: '6.7.0',
+        phpVersion: '8.3.1',
+        databaseEngine: 'mariadb',
+        databaseVersion: '11.2.2',
+      });
+      expect(updateData.wordpress_version).toBe('6.7.0');
+      expect(updateData.php_version).toBe('8.3.1');
+      expect(updateData.db_server_type).toBe('mariadb');
+      expect(updateData.db_server_version).toBe('11.2.2');
+    });
+
+    it('should only sync platform fields that are present', async () => {
+      const response = await request(app)
+        .put(`/api/websites/${testWebsite.domain}`)
+        .set('X-API-Key', adminApiKey)
+        .send({
+          platform: {
+            name: 'WordPress',
+            version: '6.7.1',
+          },
+        });
+
+      expect(response.status).toBe(200);
+
+      const updateCall = Website.update.mock.calls[Website.update.mock.calls.length - 1];
+      const updateData = updateCall[1];
+
+      expect(updateData.wordpress_version).toBe('6.7.1');
+      expect(updateData.php_version).toBeUndefined();
+      expect(updateData.db_server_type).toBeUndefined();
+      expect(updateData.db_server_version).toBeUndefined();
+    });
+
+    it('should not sync version columns when platform is null', async () => {
+      const response = await request(app)
+        .put(`/api/websites/${testWebsite.domain}`)
+        .set('X-API-Key', adminApiKey)
+        .send({
+          platform: null,
+          title: 'Null platform test',
+        });
+
+      expect(response.status).toBe(200);
+
+      const updateCall = Website.update.mock.calls[Website.update.mock.calls.length - 1];
+      const updateData = updateCall[1];
+
+      expect(updateData.platform_metadata).toBeNull();
+      expect(updateData.wordpress_version).toBeUndefined();
     });
   });
 });

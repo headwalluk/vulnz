@@ -1,10 +1,10 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-04-02",
+  "last_updated": "2026-04-05",
   "current_status": {
-    "summary": "v1.25.1 released — Swagger/OpenAPI docs brought to 100% coverage and accuracy, dynamic version from package.json.",
-    "next_action": "Continue end-to-end testing of notification integration with dev WP/Woo site at devx.headwall.tech."
+    "summary": "v1.29.2 released — fixed platform_metadata/version column sync drift and platform_metadata serialization bug in update().",
+    "next_action": "Deploy v1.29.2 to production and verify platform_metadata sync on live data. Continue vulnz-ingest integration testing. M7 env cleanup is next major milestone."
   },
   "milestones": [
     {
