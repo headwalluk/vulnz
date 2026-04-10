@@ -364,7 +364,7 @@
     {
       "id": "M9",
       "title": "Bulk Releases Endpoint",
-      "status": "in-progress",
+      "status": "complete",
       "notes": "New API endpoint to receive bulk component+version (release) data from external ingest tools. The Wordfence ingest creates releases only for vulnerable versions. This endpoint allows vulnz-ingest to also register non-vulnerable releases discovered from WordPress.org's recently-updated feed, giving a complete picture of a plugin's release history. Modelled after POST /api/vulnerabilities/bulk but creates only components+releases (no vulnerability URLs required). Round-trip tested 2026-04-10 against dev server with vulnz-ingest WordPress.org feed: 9,841 releases created across 250 plugins, deduplication confirmed on second run.",
       "tasks": [
         {
@@ -400,12 +400,12 @@
         {
           "id": "M9.7",
           "description": "Add bulkCreateReleases() method to VulnzClient in vulnz-ingest project (src/api/vulnz-client.js) so ingest feeds can push to the new endpoint",
-          "done": false
+          "done": true
         },
         {
           "id": "M9.8",
           "description": "Update documentation: CHANGELOG, database schema doc, Swagger/OpenAPI output verification",
-          "done": false
+          "done": true
         }
       ]
     }
