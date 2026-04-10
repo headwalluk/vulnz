@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.30.0 - 2026-04-10
+
+### Features
+
+- **Bulk releases endpoint**: New `POST /api/releases/bulk` endpoint accepts up to 500 component+version pairs per request. Auto-creates components and releases, skips duplicates. Designed for use by vulnz-ingest to register non-vulnerable plugin releases discovered from WordPress.org's recently-updated feed. Includes info-level logging of components monitored, releases processed, and created/skipped counts
+
+### Maintenance
+
+- **Patch nodemailer SMTP injection vulnerability**: Updated nodemailer 8.0.4 → 8.0.5 (GHSA-vvjj-xcjg-gr5g, moderate severity)
+- **Dependency updates**: dotenv, postcss, prettier, prettier-plugin-sh patched to latest minor/patch versions
+
+---
+
 ## 1.29.2 - 2026-04-05
 
 ### Bug Fixes

@@ -1,10 +1,10 @@
 {
   "project": "vulnz-api",
   "lead": "Zee",
-  "last_updated": "2026-04-05",
+  "last_updated": "2026-04-10",
   "current_status": {
-    "summary": "v1.29.2 released — fixed platform_metadata/version column sync drift and platform_metadata serialization bug in update().",
-    "next_action": "Deploy v1.29.2 to production and verify platform_metadata sync on live data. Continue vulnz-ingest integration testing. M7 env cleanup is next major milestone."
+    "summary": "M9 bulk releases endpoint built and round-trip tested with vulnz-ingest WordPress.org feed on dev server. 16 new tests (246 total passing). Dependencies updated, nodemailer SMTP injection vulnerability patched.",
+    "next_action": "Bump version, commit, and deploy to production. Then build WordPressOrgFeed class in vulnz-ingest and deploy. M7 env cleanup and M8 legacy column removal remain as future milestones."
   },
   "milestones": [
     {
@@ -357,6 +357,54 @@
         {
           "id": "M8.11",
           "description": "Update documentation: CHANGELOG, database schema doc, architecture overview, Swagger response schemas",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "M9",
+      "title": "Bulk Releases Endpoint",
+      "status": "in-progress",
+      "notes": "New API endpoint to receive bulk component+version (release) data from external ingest tools. The Wordfence ingest creates releases only for vulnerable versions. This endpoint allows vulnz-ingest to also register non-vulnerable releases discovered from WordPress.org's recently-updated feed, giving a complete picture of a plugin's release history. Modelled after POST /api/vulnerabilities/bulk but creates only components+releases (no vulnerability URLs required). Round-trip tested 2026-04-10 against dev server with vulnz-ingest WordPress.org feed: 9,841 releases created across 250 plugins, deduplication confirmed on second run.",
+      "tasks": [
+        {
+          "id": "M9.1",
+          "description": "Design endpoint contract: POST /api/releases/bulk accepting { items: [{ componentTypeSlug, componentSlug, version, releaseDate? }] } with max 500 items per request. Auth via apiOrSessionAuth. Response: { created, duplicates, errors }",
+          "done": true
+        },
+        {
+          "id": "M9.2",
+          "description": "Create route in src/routes/releases.js with validation: require componentTypeSlug, componentSlug, version per item. Validate componentTypeSlug exists. Sanitize slugs and versions using existing sanitizer helpers. Reject batch if items > 500",
+          "done": true
+        },
+        {
+          "id": "M9.3",
+          "description": "Implement batch processing: auto-create components (INSERT IGNORE pattern), auto-create releases (INSERT IGNORE pattern). Use in-request caching (Maps) for component type and component lookups, matching the pattern in POST /api/vulnerabilities/bulk",
+          "done": true
+        },
+        {
+          "id": "M9.4",
+          "description": "Register route in src/index.js with app.use('/api/releases', releasesRouter). Add apiOrSessionAuth and logApiCall middleware",
+          "done": true
+        },
+        {
+          "id": "M9.5",
+          "description": "Add Swagger JSDoc comments to the route with full request/response schema documentation",
+          "done": true
+        },
+        {
+          "id": "M9.6",
+          "description": "Write tests in tests/api/releases.test.js: auth required, validation errors, successful bulk create, duplicate handling, component auto-creation, max items limit, mixed valid/invalid items. 16 tests, all passing.",
+          "done": true
+        },
+        {
+          "id": "M9.7",
+          "description": "Add bulkCreateReleases() method to VulnzClient in vulnz-ingest project (src/api/vulnz-client.js) so ingest feeds can push to the new endpoint",
+          "done": false
+        },
+        {
+          "id": "M9.8",
+          "description": "Update documentation: CHANGELOG, database schema doc, Swagger/OpenAPI output verification",
           "done": false
         }
       ]

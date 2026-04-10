@@ -8,9 +8,15 @@ VULNZ is a self-hosted vulnerability database API for WordPress plugins/themes a
 
 ## Commands
 
+**Database CLI access:** Never hardcode credentials in shell commands. Source the `.env` file and use variable references:
+
+```bash
+source .env && mysql -u "${DB_USER}" -p"${DB_PASSWORD}" "${DB_NAME}" -e "SELECT ..."
+```
+
 ```bash
 npm run dev           # Start dev server with nodemon
-npm test              # Run all Jest tests (238 tests, in-memory SQLite)
+npm test              # Run all Jest tests (246 tests, in-memory SQLite)
 npm test -- auth      # Run a single test file by name match
 npm run test:watch    # Jest watch mode
 npm run test:coverage # Coverage report (50% threshold)
