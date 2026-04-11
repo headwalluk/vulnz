@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { optionalApiOrSessionAuth } = require('../middleware/auth');
+const { optionalApiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 
 /**
@@ -38,7 +38,7 @@ const { logApiCall } = require('../middleware/logApiCall');
  *                     type: string
  *                   description: Only returned when authenticated
  */
-router.get('/', optionalApiOrSessionAuth, logApiCall, (req, res) => {
+router.get('/', optionalApiAuth, logApiCall, (req, res) => {
   if (req.isAuthenticated() || req.user) {
     res.json({
       baseUrl: process.env.BASE_URL,

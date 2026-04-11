@@ -27,7 +27,6 @@ BigInt.prototype.toJSON = function () {
 
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 const helmet = require('helmet');
 const cors = require('cors');
 const app = express();
@@ -59,10 +58,6 @@ const ecosystemRoutes = require('./routes/ecosystems');
 const notificationRoutes = require('./routes/notifications');
 const vulnerabilityRoutes = require('./routes/vulnerabilities');
 const releaseRoutes = require('./routes/releases');
-const { redirectIfAuthenticated, isAuthenticatedPage, isAdminPage } = require('./middleware/auth');
-const { versionAssets } = require('./middleware/versionAssets');
-const { setCacheControl } = require('./middleware/cacheControl');
-const redirectHtml = require('./middleware/redirectHtml');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const cron = require('node-cron');
@@ -116,7 +111,6 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 app.set('trust proxy', 1);
-app.use(redirectHtml);
 
 // Swagger UI
 app.use(
@@ -192,56 +186,9 @@ app.get('/api/ping', (req, res) => {
   res.send('pong');
 });
 
-// Serve HTML from /public in development and /dist in production
-const root = process.env.NODE_ENV === 'production' ? '../dist' : '../public';
-
-// In production, verify the build artifacts exist before wiring routes
-if (process.env.NODE_ENV === 'production') {
-  const distRoot = path.join(__dirname, '../dist');
-  const required = [path.join(distRoot, 'index.html'), path.join(distRoot, 'build', 'css', 'app.bundle.min.css'), path.join(distRoot, 'build', 'js', 'core.bundle.min.js')];
-  const missing = required.filter((p) => !fs.existsSync(p));
-  if (missing.length) {
-    const rel = (p) => p.replace(path.join(__dirname, '..') + '/', '');
-    console.error('Production build artifacts not found. Please run "npm run build" first. Missing files:');
-    for (const m of missing) console.error(' - ' + rel(m));
-    process.exit(1);
-  }
-}
-
-app.get('/login', redirectIfAuthenticated, (req, res, next) => {
-  versionAssets(req, res, next, path.join(__dirname, root, 'login.html'));
-});
-
-app.get('/register', (req, res, next) => {
-  versionAssets(req, res, next, path.join(__dirname, root, 'register.html'));
-});
-
-app.get('/reset-password', (req, res, next) => {
-  versionAssets(req, res, next, path.join(__dirname, root, 'reset-password.html'));
-});
-
-app.get('/dashboard', isAuthenticatedPage, (req, res, next) => {
-  versionAssets(req, res, next, path.join(__dirname, root, 'dashboard.html'));
-});
-
-app.get('/admin', isAdminPage, (req, res) => {
-  res.redirect('/admin/users');
-});
-
-app.get('/admin/users', isAdminPage, (req, res, next) => {
-  versionAssets(req, res, next, path.join(__dirname, root, 'admin/users.html'));
-});
-
-app.get('/admin/components', isAdminPage, (req, res, next) => {
-  versionAssets(req, res, next, path.join(__dirname, root, 'admin/components.html'));
-});
-
-app.get('/admin/api-logs', isAdminPage, (req, res, next) => {
-  versionAssets(req, res, next, path.join(__dirname, root, 'admin/api-logs.html'));
-});
-
-app.get('/', (req, res, next) => {
-  versionAssets(req, res, next, path.join(__dirname, root, 'index.html'));
+// Landing page placeholder — full implementation arrives in M10.9
+app.get('/', (req, res) => {
+  res.type('text/plain').send('VULNZ API (placeholder landing page — full version coming in M10.9)');
 });
 
 app.use('/api/components', componentRoutes);
@@ -259,14 +206,12 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/vulnerabilities', vulnerabilityRoutes);
 app.use('/api/releases', releaseRoutes);
 
-// Serve static assets from the same root
-app.use(setCacheControl);
-app.use(express.static(path.join(__dirname, root)));
+// Serve only the static assets the new landing page needs (favicon etc.)
+app.use(express.static(path.join(__dirname, '../public')));
 
-// 404 handler
-app.use((req, res, next) => {
-  res.status(404);
-  versionAssets(req, res, next, path.join(__dirname, root, '404.html'));
+// 404 handler — plain JSON response
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found', path: req.originalUrl });
 });
 
 async function startServer() {

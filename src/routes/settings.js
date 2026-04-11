@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const AppSetting = require('../models/appSetting');
 const User = require('../models/user');
-const { apiOrSessionAuth } = require('../middleware/auth');
+const { apiAuth } = require('../middleware/auth');
 
 /**
  * Middleware to check if user is an administrator
@@ -75,7 +75,7 @@ const requireAdmin = async (req, res, next) => {
  *       500:
  *         description: Server error
  */
-router.get('/', apiOrSessionAuth, async (req, res) => {
+router.get('/', apiAuth, async (req, res) => {
   try {
     const { category, grouped } = req.query;
 
@@ -126,7 +126,7 @@ router.get('/', apiOrSessionAuth, async (req, res) => {
  *       401:
  *         description: Authentication required
  */
-router.get('/:key', apiOrSessionAuth, async (req, res) => {
+router.get('/:key', apiAuth, async (req, res) => {
   try {
     const { key } = req.params;
 
@@ -212,7 +212,7 @@ router.get('/:key', apiOrSessionAuth, async (req, res) => {
  *       403:
  *         description: Administrator privileges required
  */
-router.put('/:key', apiOrSessionAuth, requireAdmin, async (req, res) => {
+router.put('/:key', apiAuth, requireAdmin, async (req, res) => {
   try {
     const { key } = req.params;
     const { value, type, description, category, isSystem } = req.body;
@@ -291,7 +291,7 @@ router.put('/:key', apiOrSessionAuth, requireAdmin, async (req, res) => {
  *       401:
  *         description: Authentication required
  */
-router.delete('/:key', apiOrSessionAuth, requireAdmin, async (req, res) => {
+router.delete('/:key', apiAuth, requireAdmin, async (req, res) => {
   try {
     const { key } = req.params;
 

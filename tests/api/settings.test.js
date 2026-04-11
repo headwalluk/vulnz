@@ -20,7 +20,7 @@ jest.mock('../../src/db', () => mockDb);
 
 // Import routes and middleware after mocking
 const settingsRoutes = require('../../src/routes/settings');
-const { apiOrSessionAuth } = require('../../src/middleware/auth');
+const { apiAuth } = require('../../src/middleware/auth');
 
 describe('Settings API', () => {
   let app;
@@ -83,7 +83,7 @@ describe('Settings API', () => {
     });
 
     // Add auth middleware
-    app.use(apiOrSessionAuth);
+    app.use(apiAuth);
 
     // Mount settings routes
     app.use('/api/settings', settingsRoutes);

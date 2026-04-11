@@ -1,15 +1,33 @@
 const db = require('../db');
 const passport = require('passport');
 
-function apiOrSessionAuth(req, res, next) {
+function apiAuth(req, res, next) {
   passport.authenticate('headerapikey', { session: false }, (err, user) => {
     if (err) {
       return next(err);
     }
-    if (user) {
-      if (user.blocked) {
-        return res.status(401).send('User account is blocked.');
+    if (!user) {
+      return res.status(401).send('Unauthorized');
+    }
+    if (user.blocked) {
+      return res.status(401).send('User account is blocked.');
+    }
+    req.user = user;
+    req.logIn(user, { session: false }, (err) => {
+      if (err) {
+        return next(err);
       }
+      return next();
+    });
+  })(req, res, next);
+}
+
+function optionalApiAuth(req, res, next) {
+  passport.authenticate('headerapikey', { session: false }, (err, user) => {
+    if (err) {
+      return next(err);
+    }
+    if (user && !user.blocked) {
       req.user = user;
       req.logIn(user, { session: false }, (err) => {
         if (err) {
@@ -18,28 +36,14 @@ function apiOrSessionAuth(req, res, next) {
         return next();
       });
     } else {
-      isAuthenticated(req, res, next);
+      next();
     }
   })(req, res, next);
 }
 
-function isAuthenticated(req, res, next) {
-  if (req.isAuthenticated()) {
-    return next();
-  }
-  res.status(401).send('Unauthorized');
-}
-
-function isAuthenticatedPage(req, res, next) {
-  if (req.isAuthenticated()) {
-    return next();
-  }
-  res.redirect('/login');
-}
-
 function hasRole(role) {
   return async (req, res, next) => {
-    if (!req.isAuthenticated()) {
+    if (!req.user) {
       return res.status(401).send('Unauthorized');
     }
     try {
@@ -56,102 +60,35 @@ function hasRole(role) {
   };
 }
 
-function hasRolePage(role) {
-  return async (req, res, next) => {
-    if (!req.isAuthenticated()) {
-      return res.redirect('/login');
-    }
-    try {
-      const rows = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [req.user.id]);
-      const roles = rows.map((row) => row.name);
-      if (roles.includes(role)) {
-        return next();
-      }
-      res.redirect('/');
-    } catch (err) {
-      console.error(err);
-      res.status(500).send('Server error');
-    }
-  };
-}
-
-function isAdminPage(req, res, next) {
-  if (!req.isAuthenticated()) {
-    return res.redirect('/login');
-  }
-  hasRolePage('administrator')(req, res, next);
-}
-
-function redirectIfAuthenticated(req, res, next) {
-  if (req.isAuthenticated()) {
-    return res.redirect('/dashboard');
-  }
-  next();
-}
-
-function optionalApiOrSessionAuth(req, res, next) {
-  passport.authenticate('headerapikey', { session: false }, (err, user) => {
-    if (err) {
-      return next(err);
-    }
-    if (user) {
-      if (user.blocked) {
-        // Treat as unauthenticated if blocked
-        return next();
-      }
-      req.user = user;
-      req.logIn(user, { session: false }, (err) => {
-        if (err) {
-          return next(err);
-        }
-        return next();
-      });
-    } else {
-      // No valid API key, just continue. Session auth will be checked by req.isAuthenticated() in the route.
-      next();
-    }
-  })(req, res, next);
-}
-
-function apiKeyOrSessionAdminAuth(req, res, next) {
+function apiKeyAdminAuth(req, res, next) {
   passport.authenticate('headerapikey', { session: false }, async (err, user) => {
     if (err) {
       return next(err);
     }
-    // API Key authentication successful
-    if (user) {
-      if (user.blocked) {
-        return res.status(401).send('User account is blocked.');
+    if (!user) {
+      return res.status(401).send('Unauthorized');
+    }
+    if (user.blocked) {
+      return res.status(401).send('User account is blocked.');
+    }
+    try {
+      const rows = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [user.id]);
+      const roles = rows.map((row) => row.name);
+      if (!roles.includes('administrator')) {
+        return res.status(403).send('Forbidden: API key holder is not an administrator.');
       }
-      // Now check for admin role
-      try {
-        const rows = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [user.id]);
-        const roles = rows.map((row) => row.name);
-        if (roles.includes('administrator')) {
-          req.user = user; // Log in the user for this request
-          return next();
-        } else {
-          return res.status(403).send('Forbidden: API key holder is not an administrator.');
-        }
-      } catch (dbErr) {
-        console.error(dbErr);
-        return res.status(500).send('Server error during role check.');
-      }
-    } else {
-      // No valid API key, fall back to session-based role check
-      return hasRole('administrator')(req, res, next);
+      req.user = user;
+      return next();
+    } catch (dbErr) {
+      console.error(dbErr);
+      return res.status(500).send('Server error during role check.');
     }
   })(req, res, next);
 }
 
 module.exports = {
-  isAuthenticated,
-  isAuthenticatedPage,
+  apiAuth,
+  optionalApiAuth,
   hasRole,
-  hasRolePage,
-  redirectIfAuthenticated,
-  apiOrSessionAuth,
-  optionalApiOrSessionAuth,
-  isAdminPage,
-  apiKeyOrSessionAdminAuth,
+  apiKeyAdminAuth,
 };

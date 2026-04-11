@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const user = require('../models/user');
 const db = require('../db');
-const { apiKeyOrSessionAdminAuth, apiOrSessionAuth } = require('../middleware/auth');
+const { apiKeyAdminAuth, apiAuth } = require('../middleware/auth');
 const { sanitizeEmailHtml } = require('../lib/htmlSanitizer');
 
 /**
@@ -78,7 +78,7 @@ const { sanitizeEmailHtml } = require('../lib/htmlSanitizer');
  *                 totalPages:
  *                   type: integer
  */
-router.get('/', apiKeyOrSessionAdminAuth, async (req, res) => {
+router.get('/', apiKeyAdminAuth, async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
@@ -179,7 +179,7 @@ router.get('/', apiKeyOrSessionAdminAuth, async (req, res) => {
  *       409:
  *         description: Username already exists
  */
-router.post('/', apiKeyOrSessionAdminAuth, async (req, res) => {
+router.post('/', apiKeyAdminAuth, async (req, res) => {
   try {
     let { username, password, roles, blocked, paused, max_api_keys, reporting_weekday, reporting_email } = req.body;
     if (!username) {
@@ -246,7 +246,7 @@ router.post('/', apiKeyOrSessionAdminAuth, async (req, res) => {
  *       404:
  *         description: User not found
  */
-router.get('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
+router.get('/:id', apiKeyAdminAuth, async (req, res) => {
   try {
     const u = await db.query('SELECT id, username, blocked, paused, max_api_keys, reporting_weekday, reporting_email FROM users WHERE id = ?', [req.params.id]);
     if (!u || u.length === 0) {
@@ -353,7 +353,7 @@ router.get('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.put('/me', apiOrSessionAuth, async (req, res) => {
+router.put('/me', apiAuth, async (req, res) => {
   try {
     const updateData = { ...req.body };
 
@@ -406,7 +406,7 @@ router.put('/me', apiOrSessionAuth, async (req, res) => {
  *       400:
  *         description: Invalid password
  */
-router.put('/me/password', apiOrSessionAuth, async (req, res) => {
+router.put('/me/password', apiAuth, async (req, res) => {
   try {
     await user.updatePassword(req.user.id, req.body.newPassword);
     res.send('Password updated');
@@ -419,7 +419,7 @@ router.put('/me/password', apiOrSessionAuth, async (req, res) => {
   }
 });
 
-router.put('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
+router.put('/:id', apiKeyAdminAuth, async (req, res) => {
   try {
     const updateData = { ...req.body };
 
@@ -459,7 +459,7 @@ router.put('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
  *       200:
  *         description: Account paused
  */
-router.put('/me/pause', apiOrSessionAuth, async (req, res) => {
+router.put('/me/pause', apiAuth, async (req, res) => {
   try {
     await user.updateUser(req.user.id, { paused: true });
     res.send('Account paused');
@@ -479,7 +479,7 @@ router.put('/me/pause', apiOrSessionAuth, async (req, res) => {
  *       200:
  *         description: Account unpaused
  */
-router.put('/me/unpause', apiOrSessionAuth, async (req, res) => {
+router.put('/me/unpause', apiAuth, async (req, res) => {
   try {
     await user.updateUser(req.user.id, { paused: false });
     res.send('Account unpaused');
@@ -505,7 +505,7 @@ router.put('/me/unpause', apiOrSessionAuth, async (req, res) => {
  *       200:
  *         description: User paused
  */
-router.put('/:id/pause', apiKeyOrSessionAdminAuth, async (req, res) => {
+router.put('/:id/pause', apiKeyAdminAuth, async (req, res) => {
   try {
     await user.updateUser(req.params.id, { paused: true });
     res.send('User paused');
@@ -531,7 +531,7 @@ router.put('/:id/pause', apiKeyOrSessionAdminAuth, async (req, res) => {
  *       200:
  *         description: User unpaused
  */
-router.put('/:id/unpause', apiKeyOrSessionAdminAuth, async (req, res) => {
+router.put('/:id/unpause', apiKeyAdminAuth, async (req, res) => {
   try {
     await user.updateUser(req.params.id, { paused: false });
     res.send('User unpaused');
@@ -559,7 +559,7 @@ router.put('/:id/unpause', apiKeyOrSessionAdminAuth, async (req, res) => {
  *       403:
  *         description: Cannot block own account
  */
-router.put('/:id/block', apiKeyOrSessionAdminAuth, async (req, res) => {
+router.put('/:id/block', apiKeyAdminAuth, async (req, res) => {
   try {
     // Prevent admin from blocking themselves
     if (parseInt(req.params.id, 10) === req.user.id) {
@@ -589,7 +589,7 @@ router.put('/:id/block', apiKeyOrSessionAdminAuth, async (req, res) => {
  *       200:
  *         description: User unblocked
  */
-router.put('/:id/unblock', apiKeyOrSessionAdminAuth, async (req, res) => {
+router.put('/:id/unblock', apiKeyAdminAuth, async (req, res) => {
   try {
     await user.updateUser(req.params.id, { blocked: false });
     res.send('User unblocked');
@@ -615,7 +615,7 @@ router.put('/:id/unblock', apiKeyOrSessionAdminAuth, async (req, res) => {
  *       200:
  *         description: User deleted
  */
-router.delete('/:id', apiKeyOrSessionAdminAuth, async (req, res) => {
+router.delete('/:id', apiKeyAdminAuth, async (req, res) => {
   try {
     await user.deleteUser(req.params.id);
     res.send('User deleted');
