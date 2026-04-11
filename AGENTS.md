@@ -19,8 +19,8 @@ This file is for AI coding agents working on this project. Read it before making
 | [`dev-notes/03-architecture-overview.md`](dev-notes/03-architecture-overview.md)                                 | How the app fits together                                                                         |
 | [`dev-notes/04-common-patterns.md`](dev-notes/04-common-patterns.md)                                             | Reusable patterns used across the codebase                                                        |
 | [`dev-notes/05-security-patterns.md`](dev-notes/05-security-patterns.md)                                         | Security conventions — read before touching auth                                                  |
-| [`dev-notes/00-project-tracker.json`](dev-notes/00-project-tracker.json)                                         | **Zee's project tracker** — current milestone and tasks                                           |
-| [`dev-notes/00-project-tracker-paul-archive.md`](dev-notes/00-project-tracker-paul-archive.md)                   | Paul's original tracker — reference only                                                          |
+| [`dev-notes/00-project-tracker.md`](dev-notes/00-project-tracker.md)                                             | **Active project tracker** — current milestones and tasks                                         |
+| [`dev-notes/archive/`](dev-notes/archive/)                                                                       | Archived tracker history (completed milestones, earlier trackers)                                 |
 
 ---
 
@@ -131,32 +131,25 @@ Never create a new mariadb connection directly. Never use `mysql2` or any other 
 
 ---
 
-## Project Tracker (JSON Format)
+## Project Tracker (Markdown Format)
 
-The tracker is `dev-notes/00-project-tracker.json`. It uses JSON booleans — **not** Markdown checkboxes.
+The tracker is `dev-notes/00-project-tracker.md`. It uses GitHub-flavored Markdown checkboxes.
 
-**To mark a task complete**, set `"done": true` on the task object:
+**To mark a task complete**, flip `- [ ]` to `- [x]`:
 
-```json
-{ "id": "M1.1", "description": "...", "done": true }
+```markdown
+- [x] **M1.1** — Create `bin/` directory and scaffold
 ```
 
-**To update milestone status**, set the milestone `"status"` field:
+**To update milestone status**, edit the `**Status:**` line under the milestone heading and add a ✅ suffix to the heading when complete:
 
-- `"in_progress"` — currently being worked on
-- `"complete"` — all tasks done and tested
-- `"planned"` — not started yet
+- `**Status:** in progress`
+- `**Status:** complete (vX.Y.Z)` — all tasks done and tested
+- `**Status:** not started`
 
-**To update current status**, edit the top-level `"current_status"` object:
+**To update current status**, edit the `## Current Status` section at the top of the file. Always update the top-level `**Last updated:**` line to today's date when writing the tracker.
 
-```json
-{
-  "summary": "M1 complete — user management CLI commands implemented and tested.",
-  "next_action": "Begin M2: API key management commands"
-}
-```
-
-Always update `"last_updated"` to today's date when writing the tracker.
+**To archive a completed milestone**, move its section to a dated file under `dev-notes/archive/` once it's no longer active context. Keep the active tracker focused on in-flight and imminent work.
 
 ---
 
@@ -169,4 +162,3 @@ Always update `"last_updated"` to today's date when writing the tracker.
 - ❌ Hardcode magic strings for roles or statuses
 - ❌ Copy `.env.example` over an existing `.env`
 - ❌ Commit a `.env` file
-- ❌ Use Markdown `[x]` checkboxes in the JSON tracker
