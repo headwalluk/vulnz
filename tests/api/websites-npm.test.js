@@ -8,7 +8,6 @@
 
 const request = require('supertest');
 const express = require('express');
-const session = require('express-session');
 const passport = require('passport');
 const { createTestDatabase, initializeSchema, createTestUser, createTestApiKey, createTestWebsite, cleanupTestDatabase } = require('../setup');
 
@@ -131,15 +130,7 @@ describe('Websites API — npm-package Component Tests', () => {
     // ── Express app ────────────────────────────────────────────────────────
     app = express();
     app.use(express.json());
-    app.use(
-      session({
-        secret: 'test-secret',
-        resave: false,
-        saveUninitialized: false,
-      })
-    );
     app.use(passport.initialize());
-    app.use(passport.session());
     app.use('/api/websites', websitesRoutes);
   });
 

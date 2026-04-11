@@ -6,7 +6,6 @@
 
 const request = require('supertest');
 const express = require('express');
-const session = require('express-session');
 const passport = require('passport');
 const { createTestDatabase, initializeSchema, createTestUser, createTestApiKey, cleanupTestDatabase } = require('../setup');
 
@@ -145,17 +144,8 @@ describe('Components API', () => {
     app = express();
     app.use(express.json());
 
-    app.use(
-      session({
-        secret: 'test-secret',
-        resave: false,
-        saveUninitialized: false,
-        cookie: { secure: false },
-      })
-    );
 
     app.use(passport.initialize());
-    app.use(passport.session());
 
     // Clear the require cache and load the routes after Passport is configured
     delete require.cache[require.resolve('../../src/routes/components')];

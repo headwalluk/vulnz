@@ -6,7 +6,6 @@
 
 const request = require('supertest');
 const express = require('express');
-const session = require('express-session');
 const passport = require('passport');
 const { createTestDatabase, initializeSchema, createTestUser, createTestApiKey, createTestWebsite, cleanupTestDatabase } = require('../setup');
 
@@ -152,17 +151,7 @@ describe('Websites API - Version Updates', () => {
     app = express();
     app.use(express.json());
 
-    // Setup session middleware
-    app.use(
-      session({
-        secret: 'test-secret',
-        resave: false,
-        saveUninitialized: false,
-      })
-    );
-
     app.use(passport.initialize());
-    app.use(passport.session());
 
     // Mount routes
     app.use('/api/websites', websitesRoutes);
