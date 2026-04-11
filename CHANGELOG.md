@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.31.0 - 2026-04-11
+
+### Breaking Changes
+
+- **Web UI decommissioned (M10)**: The legacy admin web UI has been removed entirely. vulnz-api is now a pure CLI + API service. All session-based authentication, the password reset flow, and the web admin pages are gone. Admin functionality moves to the `vulnz` CLI tool and the `vulnz-woo` WordPress plugin (separate project). Anyone who was using the web UI will need to use the CLI or vulnz-woo going forward.
+
+### Removed
+
+- **Session subsystem**: `express-session`, `express-mysql-session`, Passport `LocalStrategy`, the `sessions` table, and the `src/models/session.js` model. Migration `20260411120000-drop-sessions-table.js` drops the table on the next startup
+- **Password reset flow**: the email-based password reset (request link, validate token, update password) is removed. Password changes are now handled via `vulnz user:reset-password <email> <password>` from the CLI, or authenticated `PUT /api/users/me/password` from an API key holder. Migration `20260411120100-drop-password-reset-tokens-table.js` drops the `password_reset_tokens` table
+- **Auth routes**: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/reset-password`, `POST /api/auth/update-password`, `GET /api/auth/validate-token/:token` — all deleted. The entire `src/routes/auth.js` file is gone
+- **Web UI files**: every HTML, CSS, JS, and vendor asset under `public/` except the new favicon. The production build pipeline (`scripts/build.js`, `scripts/copy-vendor-deps.js`, the `dist/` directory) has been deleted along with its `npm run build` / `clean` / `postinstall` scripts
+- **UI middleware**: `src/middleware/redirectHtml.js`, `src/middleware/versionAssets.js`, `src/middleware/cacheControl.js`
+- **Environment variables**: `SESSION_SECRET`, `SESSION_DURATION_DAYS`, `PASSWORD_RESET_TOKEN_DURATION`, `REGISTRATION_ENABLED`, `AUTH_RATE_LIMIT_WINDOW_MINUTES`, `AUTH_RATE_LIMIT_MAX`, `SERVER_MODE` — all removed from `.env.example` and `src/lib/env.js`
+- **Dependencies**: `express-session`, `express-mysql-session`, `passport-local`, `select2`, `select2-bootstrap-5-theme`, `cssnano`, `postcss`, `postcss-url`, `terser`, `html-minifier-terser`, `html-validate`, `fast-glob`. Net: 122 packages removed from the lockfile
+
+### Changed
+
+- **Authentication middleware renamed** for clarity now that session auth is gone:
+  - `apiOrSessionAuth` → `apiAuth`
+  - `optionalApiOrSessionAuth` → `optionalApiAuth`
+  - `apiKeyOrSessionAdminAuth` → `apiKeyAdminAuth`
+  - Dead UI helpers removed: `isAuthenticated`, `isAuthenticatedPage`, `hasRolePage`, `isAdminPage`, `redirectIfAuthenticated`
+- **`src/config/passport.js`** now registers only `HeaderAPIKeyStrategy` — `LocalStrategy`, `serializeUser`, and `deserializeUser` are gone
+- **`GET /api/config`** no longer returns `registrationEnabled` in its response (no self-serve registration exists)
+
+### Features
+
+- **New `/` landing page**: `src/routes/landing.js` serves a minimal status page mirroring the `api.verifytrusted.com` layout — inlined `vulnz-dark-mode.svg` wordmark, version from `package.json`, tagline, "System Operational" pill, and a 2×2 button grid linking to `/api/ping`, the GitHub repo, `/doc` (Swagger UI), and `/openapi.json`. Content-negotiated: returns the same data as JSON when `Accept: application/json` for scripts and AI agents. Inline CSS, no build step, no frontend framework
+- **New favicon**: `public/icon.svg` is the primary favicon with a 512×512 PNG fallback at `public/icon.png`
+
+### Tests
+
+- Stripped session boilerplate from all 9 remaining API test files — they were mounting `express-session` + `passport.session()` even though every test uses API-key auth. Removed `SESSION_SECRET`, `JWT_SECRET`, `AUTH_RATE_LIMIT_*` from `tests/jest.setup.js`
+- Deleted `tests/api/auth.test.js` (covered deleted routes). The pre-existing failing `validate-token` test is gone as an incidental win
+- Added `tests/api/landing.test.js` — 10 tests covering HTML and JSON responses, content negotiation, inlined logo, dynamic version, favicon links, and navigation buttons
+- Test state: 235 passing, 0 failures, 8 skipped (was 246 passing / 1 failing / 10 skipped before M10)
+
+---
+
 ## 1.30.0 - 2026-04-10
 
 ### Features

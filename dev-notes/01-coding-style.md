@@ -198,7 +198,7 @@ users.forEach(user => { ... });
 ```javascript
 const express = require('express');
 const router = express.Router();
-const { apiOrSessionAuth } = require('../middleware/auth');
+const { apiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 const Website = require('../models/website');
 
@@ -213,7 +213,7 @@ const Website = require('../models/website');
  *       200:
  *         description: List of websites
  */
-router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.get('/', apiAuth, logApiCall, async (req, res) => {
   try {
     const websites = await Website.findAll(req.user.id);
     res.json(websites);
@@ -230,7 +230,7 @@ module.exports = router;
 
 ```javascript
 // API key OR session authentication
-router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => { ... });
+router.get('/', apiAuth, logApiCall, async (req, res) => { ... });
 
 // Session only (web pages)
 router.get('/dashboard', isAuthenticatedPage, async (req, res) => { ... });

@@ -45,25 +45,29 @@ vulnz-api/
 ├── src/
 │   ├── index.js          # Express app entry point
 │   ├── db.js             # MariaDB connection pool — import this for all queries
-│   ├── config/           # db.js, passport.js, etc.
+│   ├── config/           # db.js, passport.js (HeaderAPIKeyStrategy only)
 │   ├── models/           # Plain SQL functions (user, apiKey, component, etc.)
-│   ├── routes/           # Express route handlers
-│   ├── lib/              # Utilities (email validation, password validation, etc.)
-│   └── views/            # Handlebars templates
+│   ├── routes/           # Express route handlers (includes landing.js for /)
+│   ├── middleware/       # apiAuth, optionalApiAuth, apiKeyAdminAuth, logApiCall
+│   ├── lib/              # Utilities (email validation, password validation, env, etc.)
+│   ├── emails/           # Handlebars templates for cron-sent reports
+│   └── migrations/       # Forward-only DB migrations
 ├── bin/
-│   └── vulnz.js          # CLI tool (in progress — M1)
+│   └── vulnz.js          # CLI tool — primary admin interface
+├── public/               # Static assets served at / (just favicons)
+├── artwork/              # Source brand assets (not served)
 ├── scripts/              # Shell scripts (Wordfence feed ingestion, etc.)
 ├── tests/                # Jest test suite
 ├── dev-notes/            # All project documentation
-├── .env.example            # Template for .env — NEVER copy over existing .env
+├── .env.example          # Template for .env — NEVER copy over existing .env
 └── package.json
 ```
 
 ---
 
-## CLI Tool (Current Focus — M1)
+## CLI Tool
 
-The CLI lives at `bin/vulnz.js`. It must:
+The CLI lives at `bin/vulnz.js`. It is the primary admin interface for vulnz-api — there is no web UI. It must:
 
 - Load `dotenv` at the top before requiring any src/ modules
 - Import models directly from `src/models/` — do NOT start the Express server
@@ -72,13 +76,9 @@ The CLI lives at `bin/vulnz.js`. It must:
 - Exit with code `1` on error, `0` on success
 - Print clear, human-readable error messages (not raw stack traces)
 
-**Commands being built (M1):**
+Key command groups: `user:*`, `key:*`, `site:*`, `queue:*`, `setting:*`, `feed:status`, `component:find`, `release:list`. See `docs/cli.md` for the full list.
 
-- `user:add <email> <password> [--admin]`
-- `user:list`
-- `user:delete <email>`
-- `user:block <email>` / `user:unblock <email>`
-- `user:reset-password <email> <new-password>`
+Customer-facing admin features (password management, subscription status, etc.) live in the `vulnz-woo` WordPress plugin rather than vulnz-api — add them there, not here.
 
 ---
 
@@ -127,7 +127,7 @@ Never create a new mariadb connection directly. Never use `mysql2` or any other 
 
 - Copy `.env.example` to `.env` — **ONLY if `.env` does not already exist**
 - Always `ls -la .env` before any `cp` or `write` to avoid clobbering a working config
-- `SETUP_MODE=true` in `.env` grants admin to the first registered user — this will be removed once the CLI is in place
+- The first administrator must be created via the CLI: `vulnz user:add <email> <password> --admin`
 
 ---
 
