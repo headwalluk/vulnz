@@ -8,7 +8,7 @@
 
 Self-hosted vulnerability database for WordPress plugins, themes, and npm packages. Track vulnerabilities, monitor security events, and manage web applications across your infrastructure.
 
-VULNZ is a headless API service — there is no built-in web UI. Administration is handled via the `vulnz` CLI tool, and customer-facing admin features live in the [`vulnz-woo`](https://github.com/headwalluk/vulnz-woo) WordPress plugin.
+VULNZ is a headless API service — there is no built-in web UI. Administration is handled via the `vulnz` CLI tool. Customer-facing admin features (where applicable) are provided by a separate WordPress plugin running against the API.
 
 ## About
 
