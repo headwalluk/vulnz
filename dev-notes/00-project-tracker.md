@@ -11,7 +11,7 @@ MCP server initiative kicked off — requirements captured in [`11-mcp-server-re
 
 **Priority order:** M10 (UI decommission) → M11 (MariaDB test DB) → M7 (env cleanup) → M8 (legacy columns) → MCP layers (new milestones to be defined from the requirements doc).
 
-**Next action:** Ship M10 — strip the web UI, drop the session subsystem, replace `/` with a minimal status landing page. This is the prerequisite for a cleaner MCP build on top of a slimmer CLI + API core. M11 follows immediately after, replacing the in-memory SQLite test shim with a real MariaDB test database to eliminate the dev/prod inconsistency before M7's env-var work (which benefits from accurate DB semantics).
+**Next action:** M10 work is complete on branch `m10-ui-decommission` (v1.31.0). Ten commits deleting the legacy web UI, session subsystem, password reset flow, UI build pipeline, and orphaned dependencies; adding a new status landing page with HTML/JSON content negotiation; and updating all docs. 235 tests passing (down from 246 — the 21 missing were auth tests covering deleted routes, plus the pre-existing validate-token failure is gone). Local smoke test against the real dev MariaDB confirmed everything works. **Pending:** merge to `main`, deploy to dev host, deploy to prod, soak 24–48 hours, then start M11.
 
 Completed milestones M1–M6 have been archived to [`archive/00-project-tracker-m1-m6-archive.md`](archive/00-project-tracker-m1-m6-archive.md).
 
@@ -76,7 +76,7 @@ Round-trip tested 2026-04-10 against dev server with vulnz-ingest WordPress.org 
 
 ## M10 — Web UI Decommission & Status Landing Page
 
-**Status:** not started — **immediate priority**
+**Status:** ready to deploy (v1.31.0) — work complete on branch `m10-ui-decommission`, local smoke-tested, pending merge + prod deploy
 
 Decommission the legacy admin web UI, leaving vulnz-api as a clean CLI + API core. This is the prerequisite for MCP work (see [`11-mcp-server-requirements.md`](11-mcp-server-requirements.md)): slimming the codebase before layering on new functionality, and removing the session-auth dual path that complicates every middleware.
 
@@ -97,23 +97,23 @@ The `/` route — currently a search box — will be replaced with a minimal sta
 
 ### Tasks
 
-- [ ] **M10.1** — Audit current UI surface: list every view template, static asset directory, UI-only route, session-dependent middleware, and UI-related env var. Capture in a short inventory note before starting deletions so we can refer back if anything unexpected breaks
-- [ ] **M10.2** — Delete the search-box view and any other public/admin page routes; remove view template files and static asset directories wholesale
-- [ ] **M10.3** — Remove Passport LocalStrategy, `express-session`, the MySQL session store middleware, and related session wiring from `src/index.js`
-- [ ] **M10.4** — Remove `src/models/session.js` and create a migration to drop the `sessions` table
-- [ ] **M10.5** — Remove `src/models/passwordResetToken.js`, create a migration to drop the `password_reset_tokens` table, remove the reset email template, and delete the reset routes in `src/routes/auth.js`. The `user:reset-password` CLI command remains untouched
-- [ ] **M10.6** — Rename `apiOrSessionAuth` → `apiAuth` (and `optionalApiOrSessionAuth` → `optionalApiAuth`) in `src/middleware/` and update every route that uses them. Simplify the middleware body to API-key-only — no session fallback
-- [ ] **M10.7** — Remove `SESSION_SECRET`, `SESSION_DURATION_DAYS`, `PASSWORD_RESET_TOKEN_DURATION`, and `PASSWORD_MIN_*` from `src/lib/env.js` and `.env.example`. Remove any code that reads them
-- [ ] **M10.8** — Remove newly-unused dependencies from `package.json`: `passport`, `passport-local`, `express-session`, the session store package, and the view engine (EJS/Pug/whichever is in use). Keep `passport` + `passport-http-header-strategy` if the API key strategy depends on them — double-check before removing. Run `npm prune` and commit the updated lockfile
-- [ ] **M10.9** — Build the new `/` route mirroring [`verifytrusted-api-front-page.png`](verifytrusted-api-front-page.png). HTML response contains: Vulnz logo, title ("VULNZ API"), version (read dynamically from `package.json`), tagline ("Self-hosted vulnerability database for WordPress plugins, themes, and npm packages"), a "System Operational" status pill (green when healthy), and a 2×2 button grid linking to: Health Check (`/health` or `/api/health` — whichever exists), GitHub Repo (link to the repo URL from `package.json`), API Documentation (Swagger UI), OpenAPI Spec (`/openapi.json`). Footer with copyright. Single self-contained HTML file with inline CSS — no build step, no frontend framework
-- [ ] **M10.10** — Add content negotiation: when `Accept: application/json`, return a JSON object with the same core fields (`name`, `version`, `tagline`, `status`, `links: { health, github, swaggerUi, openapi }`). Agents and `curl` get structured data; browsers get the HTML page
-- [ ] **M10.11** — Verify the Swagger UI HTML mount is intact at its existing path (likely `/api-docs`) and that `/openapi.json` still serves the generated spec. Link both from the landing page
-- [ ] **M10.12** — Update tests: delete web-UI/session test files, remove session-auth cases from API route tests, ensure every route test authenticates via API key only. Target: all existing non-UI tests still pass
-- [ ] **M10.13** — Add tests for the new `/` landing page: HTML response contains expected elements (title, version, all four buttons), JSON response matches the expected shape, version is read from `package.json` not hardcoded, status pill reflects actual health
-- [ ] **M10.14** — Update `CLAUDE.md`, `AGENTS.md`, `README.md`, and `dev-notes/03-architecture-overview.md` to reflect the CLI + API-only shape. Remove references to the web UI, session auth, password reset flow, and `SETUP_MODE`. Note that admin UI is now the `vulnz-woo` WordPress plugin
-- [ ] **M10.15** — Update `dev-notes/05-security-patterns.md` to reflect API-key-only auth, remove session security notes
-- [ ] **M10.16** — Bump version (minor bump) and update the CHANGELOG with a clear breaking-change note. Document the migration path for anyone who had been using the web UI: use the CLI, or use vulnz-woo
-- [ ] **M10.17** — Deploy to dev, verify the landing page renders correctly in a browser, verify JSON negotiation with `curl -H "Accept: application/json" http://localhost:3020/`, verify a sample of API endpoints still work with an API key, then deploy to prod and soak for 24–48 hours before starting M11
+- [x] **M10.1** — Audit current UI surface: list every view template, static asset directory, UI-only route, session-dependent middleware, and UI-related env var. Capture in a short inventory note before starting deletions so we can refer back if anything unexpected breaks
+- [x] **M10.2** — Delete the search-box view and any other public/admin page routes; remove view template files and static asset directories wholesale
+- [x] **M10.3** — Remove Passport LocalStrategy, `express-session`, the MySQL session store middleware, and related session wiring from `src/index.js`
+- [x] **M10.4** — Remove `src/models/session.js` and create a migration to drop the `sessions` table
+- [x] **M10.5** — Remove `src/models/passwordResetToken.js`, create a migration to drop the `password_reset_tokens` table, remove the reset email template, and delete the reset routes in `src/routes/auth.js`. The `user:reset-password` CLI command remains untouched
+- [x] **M10.6** — Rename `apiOrSessionAuth` → `apiAuth` (and `optionalApiOrSessionAuth` → `optionalApiAuth`) in `src/middleware/` and update every route that uses them. Simplify the middleware body to API-key-only — no session fallback
+- [x] **M10.7** — Remove `SESSION_SECRET`, `SESSION_DURATION_DAYS`, `PASSWORD_RESET_TOKEN_DURATION`, and `PASSWORD_MIN_*` from `src/lib/env.js` and `.env.example`. Remove any code that reads them
+- [x] **M10.8** — Remove newly-unused dependencies from `package.json`: `passport`, `passport-local`, `express-session`, the session store package, and the view engine (EJS/Pug/whichever is in use). Keep `passport` + `passport-http-header-strategy` if the API key strategy depends on them — double-check before removing. Run `npm prune` and commit the updated lockfile
+- [x] **M10.9** — Build the new `/` route mirroring [`verifytrusted-api-front-page.png`](verifytrusted-api-front-page.png). HTML response contains: Vulnz logo, title ("VULNZ API"), version (read dynamically from `package.json`), tagline ("Self-hosted vulnerability database for WordPress plugins, themes, and npm packages"), a "System Operational" status pill (green when healthy), and a 2×2 button grid linking to: Health Check (`/health` or `/api/health` — whichever exists), GitHub Repo (link to the repo URL from `package.json`), API Documentation (Swagger UI), OpenAPI Spec (`/openapi.json`). Footer with copyright. Single self-contained HTML file with inline CSS — no build step, no frontend framework
+- [x] **M10.10** — Add content negotiation: when `Accept: application/json`, return a JSON object with the same core fields (`name`, `version`, `tagline`, `status`, `links: { health, github, swaggerUi, openapi }`). Agents and `curl` get structured data; browsers get the HTML page
+- [x] **M10.11** — Verify the Swagger UI HTML mount is intact at its existing path (likely `/api-docs`) and that `/openapi.json` still serves the generated spec. Link both from the landing page
+- [x] **M10.12** — Update tests: delete web-UI/session test files, remove session-auth cases from API route tests, ensure every route test authenticates via API key only. Target: all existing non-UI tests still pass
+- [x] **M10.13** — Add tests for the new `/` landing page: HTML response contains expected elements (title, version, all four buttons), JSON response matches the expected shape, version is read from `package.json` not hardcoded, status pill reflects actual health
+- [x] **M10.14** — Update `CLAUDE.md`, `AGENTS.md`, `README.md`, and `dev-notes/03-architecture-overview.md` to reflect the CLI + API-only shape. Remove references to the web UI, session auth, password reset flow, and `SETUP_MODE`. Note that admin UI is now the `vulnz-woo` WordPress plugin
+- [x] **M10.15** — Update `dev-notes/05-security-patterns.md` to reflect API-key-only auth, remove session security notes
+- [x] **M10.16** — Bump version (minor bump) and update the CHANGELOG with a clear breaking-change note. Document the migration path for anyone who had been using the web UI: use the CLI, or use vulnz-woo
+- [ ] **M10.17** — Deploy to dev, verify the landing page renders correctly in a browser, verify JSON negotiation with `curl -H "Accept: application/json" http://localhost:3020/`, verify a sample of API endpoints still work with an API key, then deploy to prod and soak for 24–48 hours before starting M11. **Partially done**: local smoke test completed against the real dev MariaDB (migrations ran, landing page HTML/JSON both render, `/doc`, `/openapi.json`, `/api/ping`, favicon all serve correctly). Pending: merge `m10-ui-decommission` to `main`, deploy to the dev host, deploy to prod, soak
 
 ---
 

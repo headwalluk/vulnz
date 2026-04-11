@@ -126,7 +126,7 @@ module.exports = { up };
 const express = require('express');
 const router = express.Router();
 const Example = require('../models/example');
-const { apiOrSessionAuth, hasRole } = require('../middleware/auth');
+const { apiAuth, hasRole } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 const sanitizer = require('../lib/sanitizer');
 
@@ -154,7 +154,7 @@ const sanitizer = require('../lib/sanitizer');
  *                   description:
  *                     type: string
  */
-router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.get('/', apiAuth, logApiCall, async (req, res) => {
   try {
     const examples = await Example.findAll(req.user.id);
     res.json(examples);
@@ -178,7 +178,7 @@ router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
  *         schema:
  *           type: integer
  */
-router.get('/:id', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.get('/:id', apiAuth, logApiCall, async (req, res) => {
   try {
     const example = await Example.findById(req.params.id);
 
@@ -220,7 +220,7 @@ router.get('/:id', apiOrSessionAuth, logApiCall, async (req, res) => {
  *               description:
  *                 type: string
  */
-router.post('/', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.post('/', apiAuth, logApiCall, async (req, res) => {
   try {
     const { name, description } = req.body;
 
@@ -255,7 +255,7 @@ router.post('/', apiOrSessionAuth, logApiCall, async (req, res) => {
  *     tags:
  *       - Examples
  */
-router.put('/:id', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.put('/:id', apiAuth, logApiCall, async (req, res) => {
   try {
     const example = await Example.findById(req.params.id);
 
@@ -296,7 +296,7 @@ router.put('/:id', apiOrSessionAuth, logApiCall, async (req, res) => {
  *     tags:
  *       - Examples
  */
-router.delete('/:id', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.delete('/:id', apiAuth, logApiCall, async (req, res) => {
   try {
     const example = await Example.findById(req.params.id);
 
@@ -492,7 +492,7 @@ module.exports = { validateDomain };
 ```javascript
 const { validateDomain } = require('../middleware/validateInput');
 
-router.post('/api/websites', apiOrSessionAuth, validateDomain, logApiCall, async (req, res) => {
+router.post('/api/websites', apiAuth, validateDomain, logApiCall, async (req, res) => {
   // Domain is already validated
   const website = await Website.create(req.body);
   res.status(201).json(website);

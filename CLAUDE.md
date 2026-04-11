@@ -16,15 +16,16 @@ source .env && mysql -u "${DB_USER}" -p"${DB_PASSWORD}" "${DB_NAME}" -e "SELECT 
 
 ```bash
 npm run dev           # Start dev server with nodemon
-npm test              # Run all Jest tests (246 tests, in-memory SQLite)
-npm test -- auth      # Run a single test file by name match
+npm test              # Run all Jest tests (235 tests, in-memory SQLite)
+npm test -- landing   # Run a single test file by name match
 npm run test:watch    # Jest watch mode
 npm run test:coverage # Coverage report (50% threshold)
 npm run lint          # ESLint check
 npm run format        # Prettier auto-format
 npm start             # Production start (NODE_ENV=production)
-npm run build         # Build production assets
 ```
+
+There is no `npm run build` step — vulnz-api is a pure CLI + API service with no frontend build pipeline. Admin UI functionality lives in the `vulnz-woo` WordPress plugin (separate repo).
 
 ## Non-Negotiable Rules
 
@@ -39,13 +40,11 @@ npm run build         # Build production assets
 
 ## Architecture
 
-**Request flow:** Rate Limiting → Authentication (Passport) → Role Check → API Call Logging → Route Handler → Model → Response
+**Request flow:** Rate Limiting → Authentication (Passport HeaderAPIKeyStrategy) → Role Check → API Call Logging → Route Handler → Model → Response
 
-**Dual authentication:**
+**Authentication:** API key-based only via `X-API-Key` header with `HeaderAPIKeyStrategy`. Session-based auth was removed in M10 — there is no web UI, no login form, no password reset flow, no session table. Admin management happens via the CLI (`bin/vulnz.js`) and the `vulnz-woo` WordPress plugin. Most routes use the `apiAuth` middleware (`src/middleware/auth.js`); optional-auth routes use `optionalApiAuth`; admin-only routes use `apiKeyAdminAuth`.
 
-- Session-based (web UI) via Passport LocalStrategy, sessions stored in MySQL
-- API key-based (CLI/plugins) via `X-API-Key` header with HeaderAPIKeyStrategy
-- Most routes use `apiOrSessionAuth` middleware which accepts either
+**Landing page (`/`):** a minimal status page served from `src/routes/landing.js` with HTML/JSON content negotiation. Serves static assets from `public/` (favicon only). No other static content.
 
 **Models** (`src/models/`) are functional modules (not classes) exporting CRUD functions: `createTable()`, `findAll()`, `findById()`, `create()`, `update()`, `remove()`. All use `db.query(sql, params)` — never create direct DB connections.
 
@@ -69,7 +68,7 @@ Tests mock `src/db` and redirect queries to SQLite. Test files live in `tests/ap
 
 ## Adding Features
 
-**New functionality goes through the CLI** (`bin/vulnz.js`), not the web UI. The web UI is legacy and may be replaced — all new management commands should be added as CLI subcommands via `commander`.
+**New functionality goes through the CLI** (`bin/vulnz.js`) or a new API endpoint. There is no web UI in vulnz-api — admin UI features are added to the `vulnz-woo` WordPress plugin (separate project) instead. New management commands should be added as CLI subcommands via `commander`.
 
 **New API endpoint:** Create model in `src/models/`, create route in `src/routes/` with Swagger JSDoc comments, register route in `src/index.js` with `app.use()`, add tests in `tests/api/`.
 

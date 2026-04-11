@@ -10,13 +10,13 @@ High-level architecture and request flow for VULNZ.
 ┌─────────────────────────────────────────────────────────────┐
 │                        Client Layer                          │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│  │  Browser │  │    CLI   │  │ WP Plugin│  │  Script  │   │
-│  │  (Human) │  │  (Admin) │  │ (Website)│  │ (Cron)   │   │
+│  │    CLI   │  │ vulnz-woo│  │ WP Plugin│  │  Script  │   │
+│  │  (Admin) │  │ (WP UI)  │  │ (Website)│  │ (Cron)   │   │
 │  └─────┬────┘  └─────┬────┘  └─────┬────┘  └─────┬────┘   │
 └────────┼─────────────┼─────────────┼─────────────┼─────────┘
          │             │             │             │
-         │ HTTP/HTML   │ Commands    │ HTTP/JSON   │ HTTP/JSON
-         │             │             │             │
+         │ Commands    │ HTTP/JSON   │ HTTP/JSON   │ HTTP/JSON
+         │             │ (API Key)   │ (API Key)   │ (API Key)
          ▼             ▼             ▼             ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                     Application Layer                        │
@@ -24,14 +24,14 @@ High-level architecture and request flow for VULNZ.
 │  │              Express.js (Node.js v22)                │   │
 │  │                                                       │   │
 │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐          │   │
-│  │  │  Static  │  │ Sessions │  │   CORS   │          │   │
-│  │  │  Files   │  │  Auth    │  │  Helmet  │          │   │
+│  │  │  Static  │  │  API Key │  │   CORS   │          │   │
+│  │  │ (favicon)│  │   Auth   │  │  Helmet  │          │   │
 │  │  └──────────┘  └──────────┘  └──────────┘          │   │
 │  │                                                       │   │
 │  │  ┌────────────────────────────────────────────────┐ │   │
 │  │  │         Middleware Chain                       │ │   │
 │  │  │  • Rate Limiting (unauthenticated requests)    │ │   │
-│  │  │  • Authentication (session or API key)         │ │   │
+│  │  │  • Authentication (API key via Passport)       │ │   │
 │  │  │  • Role Check (admin/user)                     │ │   │
 │  │  │  • API Call Logging                            │ │   │
 │  │  │  • Request Validation                          │ │   │
@@ -39,12 +39,15 @@ High-level architecture and request flow for VULNZ.
 │  │                                                       │   │
 │  │  ┌────────────────────────────────────────────────┐ │   │
 │  │  │              Route Handlers                    │ │   │
-│  │  │  /api/auth     - Login, register, logout       │ │   │
+│  │  │  /              - Status landing page          │ │   │
 │  │  │  /api/users    - User management               │ │   │
 │  │  │  /api/websites - Website CRUD                  │ │   │
 │  │  │  /api/components - Component search            │ │   │
+│  │  │  /api/vulnerabilities - Vuln bulk import       │ │   │
+│  │  │  /api/releases - Release bulk import           │ │   │
+│  │  │  /api/notifications - WP notification intake   │ │   │
 │  │  │  /doc          - Swagger API docs              │ │   │
-│  │  │  /              - Public search interface      │ │   │
+│  │  │  /openapi.json - Machine-readable API spec     │ │   │
 │  │  └────────────────────────────────────────────────┘ │   │
 │  │                                                       │   │
 │  │  ┌────────────────────────────────────────────────┐ │   │
@@ -60,10 +63,10 @@ High-level architecture and request flow for VULNZ.
          ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                      Data Layer                              │
-│  ┌──────────────────┐  ┌──────────────────┐                │
-│  │  MySQL/MariaDB   │  │  Sessions Store  │                │
-│  │  (Main Database) │  │  (MySQL-backed)  │                │
-│  └──────────────────┘  └──────────────────┘                │
+│  ┌──────────────────┐                                        │
+│  │  MySQL/MariaDB   │                                        │
+│  │  (Main Database) │                                        │
+│  └──────────────────┘                                        │
 └─────────────────────────────────────────────────────────────┘
          │
          │ Backups (mysqldump)
@@ -118,29 +121,13 @@ Model.create(data) → Database INSERT
 JSON Response ← { id: 123, domain: "example.com" }
 ```
 
-### 3. Web UI Request (Session Authenticated)
+### 3. Admin Request (Role-Based Access)
 
 ```
-Browser → HTTP GET /dashboard
-  Cookies: connect.sid=xyz789
+User → HTTP GET /api/users
+  Headers: X-API-Key: abc123
   ↓
-Session Middleware (express-session)
-  ↓
-Passport Deserialization (load user from session)
-  ↓
-isAuthenticatedPage Middleware
-  ↓
-Serve Static HTML + JavaScript
-  ↓
-JavaScript makes API calls (with session cookies)
-```
-
-### 4. Admin Request (Role-Based Access)
-
-```
-User → HTTP GET /api/admin/users
-  ↓
-API Key or Session Authentication
+API Key Authentication (passport-headerapikey)
   ↓
 User Role Lookup (JOIN user_roles, roles)
   ↓
@@ -157,34 +144,20 @@ JSON Response
 
 ## Authentication & Authorization
 
-### Authentication Methods
+### Authentication
 
-1. **Session-based** (Web UI)
-   - Login via username/password
-   - Session stored in MySQL
-   - Managed by `express-session` + `passport-local`
-   - Cookie: `connect.sid`
+**API Key only.** Session-based auth was removed in M10. Every authenticated request carries an `X-API-Key` header, validated by Passport's `HeaderAPIKeyStrategy` (configured in `src/config/passport.js`) against the `api_keys` table.
 
-2. **API Key** (Programmatic access)
-   - Generated via UI or CLI (future)
-   - Header: `X-API-Key: your-key-here`
-   - Managed by `passport-headerapikey`
-   - Maps to user account
-
-3. **Hybrid** (Most API endpoints)
-   - Accept either session OR API key
-   - Middleware: `apiOrSessionAuth`
+API keys are generated via the CLI (`vulnz key:generate <email>`) or automatically provisioned by the notification integration (`src/lib/notificationProcessor.js`) when a WordPress/WooCommerce site registers a new subscription.
 
 ### Authorization Flow
 
 ```
 Request
   ↓
-Authenticate (session or API key) → req.user populated
+Authenticate (API key) → req.user populated
   ↓
 Check user.blocked? → 401 Unauthorized
-  ↓
-Check user.paused? → 401 Unauthorized (for session auth)
   ↓
 Check role (if required)
   ↓
@@ -201,17 +174,14 @@ Resource Access Check
 ### Middleware Stack
 
 ```javascript
-// Public endpoint (no auth required)
-router.get('/api/components/search', logApiCall, handler);
+// Public endpoint (no auth required, rate-limited)
+router.get('/api/components/search', unauthenticatedSearchLimiter, optionalApiAuth, logApiCall, handler);
 
-// User endpoint (auth required, access own resources)
-router.get('/api/websites', apiOrSessionAuth, logApiCall, handler);
+// User endpoint (API key required)
+router.get('/api/websites', apiAuth, logApiCall, handler);
 
-// Admin endpoint (auth + admin role required)
-router.get('/api/admin/users', apiKeyOrSessionAdminAuth, logApiCall, handler);
-
-// Web page (session required, redirect to login if not authenticated)
-router.get('/dashboard', isAuthenticatedPage, handler);
+// Admin endpoint (API key + admin role required)
+router.get('/api/users', apiKeyAdminAuth, logApiCall, handler);
 ```
 
 ---
@@ -306,53 +276,12 @@ cron.schedule('*/30 * * * *', async () => {
 
 ---
 
-## Session Management
-
-### Storage
-
-Sessions stored in MySQL via `express-mysql-session`:
-
-```javascript
-const sessionStore = new MySQLStore({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
-```
-
-### Session Lifecycle
-
-1. **Login**: User provides username/password
-   - Passport verifies credentials
-   - Session created in database
-   - Session ID sent as cookie (`connect.sid`)
-
-2. **Subsequent Requests**: Browser sends cookie
-   - express-session loads session from database
-   - Passport deserializes user (loads from database)
-   - `req.user` populated with user object
-
-3. **Logout**: User clicks logout
-   - Session destroyed in database
-   - Cookie cleared from browser
-
-### Session Security
-
-- `httpOnly: true` - Prevents JavaScript access
-- `secure: true` - HTTPS only (production)
-- `sameSite: 'strict'` - CSRF protection
-- Secret from environment variable
-
----
-
 ## Email System
 
 ### Email Flow
 
 ```
-Trigger (weekly report, password reset, test email)
+Trigger (weekly vulnerability report cron)
   ↓
 Prepare email data
   ↓
@@ -373,8 +302,7 @@ Log result in email_logs table
 
 Located in `src/emails/`:
 
-- `vulnerability-report.hbs` - Weekly vulnerability summary
-- `password-reset.hbs` - Password reset link
+- `vulnerability-report.hbs` - Weekly vulnerability summary (sent by the weekly reporting cron)
 
 ### White-Label Support
 
@@ -449,9 +377,7 @@ npm run dev (nodemon)
   ↓
 Node.js (single process)
   ↓
-Serves from public/ directory
-  ↓
-MySQL/MariaDB (local or remote)
+MariaDB (local or remote)
 ```
 
 ### Production
@@ -467,17 +393,16 @@ PM2 Process Manager (cluster mode)
   ↓
 Node.js (multiple processes)
   ↓
-Serves from dist/ directory (built assets)
-  ↓
-MySQL/MariaDB (separate server recommended)
+MariaDB (separate server recommended)
   ↓
 Reverse Proxy (Nginx/Apache)
   ├─ SSL/TLS Termination
-  ├─ Static Asset Caching
   └─ Load Balancing
   ↓
 Internet
 ```
+
+Note: there is no build step — vulnz-api serves directly from source. The only static assets are the favicons in `public/`, served via `express.static()`.
 
 ---
 
@@ -527,7 +452,7 @@ Every email attempt logged to `email_logs`:
 
 - Recipient
 - Subject
-- Type (vulnerability-report, password-reset, etc.)
+- Type (vulnerability-report)
 - Status (sent, failed)
 - Error message (if failed)
 
@@ -558,37 +483,4 @@ Console output (managed by PM2):
 ### Caching
 
 - Static assets cached by reverse proxy
-- Session store in database (shared across instances)
 - No application-level caching (keep it simple)
-
----
-
-## Future Architecture (CLI + API-First)
-
-Planned simplification:
-
-```
-┌─────────────────────────────────────────────┐
-│  Public Interface: Search Only (/index)     │
-└─────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────┐
-│  API Layer: All Operations                  │
-│  (Authentication: API Key only)             │
-└─────────────────────────────────────────────┘
-         │
-         ├─────────────────────────┐
-         ▼                         ▼
-┌─────────────────────┐   ┌─────────────────────┐
-│  CLI Tool (Admin)   │   │  React SPA (Future) │
-│  ./bin/vulnz        │   │  Modern UI          │
-└─────────────────────┘   └─────────────────────┘
-```
-
-Benefits:
-
-- Simpler security model (no session management for admin)
-- Better automation support
-- Cleaner separation of concerns
-- Easier to test and maintain

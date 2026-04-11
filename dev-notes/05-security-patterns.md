@@ -168,25 +168,6 @@ if (!result.isValid) {
 - At least one number
 - At least one special character
 
-### Session Security
-
-```javascript
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    store: sessionStore,
-    cookie: {
-      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-      httpOnly: true, // Prevent JavaScript access
-      sameSite: 'strict', // CSRF protection
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    },
-  })
-);
-```
-
 ### API Key Security
 
 ```javascript
@@ -288,20 +269,6 @@ const searchLimiter = rateLimit({
 
 router.get('/api/components/search', searchLimiter, async (req, res) => {
   // Search logic
-});
-```
-
-### Authentication Endpoints
-
-```javascript
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts
-  message: 'Too many login attempts, please try again later',
-});
-
-router.post('/api/auth/login', authLimiter, async (req, res) => {
-  // Login logic
 });
 ```
 
@@ -457,12 +424,6 @@ checkEnvFilePermissions();
 .env.production
 ```
 
-**Generate secrets securely:**
-
-```bash
-./scripts/generate-session-secret.sh
-```
-
 ---
 
 ## Error Handling Security
@@ -586,7 +547,7 @@ If a security issue is discovered:
 Security is built into every layer:
 
 1. **Input** - Validate and sanitize
-2. **Authentication** - Strong passwords, secure sessions, API keys
+2. **Authentication** - Strong passwords (for CLI user creation), API keys for request auth
 3. **Authorization** - Role-based access, resource ownership
 4. **Database** - Parameterized queries, least privilege
 5. **Output** - Sanitize HTML, prevent information leakage

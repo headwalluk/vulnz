@@ -4,11 +4,11 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Database](https://img.shields.io/badge/database-MySQL%2FMariaDB-blue)](https://mariadb.org/)
 [![Security](https://img.shields.io/badge/security-bcrypt%20%7C%20helmet-success)](docs/README.md)
-[![Tests](https://img.shields.io/badge/tests-246%20passing-brightgreen)](tests/README.md)
+[![Tests](https://img.shields.io/badge/tests-235%20passing-brightgreen)](tests/README.md)
 
 Self-hosted vulnerability database for WordPress plugins, themes, and npm packages. Track vulnerabilities, monitor security events, and manage web applications across your infrastructure.
 
-![VULNZ search results](assets/v1.0.0/vulnz-search-results.png 'VULNZ search results')
+VULNZ is a headless API service — there is no built-in web UI. Administration is handled via the `vulnz` CLI tool, and customer-facing admin features live in the [`vulnz-woo`](https://github.com/headwalluk/vulnz-woo) WordPress plugin.
 
 ## About
 
@@ -37,11 +37,14 @@ cp .env.example .env
 npm run dev
 ```
 
-Visit `http://localhost:3000` to access the application. Create your first admin account:
+Visit `http://localhost:3000/` to see the status landing page, or `http://localhost:3000/doc` for the Swagger UI. Create your first administrator account from the CLI:
 
 ```bash
 node bin/vulnz.js user:add admin@example.com 'your-password' --admin
+node bin/vulnz.js key:generate admin@example.com
 ```
+
+Then use the generated API key with `X-API-Key: <key>` to authenticate against the API.
 
 ## Requirements
 

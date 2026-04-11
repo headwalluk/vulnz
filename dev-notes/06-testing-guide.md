@@ -79,8 +79,6 @@ Global configuration that runs before all tests:
 ```javascript
 // Set environment variables for testing
 process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = 'test-jwt-secret';
-process.env.SESSION_SECRET = 'test-session-secret';
 
 // Disable features that interfere with tests
 process.env.REFERENCE_UPDATE_METHOD = 'disabled';
@@ -441,13 +439,11 @@ module.exports = { createUser };
 ```javascript
 const { createUser } = require('../factories/user');
 
-it('should block user login when account is blocked', async () => {
+it('should reject API requests from blocked users', async () => {
   const blockedUser = await createUser(db, { blocked: true });
+  const apiKey = await createTestApiKey(db, blockedUser.id);
 
-  const response = await request(app).post('/api/auth/login').send({
-    username: blockedUser.username,
-    password: 'Password123!',
-  });
+  const response = await request(app).get('/api/websites').set('X-API-Key', apiKey);
 
   expect(response.status).toBe(401);
   expect(response.text).toContain('blocked');
