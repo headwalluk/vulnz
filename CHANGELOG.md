@@ -4,7 +4,7 @@
 
 ### Breaking Changes
 
-- **Web UI decommissioned (M10)**: The legacy admin web UI has been removed entirely. vulnz-api is now a pure CLI + API service. All session-based authentication, the password reset flow, and the web admin pages are gone. Admin functionality moves to the `vulnz` CLI tool and the `vulnz-woo` WordPress plugin (separate project). Anyone who was using the web UI will need to use the CLI or vulnz-woo going forward.
+- **Web UI decommissioned (M10)**: The legacy admin web UI has been removed entirely. vulnz-api is now a pure CLI + API service. All session-based authentication, the password reset flow, and the web admin pages are gone. Admin functionality moves to the `vulnz` CLI tool. Anyone who was using the web UI will need to use the CLI going forward.
 
 ### Removed
 
