@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="134.90625"
+   height="39.539062"
+   viewBox="0 0 134.90625 39.539062"
+   fill="none"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="vulnz-dark-mode.svg"
+   inkscape:version="1.4 (e7c3feb100, 2024-10-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="6.245"
+     inkscape:cx="97.918335"
+     inkscape:cy="25.060048"
+     inkscape:window-width="1920"
+     inkscape:window-height="1062"
+     inkscape:window-x="0"
+     inkscape:window-y="18"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1" />
+  <g
+     id="g1"
+     transform="translate(-2.09375,-5)">
+    <text
+       x="2"
+       y="44"
+       font-family="Inter, system-ui, '-apple-system', sans-serif"
+       font-weight="800"
+       font-size="48px"
+       fill="#f8fafc"
+       letter-spacing="-2.5"
+       id="text1">vulnz</text>
+    <circle
+       cx="130"
+       cy="12"
+       r="7"
+       fill="#10b981"
+       id="circle1" />
+  </g>
+</svg>
