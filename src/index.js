@@ -58,6 +58,7 @@ const ecosystemRoutes = require('./routes/ecosystems');
 const notificationRoutes = require('./routes/notifications');
 const vulnerabilityRoutes = require('./routes/vulnerabilities');
 const releaseRoutes = require('./routes/releases');
+const landingRoute = require('./routes/landing');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const cron = require('node-cron');
@@ -186,10 +187,7 @@ app.get('/api/ping', (req, res) => {
   res.send('pong');
 });
 
-// Landing page placeholder — full implementation arrives in M10.9
-app.get('/', (req, res) => {
-  res.type('text/plain').send('VULNZ API (placeholder landing page — full version coming in M10.9)');
-});
+app.use('/', landingRoute);
 
 app.use('/api/components', componentRoutes);
 app.use('/api/component-types', componentTypeRoutes);
