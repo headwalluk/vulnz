@@ -42,6 +42,12 @@ describe('Landing Page', () => {
       expect(response.text).toContain('rel="icon" type="image/png" href="/icon.png"');
     });
 
+    test('includes meta robots noindex directive', async () => {
+      const response = await request(app).get('/').set('Accept', 'text/html').expect(200);
+
+      expect(response.text).toContain('<meta name="robots" content="noindex, nofollow">');
+    });
+
     test('inlines the dark-mode vulnz logo SVG', async () => {
       const response = await request(app).get('/').set('Accept', 'text/html').expect(200);
 
