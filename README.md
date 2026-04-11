@@ -8,7 +8,7 @@
 
 Self-hosted vulnerability database for WordPress plugins, themes, and npm packages. Track vulnerabilities, monitor security events, and manage web applications across your infrastructure.
 
-VULNZ is a headless API service — there is no built-in web UI. Administration is handled via the `vulnz` CLI tool. Customer-facing admin features (where applicable) are provided by a separate WordPress plugin running against the API.
+> ⚠️ **Breaking change in v1.31.0 — no built-in web UI.** From v1.31.0 onwards, vulnz-api ships as a headless CLI + API service only. The legacy admin web UI, session-based login, and email-based password reset have all been removed. Administration is handled entirely through the `vulnz` CLI tool. If you were using the web UI in v1.30.x or earlier, see the [CHANGELOG](CHANGELOG.md) for full details and migration notes.
 
 ## About
 
