@@ -21,8 +21,6 @@ const { logApiCall } = require('../middleware/logApiCall');
  *               properties:
  *                 baseUrl:
  *                   type: string
- *                 registrationEnabled:
- *                   type: boolean
  *                 exampleWpComponentSlug:
  *                   type: string
  *                   description: Only returned when authenticated
@@ -39,19 +37,17 @@ const { logApiCall } = require('../middleware/logApiCall');
  *                   description: Only returned when authenticated
  */
 router.get('/', optionalApiAuth, logApiCall, (req, res) => {
-  if (req.isAuthenticated() || req.user) {
+  if (req.user) {
     res.json({
       baseUrl: process.env.BASE_URL,
       exampleWpComponentSlug: process.env.EXAMPLE_WP_COMPONENT_SLUG,
       exampleWpComponentVersion: process.env.EXAMPLE_WP_COMPONENT_VERSION,
-      registrationEnabled: process.env.REGISTRATION_ENABLED === 'true',
       maxApiKeysPerUser: parseInt(process.env.MAX_API_KEYS_PER_USER, 10),
       roles: req.user.roles,
     });
   } else {
     res.json({
       baseUrl: process.env.BASE_URL,
-      registrationEnabled: process.env.REGISTRATION_ENABLED === 'true',
     });
   }
 });

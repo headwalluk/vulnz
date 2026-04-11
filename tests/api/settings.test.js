@@ -6,7 +6,6 @@
 
 const request = require('supertest');
 const express = require('express');
-const session = require('express-session');
 const passport = require('passport');
 const { createTestDatabase, initializeSchema, createTestUser, createTestApiKey, cleanupTestDatabase } = require('../setup');
 
@@ -62,19 +61,8 @@ describe('Settings API', () => {
     app = express();
     app.use(express.json());
 
-    // Setup session middleware
-    app.use(
-      session({
-        secret: process.env.SESSION_SECRET,
-        resave: false,
-        saveUninitialized: false,
-        cookie: { secure: false },
-      })
-    );
-
     // Initialize Passport
     app.use(passport.initialize());
-    app.use(passport.session());
 
     // Mock database connection for routes
     app.use((req, res, next) => {

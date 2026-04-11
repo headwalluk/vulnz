@@ -6,7 +6,6 @@
 
 const request = require('supertest');
 const express = require('express');
-const session = require('express-session');
 const passport = require('passport');
 const { createTestDatabase, initializeSchema, createTestUser, createTestApiKey, cleanupTestDatabase } = require('../setup');
 
@@ -38,16 +37,7 @@ describe('Releases API', () => {
 
     app = express();
     app.use(express.json());
-    app.use(
-      session({
-        secret: 'test-secret',
-        resave: false,
-        saveUninitialized: false,
-        cookie: { secure: false },
-      })
-    );
     app.use(passport.initialize());
-    app.use(passport.session());
 
     delete require.cache[require.resolve('../../src/routes/releases')];
     delete require.cache[require.resolve('../../src/middleware/auth')];
