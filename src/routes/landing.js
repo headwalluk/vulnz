@@ -71,17 +71,27 @@ function buildHtml() {
     text-align: center;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
   }
+  h1 {
+    margin: 0 0 0.5rem;
+    padding: 0;
+    line-height: 1;
+  }
   .logo {
     display: block;
-    margin: 0 auto 0.5rem;
-    height: 48px;
+    margin: 0 auto;
+    height: 64px;
     width: auto;
   }
-  h1 {
-    margin: 0.5rem 0 0.25rem;
-    font-size: 1.75rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
   .version {
     color: var(--muted);
@@ -147,13 +157,15 @@ function buildHtml() {
 </head>
 <body>
 <main class="card">
-  <svg class="logo" viewBox="0 0 134.9 39.54" xmlns="http://www.w3.org/2000/svg" aria-label="vulnz">
-    <g transform="translate(-2.09375,-5)">
-      <text x="2" y="44" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="800" font-size="48" fill="#f8fafc" letter-spacing="-2.5">vulnz</text>
-      <circle cx="130" cy="12" r="7" fill="#10b981" />
-    </g>
-  </svg>
-  <h1>${NAME}</h1>
+  <h1 aria-label="${NAME}">
+    <svg class="logo" viewBox="0 0 134.9 39.54" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <g transform="translate(-2.09375,-5)">
+        <text x="2" y="44" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="800" font-size="48" fill="#f8fafc" letter-spacing="-2.5">vulnz</text>
+        <circle cx="130" cy="12" r="7" fill="#10b981" />
+      </g>
+    </svg>
+    <span class="sr-only">${NAME}</span>
+  </h1>
   <p class="version">Version ${pkg.version}</p>
   <p class="tagline">${TAGLINE}</p>
   <span class="pill">System Operational</span>
