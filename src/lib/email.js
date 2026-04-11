@@ -26,30 +26,6 @@ if (process.env.SMTP_IGNORE_TLS === 'true') {
 
 const transporter = nodemailer.createTransport(transportOptions);
 
-async function sendPasswordResetEmail(to, token) {
-  const resetLink = `${process.env.BASE_URL}/reset-password?token=${token}`;
-  const templatePath = path.join(__dirname, '../emails/password-reset.hbs');
-  const template = fs.readFileSync(templatePath, 'utf8');
-  const compiledTemplate = handlebars.compile(template);
-
-  const expiryHours = Math.floor(parseInt(process.env.PASSWORD_RESET_TOKEN_DURATION, 10) / 3600);
-  const expiryMessage = `This link will expire in ${expiryHours} hour${expiryHours === 1 ? '' : 's'}.`;
-
-  const html = compiledTemplate({
-    resetLink,
-    expiryMessage,
-  });
-
-  const mailOptions = {
-    from: process.env.SMTP_FROM,
-    to: to,
-    subject: 'Password Reset Request',
-    html: html,
-  };
-
-  await transporter.sendMail(mailOptions);
-}
-
 // Helper to convert country code to flag emoji
 handlebars.registerHelper('countryFlag', function (countryCode) {
   if (!countryCode || countryCode.length !== 2) {
@@ -106,6 +82,5 @@ async function sendVulnerabilityReport(to, data) {
 }
 
 module.exports = {
-  sendPasswordResetEmail,
   sendVulnerabilityReport,
 };
