@@ -1,32 +1,6 @@
 const passport = require('passport');
-const LocalStrategy = require('passport-local').Strategy;
 const HeaderAPIKeyStrategy = require('passport-headerapikey').HeaderAPIKeyStrategy;
 const db = require('../db');
-const bcrypt = require('bcrypt');
-
-passport.use(
-  new LocalStrategy(async (username, password, done) => {
-    try {
-      const [user] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
-      if (!user) {
-        return done(null, false, { message: 'Incorrect username.' });
-      }
-      const match = await bcrypt.compare(password, user.password);
-      if (!match) {
-        return done(null, false, { message: 'Incorrect password.' });
-      }
-      if (user.blocked) {
-        return done(null, false, { message: 'Account is blocked.' });
-      }
-      if (user.paused) {
-        return done(null, false, { message: 'Account is paused.' });
-      }
-      return done(null, user);
-    } catch (err) {
-      return done(err);
-    }
-  })
-);
 
 passport.use(
   new HeaderAPIKeyStrategy({ header: 'X-API-Key', prefix: '' }, false, async (apiKey, done) => {
@@ -45,18 +19,5 @@ passport.use(
     }
   })
 );
-
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
-
-passport.deserializeUser(async (id, done) => {
-  try {
-    const [user] = await db.query('SELECT * FROM users WHERE id = ?', [id]);
-    done(null, user);
-  } catch (err) {
-    done(err);
-  }
-});
 
 module.exports = passport;

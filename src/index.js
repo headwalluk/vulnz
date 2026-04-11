@@ -40,20 +40,14 @@ const websiteComponent = require('./models/websiteComponent');
 const role = require('./models/role');
 const user = require('./models/user');
 const userRole = require('./models/userRole');
-const session = require('./models/session');
 const apiCallLog = require('./models/apiCallLog');
 const emailLog = require('./models/emailLog');
-const passwordResetToken = require('./models/passwordResetToken');
 const release = require('./models/release');
 const vulnerability = require('./models/vulnerability');
 const passport = require('./config/passport');
-const expressSession = require('express-session');
-const MySQLStore = require('express-mysql-session')(expressSession);
-const dbConfig = require('./config/db');
 const apiKeyRoutes = require('./routes/apiKeys');
 const componentRoutes = require('./routes/components');
 const componentTypeRoutes = require('./routes/componentTypes');
-const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const roleRoutes = require('./routes/roles');
 const logRoutes = require('./routes/logs');
@@ -184,30 +178,7 @@ if (process.env.CORS_ENABLED === 'true') {
 const jsonBodyLimitOpts = process.env.JSON_BODY_LIMIT ? { limit: process.env.JSON_BODY_LIMIT } : {};
 app.use(express.json(jsonBodyLimitOpts));
 
-const sessionStore = new MySQLStore({
-  ...dbConfig,
-  user: dbConfig.user,
-  password: dbConfig.password,
-  database: dbConfig.database,
-  clearExpired: true,
-  checkExpirationInterval: 900000, // 15 minutes
-  expiration: parseInt(process.env.SESSION_DURATION_DAYS, 10) * 24 * 60 * 60 * 1000,
-});
-
-app.use(
-  expressSession({
-    secret: process.env.SESSION_SECRET,
-    store: sessionStore,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      maxAge: parseInt(process.env.SESSION_DURATION_DAYS, 10) * 24 * 60 * 60 * 1000,
-    },
-  })
-);
-
 app.use(passport.initialize());
-app.use(passport.session());
 
 // Diagnostic middleware to confirm if the /api path is being hit
 if (process.env.LOG_LEVEL === 'debug') {
@@ -276,7 +247,6 @@ app.get('/', (req, res, next) => {
 app.use('/api/components', componentRoutes);
 app.use('/api/component-types', componentTypeRoutes);
 app.use('/api/api-keys', apiKeyRoutes);
-app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/logs', logRoutes);
@@ -305,14 +275,12 @@ async function startServer() {
     await role.seedData();
     await user.createTable();
     await userRole.createTable();
-    await session.createTable();
     await apiKey.createTable();
     await componentType.createTable();
     await componentType.seedData();
     await component.createTable();
     await apiCallLog.createTable();
     await emailLog.createTable();
-    await passwordResetToken.createTable();
     await release.createTable();
     await vulnerability.createTable();
     await website.createTable();
@@ -340,11 +308,6 @@ async function startServer() {
       }
 
       console.log(`Scheduling cron jobs for instance ${process.env.NODE_APP_INSTANCE}`);
-
-      cron.schedule('0 0 * * *', () => {
-        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to purge expired sessions...');
-        sessionStore.clearExpiredSessions();
-      });
 
       cron.schedule('0 0 * * *', () => {
         process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to purge old API call logs...');
