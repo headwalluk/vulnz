@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { apiOrSessionAuth } = require('../middleware/auth');
+const { apiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 const { isUrl, sanitizeVersion, sanitizeComponentSlug } = require('../lib/sanitizer');
 
@@ -82,7 +82,7 @@ const MAX_BULK_ITEMS = 500;
  *       401:
  *         description: Unauthorized
  */
-router.post('/bulk', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.post('/bulk', apiAuth, logApiCall, async (req, res) => {
   try {
     const { items } = req.body;
 

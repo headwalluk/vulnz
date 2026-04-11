@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Ecosystem = require('../models/ecosystem');
-const { optionalApiOrSessionAuth } = require('../middleware/auth');
+const { optionalApiAuth } = require('../middleware/auth');
 const { unauthenticatedSearchLimiter } = require('../middleware/rateLimit');
 
 /**
@@ -39,7 +39,7 @@ const { unauthenticatedSearchLimiter } = require('../middleware/rateLimit');
  *       500:
  *         description: Server error
  */
-router.get('/', unauthenticatedSearchLimiter, optionalApiOrSessionAuth, async (req, res) => {
+router.get('/', unauthenticatedSearchLimiter, optionalApiAuth, async (req, res) => {
   try {
     const ecosystems = await Ecosystem.findAll();
     res.json(

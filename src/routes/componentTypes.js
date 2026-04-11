@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { optionalApiOrSessionAuth } = require('../middleware/auth');
+const { optionalApiAuth } = require('../middleware/auth');
 const { unauthenticatedSearchLimiter } = require('../middleware/rateLimit');
 const { logApiCall } = require('../middleware/logApiCall');
 
@@ -35,7 +35,7 @@ const { logApiCall } = require('../middleware/logApiCall');
  *       500:
  *         description: Server error.
  */
-router.get('/', unauthenticatedSearchLimiter, optionalApiOrSessionAuth, logApiCall, async (req, res) => {
+router.get('/', unauthenticatedSearchLimiter, optionalApiAuth, logApiCall, async (req, res) => {
   try {
     const componentTypes = await db.query(`
       SELECT ct.slug, e.slug AS ecosystem, ct.title

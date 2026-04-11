@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const apiKey = require('../models/apiKey');
-const { apiOrSessionAuth } = require('../middleware/auth');
+const { apiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 
 /**
@@ -35,7 +35,7 @@ const { logApiCall } = require('../middleware/logApiCall');
  *       500:
  *         description: Server error
  */
-router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.get('/', apiAuth, logApiCall, async (req, res) => {
   try {
     const rows = await db.query('SELECT api_key FROM api_keys WHERE user_id = ?', [req.user.id]);
     res.json(rows);
@@ -68,7 +68,7 @@ router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.post('/', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.post('/', apiAuth, logApiCall, async (req, res) => {
   try {
     const [user] = await db.query('SELECT max_api_keys FROM users WHERE id = ?', [req.user.id]);
     const [keys] = await db.query('SELECT COUNT(*) as count FROM api_keys WHERE user_id = ?', [req.user.id]);
@@ -107,7 +107,7 @@ router.post('/', apiOrSessionAuth, logApiCall, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.delete('/:key', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.delete('/:key', apiAuth, logApiCall, async (req, res) => {
   try {
     const { key } = req.params;
     await db.query('DELETE FROM api_keys WHERE api_key = ? AND user_id = ?', [key, req.user.id]);

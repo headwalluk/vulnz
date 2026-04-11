@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const user = require('../models/user');
-const { apiOrSessionAuth } = require('../middleware/auth');
+const { apiAuth } = require('../middleware/auth');
 const { sendSummaryEmail } = require('../lib/reporting');
 
 /**
@@ -31,7 +31,7 @@ const { sendSummaryEmail } = require('../lib/reporting');
  *       500:
  *         description: Server error
  */
-router.post('/summary-email', apiOrSessionAuth, async (req, res) => {
+router.post('/summary-email', apiAuth, async (req, res) => {
   try {
     const userId = (req.body && req.body.user_id) || (req.user && req.user.id);
     if (!userId) {

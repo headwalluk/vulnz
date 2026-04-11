@@ -3,7 +3,7 @@ const router = express.Router();
 const Website = require('../models/website');
 const User = require('../models/user');
 const Ecosystem = require('../models/ecosystem');
-const { apiOrSessionAuth } = require('../middleware/auth');
+const { apiAuth } = require('../middleware/auth');
 const Component = require('../models/component');
 const Release = require('../models/release');
 const WebsiteComponent = require('../models/websiteComponent');
@@ -114,7 +114,7 @@ const tidyWebsite = (website) => {
  *       500:
  *         description: Server error
  */
-router.get('/', apiOrSessionAuth, async (req, res) => {
+router.get('/', apiAuth, async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
@@ -177,7 +177,7 @@ router.get('/', apiOrSessionAuth, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
+router.get('/:domain', apiAuth, canAccessWebsite, async (req, res) => {
   try {
     const user = await User.findUserById(req.website.user_id);
     const { wordpressPlugins, wordpressThemes } = await getWebsiteComponents(req.website);
@@ -231,7 +231,7 @@ router.get('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.post('/', apiOrSessionAuth, async (req, res) => {
+router.post('/', apiAuth, async (req, res) => {
   try {
     const { domain, title, user_id, is_dev, meta, ecosystem, platform } = req.body;
 
@@ -390,7 +390,7 @@ const processComponents = async (components, componentType) => {
  *       500:
  *         description: Server error
  */
-router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
+router.put('/:domain', apiAuth, canAccessWebsite, async (req, res) => {
   try {
     const { title, 'wordpress-plugins': wordpressPlugins, 'wordpress-themes': wordpressThemes, components, is_dev, meta, versions, user_id, ecosystem, platform } = req.body;
     const websiteData = {};
@@ -619,7 +619,7 @@ router.put('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.delete('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
+router.delete('/:domain', apiAuth, canAccessWebsite, async (req, res) => {
   try {
     await Website.remove(req.params.domain);
     res.send('Website deleted');
@@ -691,7 +691,7 @@ router.delete('/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) =
  *       500:
  *         description: Server error
  */
-router.post('/:domain/security-events', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
+router.post('/:domain/security-events', apiAuth, canAccessWebsite, async (req, res) => {
   try {
     const { events } = req.body;
 
@@ -830,7 +830,7 @@ router.post('/:domain/security-events', apiOrSessionAuth, canAccessWebsite, asyn
  *       500:
  *         description: Server error
  */
-router.put('/:domain/versions', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
+router.put('/:domain/versions', apiAuth, canAccessWebsite, async (req, res) => {
   try {
     const { wordpress_version, php_version, db_server_type, db_server_version } = req.body;
 
@@ -938,7 +938,7 @@ router.put('/:domain/versions', apiOrSessionAuth, canAccessWebsite, async (req, 
  *       500:
  *         description: Server error
  */
-router.post('/:domain/security-scan', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
+router.post('/:domain/security-scan', apiAuth, canAccessWebsite, async (req, res) => {
   try {
     const { files } = req.body;
 

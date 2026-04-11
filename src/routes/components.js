@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { hasRole, apiOrSessionAuth, optionalApiOrSessionAuth } = require('../middleware/auth');
+const { hasRole, apiAuth, optionalApiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 const { isUrl, sanitizeVersion, sanitizeSearchQuery, sanitizeComponentSlug } = require('../lib/sanitizer');
 const { unauthenticatedSearchLimiter } = require('../middleware/rateLimit');
@@ -102,7 +102,7 @@ function sanitiseComponentSlugMiddleware(req, res, next) {
  *                   type: integer
  *                   description: Total number of matching components across all pages.
  */
-router.get('/search', unauthenticatedSearchLimiter, optionalApiOrSessionAuth, logApiCall, async (req, res) => {
+router.get('/search', unauthenticatedSearchLimiter, optionalApiAuth, logApiCall, async (req, res) => {
   try {
     const query = sanitizeSearchQuery(req.query.query || '');
     const page = parseInt(req.query.page, 10) || 1;
@@ -164,7 +164,7 @@ router.get('/search', unauthenticatedSearchLimiter, optionalApiOrSessionAuth, lo
  *       500:
  *         description: Server error
  */
-router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.get('/', apiAuth, logApiCall, async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || parseInt(process.env.LIST_PAGE_SIZE, 10);
@@ -208,7 +208,7 @@ router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Component'
  */
-router.post('/', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (req, res) => {
+router.post('/', apiAuth, logApiCall, hasRole('administrator'), async (req, res) => {
   try {
     let { slug, component_type_slug, title, description } = req.body;
     if (slug) {
@@ -269,7 +269,7 @@ router.post('/', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (
  *       404:
  *         description: Component type not found
  */
-router.post('/:componentTypeSlug/:componentSlug/:version', apiOrSessionAuth, logApiCall, sanitiseComponentSlugMiddleware, async (req, res) => {
+router.post('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, sanitiseComponentSlugMiddleware, async (req, res) => {
   try {
     const { componentTypeSlug, componentSlug } = req.params;
     const version = sanitizeVersion(req.params.version);
@@ -367,7 +367,7 @@ router.post('/:componentTypeSlug/:componentSlug/:version', apiOrSessionAuth, log
  *       404:
  *         description: The release was not found
  */
-router.get('/:componentTypeSlug/:componentSlug/:version', apiOrSessionAuth, logApiCall, sanitiseComponentSlugMiddleware, async (req, res) => {
+router.get('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, sanitiseComponentSlugMiddleware, async (req, res) => {
   try {
     const { componentTypeSlug, componentSlug } = req.params;
     const version = sanitizeVersion(req.params.version);
@@ -430,7 +430,7 @@ router.get('/:componentTypeSlug/:componentSlug/:version', apiOrSessionAuth, logA
  *       404:
  *         description: The component was not found
  */
-router.get('/:componentTypeSlug/:componentSlug', apiOrSessionAuth, logApiCall, sanitiseComponentSlugMiddleware, async (req, res) => {
+router.get('/:componentTypeSlug/:componentSlug', apiAuth, logApiCall, sanitiseComponentSlugMiddleware, async (req, res) => {
   try {
     const { componentTypeSlug, componentSlug } = req.params;
 
@@ -471,7 +471,7 @@ router.get('/:componentTypeSlug/:componentSlug', apiOrSessionAuth, logApiCall, s
   }
 });
 
-router.get('/:id', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.get('/:id', apiAuth, logApiCall, async (req, res) => {
   try {
     const { id } = req.params;
     const component = await db.query('SELECT * FROM components WHERE id = ?', [id]);
@@ -534,7 +534,7 @@ router.get('/:id', apiOrSessionAuth, logApiCall, async (req, res) => {
  *       404:
  *         description: The component was not found
  */
-router.put('/:id', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (req, res) => {
+router.put('/:id', apiAuth, logApiCall, hasRole('administrator'), async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description, url } = req.body;
@@ -590,7 +590,7 @@ router.put('/:id', apiOrSessionAuth, logApiCall, hasRole('administrator'), async
  *       404:
  *         description: The component was not found
  */
-router.delete('/:id', apiOrSessionAuth, logApiCall, hasRole('administrator'), async (req, res) => {
+router.delete('/:id', apiAuth, logApiCall, hasRole('administrator'), async (req, res) => {
   try {
     const { id } = req.params;
     await db.query('DELETE FROM components WHERE id = ?', [id]);

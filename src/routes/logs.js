@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { apiOrSessionAuth } = require('../middleware/auth');
+const { apiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 
 /**
@@ -56,7 +56,7 @@ const { logApiCall } = require('../middleware/logApiCall');
  *       500:
  *         description: Server error
  */
-router.get('/', apiOrSessionAuth, logApiCall, async (req, res) => {
+router.get('/', apiAuth, logApiCall, async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 50;
