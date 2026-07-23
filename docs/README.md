@@ -16,6 +16,7 @@ VULNZ is a self-hosted vulnerability database for WordPress plugins, themes, and
 
 - [CLI Reference](cli.md) - Administration commands (users, API keys, settings, notifications)
 - [API Documentation](api-usage.md) - REST API reference and examples
+- [Fast Update Triggers](fast-update-triggers.md) - Fleet latest-versions manifest, watchlist administration, and the `/api/wordpress/latest-versions` route
 
 ### Testing
 
