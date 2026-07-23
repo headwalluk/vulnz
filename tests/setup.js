@@ -284,6 +284,16 @@ async function initializeSchema(db) {
   );
   await db.run(`INSERT OR IGNORE INTO component_types (slug, ecosystem_id, title) VALUES ('npm-package', (SELECT id FROM ecosystems WHERE slug = 'npm'), 'npm Package')`);
 
+  // Create sync_priorities lookup table (M12)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS sync_priorities (
+      slug TEXT NOT NULL PRIMARY KEY,
+      title TEXT NOT NULL
+    )
+  `);
+  await db.run(`INSERT OR IGNORE INTO sync_priorities (slug, title) VALUES ('high', 'High — re-synced hourly')`);
+  await db.run(`INSERT OR IGNORE INTO sync_priorities (slug, title) VALUES ('low', 'Low — background rotation')`);
+
   // Create components table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS components (
@@ -294,8 +304,13 @@ async function initializeSchema(db) {
       url TEXT,
       description TEXT,
       synced_from_wporg INTEGER DEFAULT 0,
+      sync_priority_slug TEXT NOT NULL DEFAULT 'low',
+      latest_version TEXT,
+      latest_version_at DATETIME,
+      wporg_available INTEGER,
       UNIQUE(slug, component_type_slug),
-      FOREIGN KEY (component_type_slug) REFERENCES component_types(slug)
+      FOREIGN KEY (component_type_slug) REFERENCES component_types(slug),
+      FOREIGN KEY (sync_priority_slug) REFERENCES sync_priorities(slug)
     )
   `);
 
