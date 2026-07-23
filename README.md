@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Database](https://img.shields.io/badge/database-MySQL%2FMariaDB-blue)](https://mariadb.org/)
 [![Security](https://img.shields.io/badge/security-bcrypt%20%7C%20helmet-success)](docs/README.md)
-[![Tests](https://img.shields.io/badge/tests-235%20passing-brightgreen)](tests/README.md)
+[![Tests](https://img.shields.io/badge/tests-273%20passing-brightgreen)](tests/README.md)
 
 Self-hosted vulnerability database for WordPress plugins, themes, and npm packages. Track vulnerabilities, monitor security events, and manage web applications across your infrastructure.
 
@@ -17,6 +17,7 @@ VULNZ is a security monitoring platform designed for web agencies and hosting pr
 - **Track vulnerabilities** in WordPress plugins, themes, and npm packages
 - **Monitor security events** like failed logins and attack attempts
 - **Track software versions** (WordPress core, PHP, Node.js, database)
+- **Trigger fast updates** across a host fleet via a latest-versions manifest, so critical WordPress core/plugin releases are patched within the hour instead of overnight
 - **Audit component changes** (plugin/theme/package installations and updates)
 - **Manage user accounts** with pause/unpause and block/unblock controls
 - **Generate weekly reports** with actionable security recommendations
@@ -60,6 +61,7 @@ Then use the generated API key with `X-API-Key: <key>` to authenticate against t
 - [Database Setup](docs/database-setup.md) - Schema, migrations, and backups
 - [API Documentation](docs/api-usage.md) - REST API reference and examples
 - [CLI Reference](docs/cli.md) - Administration commands
+- [Fast Update Triggers](docs/fast-update-triggers.md) - Fleet latest-versions manifest and watchlist administration
 - [Testing Guide](tests/README.md) - Running and writing tests
 
 ## License
