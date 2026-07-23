@@ -63,7 +63,9 @@ const landingRoute = require('./routes/landing');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const cron = require('node-cron');
-const { syncNextPlugin } = require('./lib/wporg');
+const { syncNextPlugin, syncHighPriorityPlugins } = require('./lib/wporg');
+const { syncWordPressCoreVersion } = require('./lib/wpcore');
+const { buildWatchlist } = require('./lib/watchlist');
 const { sendWeeklyReports } = require('./lib/reporting');
 const migrations = require('./migrations');
 const { initializeGeoIP } = require('./lib/geoip');
@@ -242,6 +244,17 @@ async function startServer() {
       await initializeGeoIP();
       // Update reference data on startup
       await updateFromReference();
+      // Refresh the WordPress core version immediately so a restart never
+      // leaves it stale until the next hourly sync. wordpress.current_version
+      // is owned by this sync, not by reference data (M12).
+      try {
+        const coreResult = await syncWordPressCoreVersion();
+        if (!coreResult.ok) {
+          console.error(`Startup WordPress core version sync failed: ${coreResult.reason}`);
+        }
+      } catch (err) {
+        console.error('Error running startup WordPress core version sync:', err);
+      }
     }
 
     if (process.env.CRON_ENABLE !== 'true') {
@@ -272,6 +285,47 @@ async function startServer() {
       cron.schedule('* * * * *', () => {
         process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to sync plugin data from wporg...');
         syncNextPlugin();
+      });
+
+      // Fast update triggers (M12): keep the watchlist and its latest
+      // versions fresh enough to serve GET /api/wordpress/latest-versions.
+
+      // High-priority plugin lane — re-sync every watchlist plugin hourly.
+      cron.schedule('0 * * * *', async () => {
+        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to sync high-priority plugins from wporg...');
+        try {
+          const summary = await syncHighPriorityPlugins();
+          if (process.env.LOG_LEVEL === 'info' || process.env.LOG_LEVEL === 'debug') {
+            console.log(`High-priority sync: ${summary.synced} synced, ${summary.unavailable} unavailable, ${summary.transient} transient, ${summary.errors} errors.`);
+          }
+        } catch (err) {
+          console.error('Error running high-priority plugin sync:', err);
+        }
+      });
+
+      // WordPress core version — refresh hourly (offset to avoid colliding
+      // with the plugin lane).
+      cron.schedule('5 * * * *', async () => {
+        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to sync WordPress core version...');
+        try {
+          const result = await syncWordPressCoreVersion();
+          if (!result.ok) {
+            console.error(`WordPress core version sync failed: ${result.reason}`);
+          }
+        } catch (err) {
+          console.error('Error running WordPress core version sync:', err);
+        }
+      });
+
+      // Rebuild the watchlist (static ∪ top-N by install count) every 6h.
+      cron.schedule('0 */6 * * *', async () => {
+        console.log('Running cron job to rebuild the wporg high-priority watchlist...');
+        try {
+          const result = await buildWatchlist();
+          console.log(`Watchlist rebuilt: ${result.high.length} high-priority, ${result.blindSpots.length} blind spot(s), ${result.probed} probed.`);
+        } catch (err) {
+          console.error('Error rebuilding watchlist:', err);
+        }
       });
 
       // Invalidate stale WordPress.org syncs (once daily at 2am)
