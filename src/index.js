@@ -58,6 +58,7 @@ const ecosystemRoutes = require('./routes/ecosystems');
 const notificationRoutes = require('./routes/notifications');
 const vulnerabilityRoutes = require('./routes/vulnerabilities');
 const releaseRoutes = require('./routes/releases');
+const wordpressRoutes = require('./routes/wordpress');
 const landingRoute = require('./routes/landing');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
@@ -203,6 +204,7 @@ app.use('/api/ecosystems', ecosystemRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/vulnerabilities', vulnerabilityRoutes);
 app.use('/api/releases', releaseRoutes);
+app.use('/api/wordpress', wordpressRoutes);
 
 // Serve only the static assets the new landing page needs (favicon etc.)
 app.use(express.static(path.join(__dirname, '../public')));

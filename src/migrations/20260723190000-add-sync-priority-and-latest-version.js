@@ -63,6 +63,7 @@ const up = async () => {
   await db.query(`
     INSERT INTO app_settings (setting_key, setting_value, value_type, description, category, is_system) VALUES
       ('wporg.watchlist_static', 'woocommerce,elementor,advanced-custom-fields,contact-form-7,wordpress-seo,akismet', 'string', 'Comma-separated plugin slugs always kept in the high-priority sync lane, regardless of install count', 'sync', 0),
+      ('wporg.watchlist_blind_spots', '[]', 'string', 'JSON array of watchlist slugs that cannot be tracked via the wordpress.org API (premium or missing). Written by the watchlist rebuild, served by the fleet manifest.', 'sync', 0),
       ('wordpress.safe_versions', '{}', 'string', 'JSON map of non-insecure WordPress core versions to status (latest|outdated), from api.wordpress.org stable-check. Anything below latest and not listed is treated as insecure.', 'versions', 1)
     ON DUPLICATE KEY UPDATE setting_key = setting_key
   `);
