@@ -27,6 +27,16 @@ function parseEnum(name, allowed, defaultValue) {
   return set.has(raw) ? raw : defaultValue;
 }
 
+// Read a free-form string env var, trimmed, falling back to a default
+// when unset or blank. For URLs, user agents, endpoints and similar
+// non-enumerated string configuration.
+function parseStr(name, defaultValue = '') {
+  const raw = process.env[name];
+  if (raw == null) return defaultValue;
+  const trimmed = String(raw).trim();
+  return trimmed === '' ? defaultValue : trimmed;
+}
+
 // Normalize environment variables to safe, predictable values at startup
 function normalizeEnv() {
   // NODE_ENV normalization: only 'development' or 'production' (default 'development')
@@ -158,4 +168,4 @@ function checkEnvFilePermissions() {
   }
 }
 
-module.exports = { normalizeEnv, checkEnvFilePermissions, parseBool, parseIntEnv, parseEnum };
+module.exports = { normalizeEnv, checkEnvFilePermissions, parseBool, parseIntEnv, parseEnum, parseStr };
