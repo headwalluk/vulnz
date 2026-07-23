@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 'use strict';
 
+// Run in UTC before anything touches Date or the DB — the mariadb driver
+// parses DATETIME columns in the process timezone, but the database stores
+// UTC, so a non-UTC process reads stored times off by the local offset. See
+// src/index.js for the full rationale. Mandatory for correctness.
+process.env.TZ = 'UTC';
+
 // dotenv must load before any src/ modules touch process.env
 require('dotenv').config();
 

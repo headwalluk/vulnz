@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.32.1 - 2026-07-23
+
+### Bug Fixes
+
+- **Timestamps read back an hour (or more) early**: the application ran in the host's local timezone, but the mariadb driver deserializes `DATETIME` columns using the process timezone, while the database stores everything in UTC (the connection session `time_zone` is `+00:00`, and WordPress.org times are GMT). Every timestamp read as a JS `Date` and rendered or compared as UTC was therefore shifted by the local offset — e.g. on a BST host, the fast-update manifest's `checked_at` / `generated_at`, `feed:status`, and other datetime output all came back an hour early. No connector `timezone` option fixes this (the option only affects the session and outgoing dates, not incoming `DATETIME` parsing). Fixed by pinning the process to UTC (`process.env.TZ = 'UTC'`) at the top of both entry points (`src/index.js` and `bin/vulnz.js`). Stored data was always correct UTC, so no migration is required — existing rows now read back correctly.
+  - **Note:** `node-cron` schedules now also evaluate in UTC. Hourly and sub-hourly jobs (plugin syncs, notification queue) are unaffected in frequency; daily and weekly jobs (log/event purges, weekly reports) shift by the host's local offset and are now DST-stable.
+
+---
+
 ## 1.32.0 - 2026-07-23
 
 ### Features
