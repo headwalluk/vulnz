@@ -27,7 +27,7 @@ Authenticated with any valid API key via the `X-API-Key` header (no admin role r
 
 ```bash
 curl -s -H "X-API-Key: ${VULNZ_API_KEY}" \
-  https://vulnz.net/api/wordpress/latest-versions
+  https://api.vulnz.net/api/wordpress/latest-versions
 ```
 
 ### Response
@@ -104,7 +104,7 @@ See the [CLI Reference](cli.md#wordpress-fast-update-trigger-commands) for full 
 ### Change the list — API (admin key)
 
 ```bash
-curl -X PUT https://vulnz.net/api/settings/wporg.watchlist_static \
+curl -X PUT https://api.vulnz.net/api/settings/wporg.watchlist_static \
   -H "X-API-Key: ${VULNZ_ADMIN_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
