@@ -158,3 +158,47 @@ describe('watchlist.getStaticWatchlist', () => {
     expect(await watchlist.getStaticWatchlist()).toEqual([]);
   });
 });
+
+describe('watchlist static add/remove', () => {
+  let db3;
+  beforeEach(async () => {
+    db3 = await createTestDatabase();
+    mockDb.query.mockImplementation((...args) => db3.query(...args));
+    await initializeSchema(db3);
+    await appSetting.set('wporg.watchlist_static', 'woocommerce,elementor', 'string', null, 'sync', false);
+  });
+  afterEach(async () => {
+    await cleanupTestDatabase(db3);
+  });
+
+  it('adds a new slug, kept sorted and de-duplicated', async () => {
+    const result = await watchlist.addStaticWatchlistEntry('akismet');
+    expect(result.added).toBe(true);
+    expect(result.list).toEqual(['akismet', 'elementor', 'woocommerce']);
+    expect(await watchlist.getStaticWatchlist()).toEqual(['akismet', 'elementor', 'woocommerce']);
+  });
+
+  it('is idempotent when adding an existing slug', async () => {
+    const result = await watchlist.addStaticWatchlistEntry('WooCommerce');
+    expect(result.added).toBe(false);
+    expect(result.list).toEqual(['woocommerce', 'elementor']);
+  });
+
+  it('removes an existing slug', async () => {
+    const result = await watchlist.removeStaticWatchlistEntry('elementor');
+    expect(result.removed).toBe(true);
+    expect(await watchlist.getStaticWatchlist()).toEqual(['woocommerce']);
+  });
+
+  it('is idempotent when removing an absent slug', async () => {
+    const result = await watchlist.removeStaticWatchlistEntry('akismet');
+    expect(result.removed).toBe(false);
+    expect(result.list).toEqual(['woocommerce', 'elementor']);
+  });
+
+  it('rejects an invalid slug', async () => {
+    await expect(watchlist.addStaticWatchlistEntry('bad slug!')).rejects.toThrow(/Invalid plugin slug/);
+    await expect(watchlist.addStaticWatchlistEntry('has,comma')).rejects.toThrow(/Invalid plugin slug/);
+    await expect(watchlist.addStaticWatchlistEntry('')).rejects.toThrow(/Invalid plugin slug/);
+  });
+});

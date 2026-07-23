@@ -5,8 +5,27 @@ const { wporgConfig, syncPluginComponent } = require('./wporg');
 
 const PLUGIN_TYPE = 'wordpress-plugin';
 const STATIC_WATCHLIST_KEY = 'wporg.watchlist_static';
+const STATIC_WATCHLIST_DESC = 'Comma-separated plugin slugs always kept in the high-priority sync lane, regardless of install count';
+const STATIC_WATCHLIST_CATEGORY = 'sync';
 const BLIND_SPOTS_KEY = 'wporg.watchlist_blind_spots';
 const BLIND_SPOTS_DESC = 'JSON array of watchlist slugs that cannot be tracked via the wordpress.org API (premium or missing). Reported by the fleet manifest so absence never reads as up-to-date.';
+
+// A wordpress.org plugin directory slug: lowercase alphanumerics and hyphens.
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * Normalise and validate a plugin slug. Returns the cleaned slug, or throws
+ * if it is empty or not a valid wordpress.org directory slug.
+ */
+function normalizeSlug(slug) {
+  const clean = String(slug == null ? '' : slug)
+    .trim()
+    .toLowerCase();
+  if (!clean || !SLUG_RE.test(clean)) {
+    throw new Error(`Invalid plugin slug: "${slug}". Use a wordpress.org directory slug, e.g. "advanced-custom-fields".`);
+  }
+  return clean;
+}
 
 /**
  * The hand-maintained "always monitor" list, from app settings.
@@ -25,6 +44,44 @@ async function getStaticWatchlist() {
         .filter(Boolean)
     ),
   ];
+}
+
+/**
+ * Persist the static watchlist, preserving its description and category so
+ * a write does not blank them.
+ */
+async function writeStaticWatchlist(slugs) {
+  await appSetting.set(STATIC_WATCHLIST_KEY, slugs.join(','), 'string', STATIC_WATCHLIST_DESC, STATIC_WATCHLIST_CATEGORY, false);
+}
+
+/**
+ * Add a slug to the static "always monitor" list (idempotent).
+ * @returns {Promise<{slug: string, added: boolean, list: string[]}>}
+ */
+async function addStaticWatchlistEntry(slug) {
+  const clean = normalizeSlug(slug);
+  const current = await getStaticWatchlist();
+  if (current.includes(clean)) {
+    return { slug: clean, added: false, list: current };
+  }
+  const updated = [...current, clean].sort();
+  await writeStaticWatchlist(updated);
+  return { slug: clean, added: true, list: updated };
+}
+
+/**
+ * Remove a slug from the static "always monitor" list (idempotent).
+ * @returns {Promise<{slug: string, removed: boolean, list: string[]}>}
+ */
+async function removeStaticWatchlistEntry(slug) {
+  const clean = normalizeSlug(slug);
+  const current = await getStaticWatchlist();
+  if (!current.includes(clean)) {
+    return { slug: clean, removed: false, list: current };
+  }
+  const updated = current.filter((entry) => entry !== clean);
+  await writeStaticWatchlist(updated);
+  return { slug: clean, removed: true, list: updated };
 }
 
 /**
@@ -176,6 +233,8 @@ async function getBlindSpots() {
 
 module.exports = {
   getStaticWatchlist,
+  addStaticWatchlistEntry,
+  removeStaticWatchlistEntry,
   getTopInstalledPlugins,
   buildWatchlist,
   getBlindSpots,
