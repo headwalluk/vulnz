@@ -20,6 +20,9 @@ const userSubscription = require('../src/models/userSubscription');
 const notificationSite = require('../src/models/notificationSite');
 const notificationQueue = require('../src/models/notificationQueue');
 const { processQueue } = require('../src/lib/notificationProcessor');
+const { syncWordPressCoreVersion, getWordPressVersionInfo } = require('../src/lib/wpcore');
+const { syncHighPriorityPlugins } = require('../src/lib/wporg');
+const { buildWatchlist, getBlindSpots } = require('../src/lib/watchlist');
 const db = require('../src/db');
 
 const program = new Command();
@@ -830,6 +833,115 @@ program
       const batchSize = parseInt(opts.batchSize, 10) || 10;
       const processed = await processQueue(batchSize);
       console.log(`Processed ${processed} notification(s).`);
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// wporg:sync-core [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('wporg:sync-core')
+  .description('Sync the current WordPress core version from wordpress.org (stable-check)')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const result = await syncWordPressCoreVersion();
+      if (opts.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else if (result.ok) {
+        console.log(`WordPress core version synced: latest=${result.latest} (${result.safeCount} safe versions cached).`);
+      } else {
+        console.log(`WordPress core version sync did not update settings: ${result.reason}`);
+      }
+      await db.end();
+      process.exit(result.ok ? 0 : 1);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// wporg:sync-high
+// ---------------------------------------------------------------------------
+program
+  .command('wporg:sync-high')
+  .description('Sync all high-priority (watchlist) plugins from wordpress.org now')
+  .action(async () => {
+    try {
+      const summary = await syncHighPriorityPlugins();
+      console.log(`High-priority sync: ${summary.synced} synced, ${summary.unavailable} unavailable, ${summary.transient} transient, ${summary.errors} error(s).`);
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// wporg:watchlist [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('wporg:watchlist')
+  .description('Show the current high-priority watchlist and blind spots')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const rows = await db.query(
+        `SELECT slug, latest_version, latest_version_at
+         FROM components
+         WHERE component_type_slug = 'wordpress-plugin' AND sync_priority_slug = 'high'
+         ORDER BY slug ASC`
+      );
+      const blindSpots = await getBlindSpots();
+      const core = await getWordPressVersionInfo();
+
+      if (opts.json) {
+        console.log(JSON.stringify({ wordpress_core: core.latest, plugins: rows, blind_spots: blindSpots }, null, 2));
+      } else {
+        console.log(`WordPress core latest: ${core.latest || 'unknown'}`);
+        console.log(`High-priority plugins (${rows.length}):`);
+        for (const row of rows) {
+          console.log(`  ${row.slug.padEnd(32)} ${row.latest_version || '(no version yet)'}`);
+        }
+        console.log(`Blind spots (${blindSpots.length}): ${blindSpots.length ? blindSpots.join(', ') : 'none'}`);
+      }
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// wporg:watchlist:rebuild [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('wporg:watchlist:rebuild')
+  .description('Rebuild the high-priority watchlist (static list ∪ top-N by install count)')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const result = await buildWatchlist();
+      if (opts.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(`Watchlist rebuilt: ${result.high.length} high-priority (${result.staticCount} static, ${result.derivedCount} derived), ${result.blindSpots.length} blind spot(s), ${result.probed} probed.`);
+        if (result.blindSpots.length) {
+          console.log(`Blind spots: ${result.blindSpots.join(', ')}`);
+        }
+      }
       await db.end();
       process.exit(0);
     } catch (err) {

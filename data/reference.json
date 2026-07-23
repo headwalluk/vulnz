@@ -1,6 +1,5 @@
 {
   "app_settings": {
-    "wordpress.current_version": "6.9",
     "wordpress.minimum_version": "6.8",
     "php.minimum_version": "8.3",
     "php.recommended_version": "8.4",
