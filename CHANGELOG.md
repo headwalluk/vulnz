@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.32.0 - 2026-07-23
+
+### Features
+
+- **Fast update triggers (M12)**: a new mechanism that lets a fleet of WordPress hosts patch a critical core or plugin release within the hour instead of waiting for the overnight cycle. See [`docs/fast-update-triggers.md`](docs/fast-update-triggers.md) for the full guide.
+  - **New endpoint `GET /api/wordpress/latest-versions`**: an API-key-protected manifest of the current WordPress core version plus the latest known version of every watchlisted plugin, with a `blind_spots` list for plugins that cannot be tracked via wordpress.org. Cacheable (`Cache-Control: public, max-age=300`, stable ETag). Served live from indexed rows. Hosts compare it against their own inventory and trigger updates — the manifest is information, not instruction.
+  - **Priority sync lanes**: plugins are synced from wordpress.org in a high-priority lane (the watchlist, re-synced hourly) and the existing low-priority background rotation. Backed by a `sync_priorities` lookup table and a `sync_priority_slug` column on `components`.
+  - **Watchlist**: the union of a hand-maintained "always monitor" list (the `wporg.watchlist_static` app setting) and the top-N most-installed plugins across production sites. Premium/unavailable plugins are surfaced as blind spots rather than silently omitted.
+  - **Version capture**: the wordpress.org sync now stores each plugin's current release in `components.latest_version` (previously discarded) and records `wporg_available` to distinguish "on wordpress.org" from "404".
+  - **New CLI commands**: `wporg:watchlist`, `wporg:watchlist:rebuild`, `wporg:watchlist:static:list` / `:add` / `:remove`, `wporg:sync-high`, `wporg:sync-core`.
+- **Dynamic WordPress core version**: `wordpress.current_version` is now synced hourly (and at startup) from wordpress.org's `core/stable-check/1.0/` API, along with a `wordpress.safe_versions` classification (latest / outdated / insecure). This fixes weekly reports, which read the setting to flag outdated core — a site on `6.9.5` now correctly flags as behind `7.0.2`.
+
+### Changed
+
+- **`wordpress.current_version` is no longer hardcoded in reference data.** It was seeded in `data/reference.json` and reapplied on every startup, overwriting reality (it had gone stale at `6.9`). Removed from reference data; the version sync now owns the value.
+- **`src/lib/wporg.js` rewritten** into a shared per-plugin sync with two lane selectors; raw `process.env` reads moved onto `src/lib/env.js` helpers (a new `parseStr()` was added for string vars). `CURRENT_TIMESTAMP` replaces `NOW()` for MySQL/SQLite portability.
+
+### Database
+
+- **Migration `20260723190000-add-sync-priority-and-latest-version.js`**: adds the `sync_priorities` lookup table (`high` / `low`), the `sync_priority_slug`, `latest_version`, `latest_version_at`, and `wporg_available` columns on `components`, a supporting index, and seeds the `wporg.watchlist_static`, `wporg.watchlist_blind_spots`, and `wordpress.safe_versions` app settings. Forward-only; runs automatically on startup.
+
+### Maintenance
+
+- **Cleared all 12 npm audit advisories** (1 critical, 5 high, 4 moderate, 2 low): tar, brace-expansion, form-data, js-yaml, postcss, qs, body-parser, @babel/core, ip-address (via express-rate-limit), and sanitize-html patched in-range. `nodemailer` 8 → 9 (major) for the remaining high-severity advisory; the sole usage (`createTransport` + `sendMail`) is unaffected by the advisories. `sanitize-html` pinned to exactly `2.17.5` because `2.17.6` moves to an ESM-only `htmlparser2` that the Jest test setup cannot parse.
+- In-range dependency updates: helmet, jest, mariadb, node-cron, prettier, dotenv, swagger-jsdoc, eslint.
+
+### Tests
+
+- 273 passing, 8 skipped (was 235 passing at 1.31.0). New coverage: WordPress core sync + version classification, the two sync lanes and version capture, the watchlist builder and static-list management, and the `/api/wordpress/latest-versions` route.
+
+---
+
 ## 1.31.0 - 2026-04-11
 
 ### Breaking Changes
