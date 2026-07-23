@@ -1,7 +1,7 @@
 # VULNZ API — Project Tracker
 
 **Lead:** Paul Faulkner <paul@headwall-hosting.com>
-**Last updated:** 2026-04-11
+**Last updated:** 2026-07-23
 
 ## Current Status
 
@@ -14,6 +14,25 @@ MCP server initiative kicked off — requirements captured in [`11-mcp-server-re
 **Next action:** M10 work is complete on branch `m10-ui-decommission` (v1.31.0). Ten commits deleting the legacy web UI, session subsystem, password reset flow, UI build pipeline, and orphaned dependencies; adding a new status landing page with HTML/JSON content negotiation; and updating all docs. 235 tests passing (down from 246 — the 21 missing were auth tests covering deleted routes, plus the pre-existing validate-token failure is gone). Local smoke test against the real dev MariaDB confirmed everything works. **Pending:** merge to `main`, deploy to dev host, deploy to prod, soak 24–48 hours, then start M11.
 
 Completed milestones M1–M6 have been archived to [`archive/00-project-tracker-m1-m6-archive.md`](archive/00-project-tracker-m1-m6-archive.md).
+
+---
+
+## M12 — Fast Update Triggers ✅
+
+**Status:** complete — v1.32.0 (2026-07-23)
+
+Fleet fast-update manifest so ~320 sites across 10 servers can patch a critical WordPress/plugin release within the hour instead of waiting for the overnight cycle. Full design and as-built notes in [`12-fast-update-triggers.md`](12-fast-update-triggers.md).
+
+- [x] **M12.1** — `sync_priorities` lookup table + `components.sync_priority_slug` / `latest_version` / `latest_version_at` / `wporg_available` (migration + `tests/setup.js`)
+- [x] **M12.2** — Two wporg sync lanes: hourly high-priority (`syncHighPriorityPlugins`) + existing low rotation; capture `data.version` → `latest_version` + release upsert + availability
+- [x] **M12.3** — Watchlist builder (`src/lib/watchlist.js`): static ∪ top-N watchable by prod install count; blind-spot reporting; on-demand availability probing
+- [x] **M12.4** — WordPress core version sync (`src/lib/wpcore.js`) from stable-check → dynamic `wordpress.current_version` + `wordpress.safe_versions`; `classifyWordPressVersion()`. **Fixed the stale-version root cause** (`data/reference.json` hardcoded 6.9)
+- [x] **M12.5** — `GET /api/wordpress/latest-versions` manifest route (apiAuth, cache headers, Swagger)
+- [x] **M12.6** — Crons (high/core/watchlist) + startup core sync + 4 CLI commands
+- [x] **M12.7** — 32 new tests (268 passing), `.env.example`, docs
+- [ ] **Deferred:** theme support (child-theme filtering unresolved); weekly-report insecure-vs-outdated split using `classify()`; the 55 unfixable-bundled-plugin sites
+
+**Chips at M7:** added `parseStr()` to `env.js`; `wporg.js` moved off raw `process.env`.
 
 ---
 
