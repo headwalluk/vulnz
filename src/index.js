@@ -1,3 +1,11 @@
+// Run the whole process in UTC. The database stores every timestamp in UTC
+// (session time_zone is +00:00, and WordPress.org times are GMT), but the
+// mariadb driver deserializes DATETIME columns using the process's local
+// timezone — so a non-UTC process reads every stored time an hour (or more)
+// off. This must be set before any Date use or DB connection. Mandatory for
+// correctness, not a preference — do not make it configurable.
+process.env.TZ = 'UTC';
+
 require('dotenv').config({ quiet: true });
 const { normalizeEnv, checkEnvFilePermissions } = require('./lib/env');
 normalizeEnv();
