@@ -89,13 +89,21 @@ The static list is a single app setting:
 
 A "slug" is the wordpress.org plugin directory slug — the last path segment of `https://wordpress.org/plugins/<slug>/`. For example WooCommerce is `woocommerce`, Yoast SEO is `wordpress-seo`.
 
-### View the current list
+### Manage the list — CLI (recommended)
+
+Dedicated commands add, remove, and list individual slugs without touching the raw comma-separated value. Slugs are validated and de-duplicated:
 
 ```bash
-vulnz setting:get wporg.watchlist_static
+vulnz wporg:watchlist:static:list           # show the current list
+vulnz wporg:watchlist:static:add wordfence  # add a slug (idempotent)
+vulnz wporg:watchlist:static:remove akismet # remove a slug (idempotent)
 ```
 
-### Change the list — CLI
+Adding or removing prints a reminder to rebuild (see [Apply the change](#apply-the-change)). An invalid slug (spaces, commas, uppercase, or symbols) is rejected with a non-zero exit code.
+
+### Change the whole list at once — CLI
+
+To replace the entire list in one go, write the setting directly:
 
 ```bash
 vulnz setting:set wporg.watchlist_static \
@@ -103,7 +111,7 @@ vulnz setting:set wporg.watchlist_static \
   --category sync
 ```
 
-> **Pass `--category sync`.** Writing the setting overwrites its category, and omitting the flag drops it out of the `sync` group in `setting:list`. It does not affect the watchlist itself (only the value is read), but keeps the settings list tidy.
+> **Pass `--category sync`.** Writing the setting overwrites its category, and omitting the flag drops it out of the `sync` group in `setting:list`. It does not affect the watchlist itself (only the value is read), but keeps the settings list tidy. The `static:add` / `static:remove` commands handle this for you.
 
 ### Change the list — API (admin key)
 
@@ -203,8 +211,10 @@ Scheduled jobs (all run only on the primary instance, when `CRON_ENABLE=true`):
 | `vulnz wporg:watchlist:rebuild` | Rebuild the watchlist now (static ∪ top-N). Use after editing the static list. |
 | `vulnz wporg:sync-high` | Sync every watchlist plugin from wordpress.org now. |
 | `vulnz wporg:sync-core` | Refresh the WordPress core version now. |
-| `vulnz setting:get wporg.watchlist_static` | View the static "always monitor" list. |
-| `vulnz setting:set wporg.watchlist_static "<slugs>" --category sync` | Edit the static list. |
+| `vulnz wporg:watchlist:static:list` | List the static "always monitor" slugs. |
+| `vulnz wporg:watchlist:static:add <slug>` | Add a slug to the static list. |
+| `vulnz wporg:watchlist:static:remove <slug>` | Remove a slug from the static list. |
+| `vulnz setting:set wporg.watchlist_static "<slugs>" --category sync` | Replace the whole static list at once. |
 
 See [CLI Reference](cli.md) for the full command set.
 

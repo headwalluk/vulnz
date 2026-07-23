@@ -22,7 +22,7 @@ const notificationQueue = require('../src/models/notificationQueue');
 const { processQueue } = require('../src/lib/notificationProcessor');
 const { syncWordPressCoreVersion, getWordPressVersionInfo } = require('../src/lib/wpcore');
 const { syncHighPriorityPlugins } = require('../src/lib/wporg');
-const { buildWatchlist, getBlindSpots } = require('../src/lib/watchlist');
+const { buildWatchlist, getBlindSpots, getStaticWatchlist, addStaticWatchlistEntry, removeStaticWatchlistEntry } = require('../src/lib/watchlist');
 const db = require('../src/db');
 
 const program = new Command();
@@ -941,6 +941,83 @@ program
         if (result.blindSpots.length) {
           console.log(`Blind spots: ${result.blindSpots.join(', ')}`);
         }
+      }
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// wporg:watchlist:static:list [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('wporg:watchlist:static:list')
+  .description('List the static "always monitor" watchlist slugs')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const slugs = await getStaticWatchlist();
+      if (opts.json) {
+        console.log(JSON.stringify(slugs, null, 2));
+      } else if (slugs.length === 0) {
+        console.log('Static watchlist is empty.');
+      } else {
+        console.log(`Static watchlist (${slugs.length}):`);
+        for (const slug of slugs) {
+          console.log(`  ${slug}`);
+        }
+      }
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// wporg:watchlist:static:add <slug>
+// ---------------------------------------------------------------------------
+program
+  .command('wporg:watchlist:static:add <slug>')
+  .description('Add a plugin slug to the static "always monitor" watchlist')
+  .action(async (slug) => {
+    try {
+      const result = await addStaticWatchlistEntry(slug);
+      if (result.added) {
+        console.log(`Added "${result.slug}" to the static watchlist (${result.list.length} total).`);
+        console.log('Run "vulnz wporg:watchlist:rebuild" to apply the change now.');
+      } else {
+        console.log(`"${result.slug}" is already on the static watchlist.`);
+      }
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// wporg:watchlist:static:remove <slug>
+// ---------------------------------------------------------------------------
+program
+  .command('wporg:watchlist:static:remove <slug>')
+  .description('Remove a plugin slug from the static "always monitor" watchlist')
+  .action(async (slug) => {
+    try {
+      const result = await removeStaticWatchlistEntry(slug);
+      if (result.removed) {
+        console.log(`Removed "${result.slug}" from the static watchlist (${result.list.length} remaining).`);
+        console.log('Run "vulnz wporg:watchlist:rebuild" to apply the change now.');
+      } else {
+        console.log(`"${result.slug}" is not on the static watchlist.`);
       }
       await db.end();
       process.exit(0);
