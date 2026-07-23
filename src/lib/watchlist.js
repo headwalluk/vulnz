@@ -5,6 +5,8 @@ const { wporgConfig, syncPluginComponent } = require('./wporg');
 
 const PLUGIN_TYPE = 'wordpress-plugin';
 const STATIC_WATCHLIST_KEY = 'wporg.watchlist_static';
+const BLIND_SPOTS_KEY = 'wporg.watchlist_blind_spots';
+const BLIND_SPOTS_DESC = 'JSON array of watchlist slugs that cannot be tracked via the wordpress.org API (premium or missing). Reported by the fleet manifest so absence never reads as up-to-date.';
 
 /**
  * The hand-maintained "always monitor" list, from app settings.
@@ -142,6 +144,10 @@ async function buildWatchlist({ fetchImpl, size } = {}) {
 
   await applyPriorities(highComponentIds);
 
+  // Persist blind spots so the manifest route can serve them live and
+  // cheaply without re-deriving the watchlist per request.
+  await appSetting.set(BLIND_SPOTS_KEY, JSON.stringify(blindSpots), 'string', BLIND_SPOTS_DESC, 'sync', false);
+
   return {
     high: highSlugs,
     blindSpots,
@@ -151,8 +157,26 @@ async function buildWatchlist({ fetchImpl, size } = {}) {
   };
 }
 
+/**
+ * The persisted blind-spot list (watchlist slugs not on wordpress.org),
+ * written by the last watchlist rebuild. Empty array if never built.
+ */
+async function getBlindSpots() {
+  const raw = await appSetting.get(BLIND_SPOTS_KEY);
+  if (!raw) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 module.exports = {
   getStaticWatchlist,
   getTopInstalledPlugins,
   buildWatchlist,
+  getBlindSpots,
 };
