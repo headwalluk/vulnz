@@ -376,6 +376,142 @@ A dash (`-`) indicates no known vulnerabilities for that release.
 
 ---
 
+## WordPress Fast Update Trigger Commands
+
+Manage the watchlist and version syncs behind the fleet fast-update manifest (`GET /api/wordpress/latest-versions`). See the [Fast Update Triggers guide](fast-update-triggers.md) for how the feature works, the response format, and fleet-side integration — this section is the command reference.
+
+### `wporg:watchlist [--json]`
+
+Show the current high-priority watchlist: the WordPress core latest version, each watched plugin with its latest version, and any blind spots (watchlist slugs that cannot be tracked via wordpress.org).
+
+```bash
+node bin/vulnz.js wporg:watchlist
+```
+
+Output:
+
+```
+WordPress core latest: 7.0.2
+High-priority plugins (6):
+  advanced-custom-fields           6.8.6
+  akismet                          5.7
+  contact-form-7                   6.1.6
+  elementor                        4.2.0
+  woocommerce                      10.9.5
+  wordpress-seo                    28.1
+Blind spots (0): none
+```
+
+---
+
+### `wporg:watchlist:rebuild [--json]`
+
+Rebuild the watchlist now: the static "always monitor" list unioned with the top-N most-installed watchable plugins. Run this after editing the static list to apply the change immediately (otherwise it happens on the 6-hourly schedule).
+
+```bash
+node bin/vulnz.js wporg:watchlist:rebuild
+```
+
+Output:
+
+```
+Watchlist rebuilt: 6 high-priority (6 static, 0 derived), 0 blind spot(s), 0 probed.
+```
+
+---
+
+### `wporg:watchlist:static:list [--json]`
+
+List the static "always monitor" watchlist slugs. These are always kept in the high-priority lane regardless of install count.
+
+```bash
+node bin/vulnz.js wporg:watchlist:static:list
+```
+
+Output:
+
+```
+Static watchlist (6):
+  advanced-custom-fields
+  akismet
+  contact-form-7
+  elementor
+  woocommerce
+  wordpress-seo
+```
+
+---
+
+### `wporg:watchlist:static:add <slug>`
+
+Add a plugin slug to the static list. The slug must be a valid wordpress.org directory slug (lowercase letters, numbers, and hyphens). Idempotent — adding an existing slug is a no-op.
+
+```bash
+node bin/vulnz.js wporg:watchlist:static:add wordfence
+```
+
+Output:
+
+```
+Added "wordfence" to the static watchlist (7 total).
+Run "vulnz wporg:watchlist:rebuild" to apply the change now.
+```
+
+An invalid slug is rejected with a non-zero exit code.
+
+---
+
+### `wporg:watchlist:static:remove <slug>`
+
+Remove a plugin slug from the static list. Idempotent — removing an absent slug is a no-op.
+
+```bash
+node bin/vulnz.js wporg:watchlist:static:remove akismet
+```
+
+Output:
+
+```
+Removed "akismet" from the static watchlist (5 remaining).
+Run "vulnz wporg:watchlist:rebuild" to apply the change now.
+```
+
+---
+
+### `wporg:sync-high`
+
+Sync every high-priority (watchlist) plugin from wordpress.org now, instead of waiting for the hourly run.
+
+```bash
+node bin/vulnz.js wporg:sync-high
+```
+
+Output:
+
+```
+High-priority sync: 6 synced, 0 unavailable, 0 transient, 0 error(s).
+```
+
+---
+
+### `wporg:sync-core [--json]`
+
+Refresh the WordPress core version from wordpress.org now. Updates the `wordpress.current_version` and `wordpress.safe_versions` settings, which the sync owns — do not set them by hand.
+
+```bash
+node bin/vulnz.js wporg:sync-core
+```
+
+Output:
+
+```
+WordPress core version synced: latest=7.0.2 (24 safe versions cached).
+```
+
+Exits non-zero if the sync could not update the settings (e.g. wordpress.org unreachable), leaving the existing values untouched.
+
+---
+
 ## Notification Site Commands
 
 Manage WordPress/WooCommerce sites that send subscription notifications to this API. See [configuration](configuration.md) for the `VULNZ_NOTIFY_SECRET` environment variable.
