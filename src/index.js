@@ -318,7 +318,10 @@ async function startServer() {
       });
 
       // Rebuild the watchlist (static ∪ top-N by install count) every 6h.
-      cron.schedule('0 */6 * * *', async () => {
+      // Offset off the top of the hour so it never races the high-priority
+      // lane (0 * * * *): the rebuild briefly demotes all high plugins while
+      // re-promoting the new set, and a colliding sync could see zero.
+      cron.schedule('30 */6 * * *', async () => {
         console.log('Running cron job to rebuild the wporg high-priority watchlist...');
         try {
           const result = await buildWatchlist();
