@@ -204,12 +204,42 @@ CREATE TABLE releases (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   component_id BIGINT UNSIGNED NOT NULL,
   version VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  release_date DATE,
+  changelog MEDIUMTEXT,
+  is_urgent TINYINT(1) NOT NULL DEFAULT 0,
+  urgency_summary VARCHAR(255),
+  urgency_source_slug VARCHAR(50),
+  urgency_checked_at DATETIME,
   FOREIGN KEY (component_id) REFERENCES components(id) ON DELETE CASCADE,
-  UNIQUE KEY component_version (component_id, version)
+  FOREIGN KEY (urgency_source_slug) REFERENCES urgency_sources(slug),
+  UNIQUE KEY component_id_version_unique (component_id, version),
+  INDEX idx_releases_urgency_checked (urgency_checked_at)
 );
 ```
+
+**Key Fields (M13 — urgent update classification):**
+
+- `changelog`: wordpress.org changelog HTML, captured at sync time. Populated **only** for high-priority (watchlist) components — it is the classifier's input and the audit trail for its verdict.
+- `is_urgent`: whether this release fixes a vulnerability exploitable against a default installation. Served by the fleet manifest; defaults to `0` in every uncertain case.
+- `urgency_checked_at`: `NULL` means "pending classification" — this column *is* the work queue.
+
+### urgency_sources
+
+Lookup table for how a release's urgency verdict was reached.
+
+```sql
+CREATE TABLE urgency_sources (
+  slug VARCHAR(50) NOT NULL PRIMARY KEY,
+  title VARCHAR(100) NOT NULL
+);
+```
+
+| slug | Meaning |
+|---|---|
+| `changelog_llm` | Classified from the wordpress.org changelog by an LLM |
+| `keyword_override` | Forced urgent by an unambiguous changelog keyword the model had not flagged |
+| `manual` | Set by hand via the CLI |
+| `none` | No signal available — changelog absent or classifier disabled |
 
 ### vulnerabilities
 

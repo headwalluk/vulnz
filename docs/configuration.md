@@ -161,6 +161,49 @@ REFERENCE_UPDATE_METHOD=api
   - `disabled`: Don't sync (faster startup, but missing metadata)
   - **Default**: `disabled`
 
+### LLM Classification
+
+Powers the `is_urgent` flag in the fast-update manifest — whether a plugin release is an emergency security fix or routine work. See [Fast Update Triggers](fast-update-triggers.md#urgent-updates).
+
+```plaintext
+LLM_ENABLED=false
+OPENROUTER_API_KEY=
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_MODEL=anthropic/claude-haiku-4.5
+OPENROUTER_MODEL_RELEASE_URGENCY=
+LLM_TIMEOUT_MS=30000
+LLM_MAX_ATTEMPTS=2
+LLM_CLASSIFY_BATCH_SIZE=10
+OPENROUTER_SITE_URL=
+OPENROUTER_SITE_NAME=VULNZ
+```
+
+- **LLM_ENABLED**: Master switch for all LLM classification
+  - **Default**: `false`
+  - While false, nothing is classified and every release reports `is_urgent: false`, leaving hosts on their existing overnight update cycle
+
+- **OPENROUTER_API_KEY**: Provider API key. Classification is skipped without it
+
+- **OPENROUTER_BASE_URL**: Provider endpoint. OpenRouter speaks the OpenAI chat-completions shape, so an alternative compatible provider can be substituted here
+  - **Default**: `https://openrouter.ai/api/v1`
+
+- **OPENROUTER_MODEL**: Default model for every task
+  - **Default**: `anthropic/claude-haiku-4.5`
+  - Only watchlist releases are classified — roughly 50–60 calls a month — so cost is negligible whichever model you choose
+
+- **OPENROUTER_MODEL_RELEASE_URGENCY**: Optional per-task override, if urgency classification should use a different model from other tasks
+
+- **LLM_TIMEOUT_MS**: Per-request timeout
+  - **Default**: `30000`
+
+- **LLM_MAX_ATTEMPTS**: Attempts per classification, including the first. Only rate limits, timeouts and 5xx responses are retried
+  - **Default**: `2`
+
+- **LLM_CLASSIFY_BATCH_SIZE**: Maximum releases classified per hourly run
+  - **Default**: `10`
+
+- **OPENROUTER_SITE_URL** / **OPENROUTER_SITE_NAME**: Optional attribution headers shown on the OpenRouter dashboard
+
 ### Security & Advanced
 
 ```plaintext

@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.33.0 - 2026-07-24
+
+### Features
+
+- **Urgent update classification (M13)**: the fast-update manifest now says whether a release actually warrants an emergency update, not just what the latest version is. See [`docs/fast-update-triggers.md`](docs/fast-update-triggers.md#urgent-updates) for the guide and [`dev-notes/14-urgent-updates.md`](dev-notes/14-urgent-updates.md) for the design.
+  - **`is_urgent` and `summary` on `GET /api/wordpress/latest-versions`**: `is_urgent` is true only when a release fixes a vulnerability realistically exploitable against a default installation — the one case that justifies interrupting a host's overnight cycle. `summary` is a one-sentence description of the release. Routine releases are left to the existing overnight run, which is what makes the feed usable without being unbearably noisy.
+  - **Why classification rather than a passthrough flag**: wordpress.org publishes no security flag for plugins — there is no equivalent of the `insecure`/`outdated`/`latest` status the core stable-check API provides. The changelog is the only signal available at release time, so it is classified by an LLM.
+  - **New `src/lib/llm/` layer**: a small provider-agnostic client plus a task registry. Adding a future classification or housekeeping prompt is a new file in `tasks/` and one registry line. Provider is OpenRouter (OpenAI chat-completions shape), so model and provider are `.env` changes rather than code changes.
+  - **Keyword override**: an unambiguous vulnerability class in the changelog (`sql injection`, `remote code execution`, `authentication bypass`, `privilege escalation`, `arbitrary file upload`) forces a release urgent regardless of the model's verdict. It only ever raises a release, never lowers one.
+  - **Fast lane only**: only watchlist plugins are classified — roughly 50–60 releases a month. The background rotation of ~1,100 plugins is never sent to the provider.
+  - **Fails safe**: `is_urgent` defaults to `false` whenever there is no evidence either way (disabled, no API key, provider unreachable, changelog missing, or not yet classified), so every uncertain case degrades to the pre-existing overnight behaviour. Classification runs on its own hourly schedule (`20 * * * *`) rather than inside the wordpress.org sync, so a slow provider can never delay the manifest.
+  - **New CLI commands**: `llm:status`, `llm:classify-release <slug> <version> [--save]` (dry run by default), `llm:classify-pending [--limit <n>]`.
+- **`db:migrate` CLI command**: applies pending migrations without starting the server. Migrations previously ran only at API startup, so there was no way to bring a database up to date before using the CLI against it. `migrations.run()` now also returns the list of migrations it applied.
+  - **New env vars**: `LLM_ENABLED` (default `false`), `OPENROUTER_API_KEY`, `OPENROUTER_BASE_URL`, `OPENROUTER_MODEL` (default `anthropic/claude-haiku-4.5`), `OPENROUTER_MODEL_RELEASE_URGENCY`, `LLM_TIMEOUT_MS`, `LLM_MAX_ATTEMPTS`, `LLM_CLASSIFY_BATCH_SIZE`.
+
+### Changed
+
+- **wordpress.org sync captures changelogs** for high-priority (watchlist) plugins only, stored on the release row as the classifier's input and audit trail. Background-lane components are unaffected.
+- **`generated_at` in the manifest** now also accounts for urgency verdicts, which land about 20 minutes after the version they describe.
+
+### Database
+
+- New `urgency_sources` lookup table (`changelog_llm`, `keyword_override`, `manual`, `none`).
+- New `releases` columns: `changelog`, `is_urgent`, `urgency_summary`, `urgency_source_slug`, `urgency_checked_at`.
+
+### Upgrading
+
+`LLM_ENABLED` defaults to `false`, so this release ships inert: the migration runs, the manifest gains both fields, and everything reports `is_urgent: false` until the switch is flipped. To enable, set `LLM_ENABLED=true` and `OPENROUTER_API_KEY` in `.env` and restart. No backfill is needed — the hourly high-priority lane captures watchlist changelogs on its next sweep and the classifier picks them up 20 minutes later, so the manifest populates within the hour. To do it immediately, run `vulnz wporg:sync-high` followed by `vulnz llm:classify-pending`.
+
+---
+
 ## 1.32.1 - 2026-07-23
 
 ### Bug Fixes

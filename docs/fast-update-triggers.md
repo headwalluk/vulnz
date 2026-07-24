@@ -37,8 +37,20 @@ curl -s -H "X-API-Key: ${VULNZ_API_KEY}" \
   "generated_at": "2026-07-23T14:00:00.000Z",
   "wordpress_core": { "latest_version": "7.0.2" },
   "plugins": [
-    { "slug": "woocommerce", "latest_version": "10.9.5", "checked_at": "2026-07-23T13:04:00.000Z" },
-    { "slug": "elementor",   "latest_version": "4.2.0",  "checked_at": "2026-07-23T13:04:00.000Z" }
+    {
+      "slug": "woocommerce",
+      "latest_version": "10.9.5",
+      "is_urgent": true,
+      "summary": "Fixes an unauthenticated SQL injection in the REST API.",
+      "checked_at": "2026-07-23T13:04:00.000Z"
+    },
+    {
+      "slug": "elementor",
+      "latest_version": "4.2.0",
+      "is_urgent": false,
+      "summary": "Adds container layout options and fixes editor autosave.",
+      "checked_at": "2026-07-23T13:04:00.000Z"
+    }
   ],
   "blind_spots": ["elementor-pro", "revslider"]
 }
@@ -46,9 +58,11 @@ curl -s -H "X-API-Key: ${VULNZ_API_KEY}" \
 
 | Field | Meaning |
 |---|---|
-| `generated_at` | When the underlying data last **changed** (freshest plugin `checked_at`, or the core version's update time) — **not** request time. Identical data returns an identical body, so the response and its ETag are stable between polls. |
+| `generated_at` | When the underlying data last **changed** (freshest plugin `checked_at`, an urgency verdict, or the core version's update time) — **not** request time. Identical data returns an identical body, so the response and its ETag are stable between polls. |
 | `wordpress_core.latest_version` | Current stable WordPress core version, from wordpress.org (see [WordPress core version](#wordpress-core-version)). May be `null` before the first sync. |
 | `plugins[]` | One entry per **watchable, high-priority** plugin that has a known latest version. `checked_at` is when VULNZ last confirmed that version against wordpress.org. Sorted by slug. |
+| `plugins[].is_urgent` | `true` when this release fixes a security vulnerability exploitable against a default installation — update now rather than waiting for the overnight run. See [Urgent updates](#urgent-updates). Defaults to `false` whenever there is no evidence either way. |
+| `plugins[].summary` | One sentence describing what the release contains. `null` until the release has been classified. |
 | `blind_spots[]` | Watchlist slugs that **cannot** be tracked via wordpress.org (premium or not-yet-known). Listed explicitly so a host never mistakes "we can't see it" for "it's up to date". |
 
 ### Caching
@@ -152,6 +166,51 @@ Release data for premium plugins comes from the Wordfence feed (via `vulnz-inges
 
 ---
 
+## Urgent updates
+
+`is_urgent` answers the question the manifest previously left to the host: *does being behind on this plugin actually matter right now?*
+
+Routine releases are already handled by the overnight cycle. Only a security fix justifies interrupting that schedule and pushing an unscheduled update across every site. So the fleet-side rule is simply:
+
+> This site runs plugin X, its version is behind the manifest's `latest_version`, **and** `is_urgent` is true → update it now.
+
+Everything else waits for the normal overnight run.
+
+### Where the flag comes from
+
+wordpress.org publishes **no security flag for plugins**. There is no equivalent of the `insecure` / `outdated` / `latest` status the core stable-check API provides. The only signal available at the moment a release ships is its changelog, so VULNZ classifies that changelog with an LLM (see [Configuration](#configuration) for the provider settings).
+
+A release is marked urgent only when the changelog indicates a vulnerability realistically exploitable against a **default installation** — unauthenticated or low-privileged cross-site scripting, SQL injection, remote code execution, arbitrary file upload or read, authentication bypass, privilege escalation, object injection, or CSRF with real impact.
+
+It is deliberately **not** marked urgent for new features, ordinary bug fixes, admin-only issues, general "hardening", or an updated third-party dependency carrying a security advisory that the plugin itself was never exploitable through. That last exclusion matters more than it sounds: bumping a patched HTTP-client library is common, reads as security work, and almost never warrants waking the fleet at 3am.
+
+A short keyword list (`remote code execution`, `sql injection`, `authentication bypass`, `privilege escalation`, `arbitrary file upload`) can force a release urgent regardless of the model's verdict. It only ever raises a release, never lowers one — a false positive costs one unnecessary update, whereas a false negative leaves the fleet exposed for the rest of the day.
+
+### Scope and failure behaviour
+
+Only **high-priority (watchlist) plugins** are classified. The thousands of background plugins are never sent to the provider and never cost anything; they are also never surfaced in this manifest.
+
+The flag **defaults to `false` in every uncertain case** — classification disabled, no API key, provider unreachable, changelog missing or unparseable, or a release not yet processed. An unclassified release therefore degrades to exactly the pre-existing behaviour: the host's overnight cycle picks it up. Classification runs on its own schedule rather than inside the wordpress.org sync, so a slow provider can never delay the manifest itself.
+
+Releases that fail to classify stay queued and are retried on the next run.
+
+### First run
+
+Changelogs are only captured from the point classification is switched on, so immediately after enabling `LLM_ENABLED` every plugin still reports `is_urgent: false`. No backfill is needed — the hourly high-priority lane captures each watchlist changelog on its next sweep, and the classifier picks them up 20 minutes later. The manifest is fully populated within about an hour.
+
+To do it immediately instead:
+
+```bash
+vulnz wporg:sync-high      # capture current changelogs
+vulnz llm:classify-pending # classify them
+```
+
+### Premium plugins
+
+Blind-spot plugins have no wordpress.org changelog, so they can never be classified. They stay in `blind_spots[]` and never gain an `is_urgent` flag — their absence from `plugins[]` is the signal, exactly as before.
+
+---
+
 ## Operations: sync lanes and schedule
 
 Plugin metadata is synced from wordpress.org in two lanes:
@@ -165,14 +224,19 @@ Scheduled jobs (all run only on the primary instance, when `CRON_ENABLE=true`):
 |---|---|
 | `0 * * * *` (hourly) | Sync high-priority plugins from wordpress.org |
 | `5 * * * *` (hourly) | Sync WordPress core version |
+| `20 * * * *` (hourly) | Classify pending release urgency |
 | `0 */6 * * *` (every 6h) | Rebuild the watchlist |
 | startup | One-shot core version sync |
+
+The urgency pass sits 20 minutes behind the high-priority lane so changelogs are already written when the queue is drained.
 
 ---
 
 ## CLI reference
 
 All watchlist and sync commands — `wporg:watchlist`, `wporg:watchlist:rebuild`, `wporg:watchlist:static:list` / `:add` / `:remove`, `wporg:sync-high`, and `wporg:sync-core` — are documented with full syntax, options, and example output in the [CLI Reference](cli.md#wordpress-fast-update-trigger-commands).
+
+The urgency commands — `llm:status`, `llm:classify-release`, and `llm:classify-pending` — are in [LLM classification commands](cli.md#llm-classification-commands).
 
 ---
 
@@ -187,3 +251,18 @@ Environment variables (see [Configuration](configuration.md) for the full refere
 | `WPORG_HIGH_PRIORITY_DELAY_MS` | `250` | Pause between requests in the hourly high-priority lane, to stay gentle on the shared wordpress.org API. |
 
 The static list itself lives in the database (`wporg.watchlist_static` app setting), not in the environment, so it can be changed at runtime without a redeploy.
+
+### Urgency classification
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `LLM_ENABLED` | `false` | Master switch. While false, nothing is classified and every release reports `is_urgent: false`. |
+| `OPENROUTER_API_KEY` | — | Provider key. Classification is skipped without it. |
+| `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | Provider endpoint. |
+| `OPENROUTER_MODEL` | `anthropic/claude-haiku-4.5` | Default model for every task. |
+| `OPENROUTER_MODEL_RELEASE_URGENCY` | — | Optional per-task model override. |
+| `LLM_TIMEOUT_MS` | `30000` | Per-request timeout. |
+| `LLM_MAX_ATTEMPTS` | `2` | Attempts per classification, including the first. Only rate limits, timeouts and 5xx are retried. |
+| `LLM_CLASSIFY_BATCH_SIZE` | `10` | Maximum releases classified per hourly run. |
+
+The provider is OpenRouter, which speaks the OpenAI chat-completions shape. Only the watchlist is classified — roughly 50–60 calls a month in total, so cost is negligible whichever model you point it at.

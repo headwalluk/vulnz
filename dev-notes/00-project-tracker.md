@@ -1,7 +1,7 @@
 # VULNZ API — Project Tracker
 
 **Lead:** Paul Faulkner <paul@headwall-hosting.com>
-**Last updated:** 2026-07-23
+**Last updated:** 2026-07-24
 
 ## Current Status
 
@@ -14,6 +14,27 @@ MCP server initiative kicked off — requirements captured in [`11-mcp-server-re
 **Next action:** M10 work is complete on branch `m10-ui-decommission` (v1.31.0). Ten commits deleting the legacy web UI, session subsystem, password reset flow, UI build pipeline, and orphaned dependencies; adding a new status landing page with HTML/JSON content negotiation; and updating all docs. 235 tests passing (down from 246 — the 21 missing were auth tests covering deleted routes, plus the pre-existing validate-token failure is gone). Local smoke test against the real dev MariaDB confirmed everything works. **Pending:** merge to `main`, deploy to dev host, deploy to prod, soak 24–48 hours, then start M11.
 
 Completed milestones M1–M6 have been archived to [`archive/00-project-tracker-m1-m6-archive.md`](archive/00-project-tracker-m1-m6-archive.md).
+
+---
+
+## M13 — Urgent Update Classification ✅
+
+**Status:** complete — v1.33.0 (2026-07-24), **shipped disabled** (`LLM_ENABLED=false`)
+
+Adds `is_urgent` to the fast-update manifest so the fleet can distinguish an emergency security release from routine work. Without it, M12's manifest would force an out-of-cycle update for every release — too aggressive and too noisy to run. Design and as-built notes in [`14-urgent-updates.md`](14-urgent-updates.md).
+
+- [x] **M13.1** — `urgency_sources` lookup table + `releases.changelog` / `is_urgent` / `urgency_summary` / `urgency_source_slug` / `urgency_checked_at` (migration + `tests/setup.js`; DDL validated against dev MariaDB on scratch tables)
+- [x] **M13.2** — `src/lib/llm/` provider-agnostic layer: OpenRouter client (timeout, retry on 429/5xx only, defensive JSON extraction) + task registry designed for additional prompts
+- [x] **M13.3** — `release-urgency` task: prompt scoped to "exploitable against a default installation", explicitly excluding dependency-advisory bumps and admin-only issues
+- [x] **M13.4** — `src/lib/urgency.js`: pending queue, keyword override (raises only), verdict persistence
+- [x] **M13.5** — Changelog capture in the high-priority wporg lane (fast lane only); `is_urgent` + `summary` on the manifest; `generated_at` accounts for verdicts
+- [x] **M13.6** — Hourly `20 * * * *` cron + 3 CLI commands (`llm:status`, `llm:classify-release`, `llm:classify-pending`)
+- [x] **M13.7** — 24 new tests (297 passing), `.env.example`, CLI reference, feature guide, design note
+- [x] **M13.8** — `db:migrate` CLI command (migrations previously ran only at API startup, so the CLI could not be used against an un-migrated database)
+- [x] **M13.9** — Verified live on dev: migration applied, 6 watchlist releases classified against OpenRouter/Haiku 4.5, both directions probed with crafted changelogs, re-sync confirmed idempotent
+- [ ] **Deferred:** tier-2 vulnerability-feed backfill (`patched_in` + severity via `vulnz-ingest`, to catch silently-patched releases); `urgent_since` for the multi-version-behind case; notification on urgent classification
+
+**Next action:** merge, deploy to dev with `LLM_ENABLED=false`, confirm the manifest is unchanged, then enable on dev and review classifications for a few days before prod.
 
 ---
 
