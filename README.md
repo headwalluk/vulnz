@@ -17,7 +17,7 @@ VULNZ is a security monitoring platform designed for web agencies and hosting pr
 - **Track vulnerabilities** in WordPress plugins, themes, and npm packages
 - **Monitor security events** like failed logins and attack attempts
 - **Track software versions** (WordPress core, PHP, Node.js, database)
-- **Trigger fast updates** across a host fleet via a latest-versions manifest, so critical WordPress core/plugin releases are patched within the hour instead of overnight
+- **Trigger fast updates** across a host fleet via a latest-versions manifest that flags which releases are urgent security fixes, so critical WordPress core/plugin patches land within the hour instead of overnight
 - **Audit component changes** (plugin/theme/package installations and updates)
 - **Manage user accounts** with pause/unpause and block/unblock controls
 - **Generate weekly reports** with actionable security recommendations
@@ -61,7 +61,7 @@ Then use the generated API key with `X-API-Key: <key>` to authenticate against t
 - [Database Setup](docs/database-setup.md) - Schema, migrations, and backups
 - [API Documentation](docs/api-usage.md) - REST API reference and examples
 - [CLI Reference](docs/cli.md) - Administration commands
-- [Fast Update Triggers](docs/fast-update-triggers.md) - Fleet latest-versions manifest and watchlist administration
+- [Fast Update Triggers](docs/fast-update-triggers.md) - Fleet latest-versions manifest, urgent-update classification, and watchlist administration
 - [Testing Guide](tests/README.md) - Running and writing tests
 
 ## License
