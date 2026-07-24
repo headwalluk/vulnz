@@ -319,6 +319,18 @@ async function initializeSchema(db) {
     )
   `);
 
+  // Create urgency_sources lookup table (M13)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS urgency_sources (
+      slug TEXT NOT NULL PRIMARY KEY,
+      title TEXT NOT NULL
+    )
+  `);
+  await db.run(`INSERT OR IGNORE INTO urgency_sources (slug, title) VALUES ('changelog_llm', 'Classified from the wordpress.org changelog by an LLM')`);
+  await db.run(`INSERT OR IGNORE INTO urgency_sources (slug, title) VALUES ('keyword_override', 'Forced urgent by an unambiguous changelog keyword')`);
+  await db.run(`INSERT OR IGNORE INTO urgency_sources (slug, title) VALUES ('manual', 'Set by hand via the CLI')`);
+  await db.run(`INSERT OR IGNORE INTO urgency_sources (slug, title) VALUES ('none', 'No signal available — changelog absent or classifier disabled')`);
+
   // Create releases table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS releases (
@@ -326,7 +338,13 @@ async function initializeSchema(db) {
       component_id INTEGER NOT NULL,
       version VARCHAR(255) NOT NULL,
       release_date DATE,
+      changelog TEXT,
+      is_urgent INTEGER NOT NULL DEFAULT 0,
+      urgency_summary TEXT,
+      urgency_source_slug TEXT,
+      urgency_checked_at DATETIME,
       FOREIGN KEY (component_id) REFERENCES components(id) ON DELETE CASCADE,
+      FOREIGN KEY (urgency_source_slug) REFERENCES urgency_sources(slug),
       UNIQUE(component_id, version)
     )
   `);
