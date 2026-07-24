@@ -3,6 +3,7 @@ const { stripAll } = require('./sanitizer');
 const { parseStr, parseIntEnv } = require('./env');
 
 const WPORG_PLUGIN_PAGE_BASE = 'https://wordpress.org/plugins/';
+const HIGH_PRIORITY = 'high';
 
 /**
  * Resolve wordpress.org sync configuration from the environment.
@@ -91,8 +92,17 @@ async function markSynced(componentId, available) {
  * Record the current release version for a component: cache it on the
  * component row for direct manifest reads, and ensure a matching release
  * row exists so history and the vulnerability join stay consistent.
+ *
+ * When a changelog is supplied it is stored on the release row, but only if
+ * that row does not already have one. That guard makes the write idempotent
+ * across the hourly re-sync: a release is classified for urgency once, and a
+ * later edit to the plugin's readme does not silently re-open the queue.
+ *
+ * @param {number} componentId
+ * @param {string} rawVersion
+ * @param {string|null} [changelog] raw wordpress.org changelog HTML
  */
-async function recordLatestVersion(componentId, rawVersion) {
+async function recordLatestVersion(componentId, rawVersion, changelog = null) {
   const version = stripAll(String(rawVersion)).trim();
   if (!version) {
     return;
@@ -100,6 +110,10 @@ async function recordLatestVersion(componentId, rawVersion) {
   await db.query('UPDATE components SET latest_version = ?, latest_version_at = CURRENT_TIMESTAMP WHERE id = ?', [version, componentId]);
   // INSERT IGNORE leaves an existing release (and its release_date) intact.
   await db.query('INSERT IGNORE INTO releases (component_id, version) VALUES (?, ?)', [componentId, version]);
+
+  if (typeof changelog === 'string' && changelog.trim() !== '') {
+    await db.query('UPDATE releases SET changelog = ? WHERE component_id = ? AND version = ? AND changelog IS NULL', [changelog, componentId, version]);
+  }
 }
 
 /**
@@ -155,11 +169,19 @@ async function syncPluginComponent(component, fetch, config) {
 
   // Capture the current release version — the basis of "is there something
   // newer than what my sites are running". Previously discarded.
+  //
+  // The changelog rides along, but only for the high-priority lane: it is the
+  // input to urgency classification (M13), and only the fast lane feeds the
+  // fleet manifest. Storing it for the ~1,100 background components would be
+  // dead weight in the releases table.
+  const wantsChangelog = component.sync_priority_slug === HIGH_PRIORITY;
+  const changelog = wantsChangelog && data.sections && typeof data.sections.changelog === 'string' ? data.sections.changelog : null;
+
   let version = null;
   if (data.version != null && (typeof data.version === 'string' || typeof data.version === 'number')) {
     version = stripAll(String(data.version)).trim() || null;
     if (version) {
-      await recordLatestVersion(component.id, version);
+      await recordLatestVersion(component.id, version, changelog);
     }
   }
 
@@ -254,12 +276,56 @@ async function syncHighPriorityPlugins({ fetchImpl } = {}) {
   return summary;
 }
 
+/**
+ * Fetch the current version and changelog for a plugin slug straight from
+ * wordpress.org, without reading or writing the database.
+ *
+ * Used by the CLI so a slug can be classified on demand even when it is not
+ * on the watchlist, or not in the database at all. Note that wordpress.org
+ * only publishes the changelog for the current release (and for some plugins,
+ * such as WooCommerce, literally only the newest entry), so this cannot
+ * retrieve the changelog for an arbitrary historical version.
+ *
+ * @param {string} slug
+ * @param {object} [options]
+ * @param {Function} [options.fetchImpl]
+ * @returns {Promise<{ok:boolean, reason:string|null, version:string|null, changelog:string|null}>}
+ */
+async function fetchPluginChangelog(slug, { fetchImpl } = {}) {
+  const fetch = fetchImpl || (await import('node-fetch')).default;
+  const config = wporgConfig();
+  const url = `${config.baseUrl}${config.endpoint}${slug}.json`;
+
+  const response = await fetch(url, {
+    timeout: config.timeout,
+    headers: { 'User-Agent': config.userAgent },
+  });
+
+  if (response.status === 404) {
+    return { ok: false, reason: `"${slug}" was not found on wordpress.org.`, version: null, changelog: null };
+  }
+  if (response.status !== 200) {
+    return { ok: false, reason: `wordpress.org returned HTTP ${response.status}.`, version: null, changelog: null };
+  }
+
+  const data = await response.json();
+  const version = data.version != null ? stripAll(String(data.version)).trim() || null : null;
+  const changelog = data.sections && typeof data.sections.changelog === 'string' ? data.sections.changelog : null;
+
+  if (!changelog) {
+    return { ok: false, reason: `wordpress.org returned no changelog for "${slug}".`, version, changelog: null };
+  }
+
+  return { ok: true, reason: null, version, changelog };
+}
+
 module.exports = {
   wporgConfig,
   syncNextPlugin,
   syncHighPriorityPlugins,
   syncPluginComponent,
   recordLatestVersion,
+  fetchPluginChangelog,
   parseWpOrgDate,
   parseWpOrgDateTime,
 };

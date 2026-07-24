@@ -6,6 +6,7 @@ const { getWordPressVersionInfo } = require('../lib/wpcore');
 const { getBlindSpots } = require('../lib/watchlist');
 
 const PLUGIN_TYPE = 'wordpress-plugin';
+const HIGH_PRIORITY = 'high';
 const MANIFEST_MAX_AGE_SECONDS = 300;
 
 /**
@@ -55,6 +56,16 @@ function isNewer(candidate, current) {
  *       up-to-date. `generated_at` reflects when the underlying data last
  *       changed (not request time), so the body and its ETag are stable
  *       until something actually moves.
+ *
+ *
+ *       `is_urgent` marks a release that fixes a security vulnerability
+ *       realistically exploitable against a default installation — the only
+ *       case that justifies an immediate, out-of-cycle update rather than
+ *       waiting for the host's normal overnight run. It is derived from the
+ *       wordpress.org changelog, which carries no security flag of its own.
+ *       It defaults to `false` whenever there is no evidence either way, so
+ *       an unclassified or unclassifiable release always degrades to the
+ *       existing overnight behaviour.
  *     tags:
  *       - WordPress
  *     security:
@@ -95,6 +106,22 @@ function isNewer(candidate, current) {
  *                       latest_version:
  *                         type: string
  *                         example: '10.9.5'
+ *                       is_urgent:
+ *                         type: boolean
+ *                         description: >
+ *                           True when this release fixes a security
+ *                           vulnerability exploitable against a default
+ *                           installation, and the host should update now
+ *                           rather than waiting for its overnight cycle.
+ *                         example: false
+ *                       summary:
+ *                         type: string
+ *                         nullable: true
+ *                         description: >
+ *                           One-sentence description of what the release
+ *                           contains. Null until the release has been
+ *                           classified.
+ *                         example: 'Adds bulk editing filters and fixes a link attribute bug.'
  *                       checked_at:
  *                         type: string
  *                         format: date-time
@@ -114,23 +141,32 @@ router.get('/latest-versions', apiAuth, async (req, res) => {
     const versionInfo = await getWordPressVersionInfo();
 
     const plugins = await db.query(
-      `SELECT slug, latest_version, latest_version_at
+      `SELECT components.slug, components.latest_version, components.latest_version_at,
+              releases.is_urgent, releases.urgency_summary, releases.urgency_checked_at
        FROM components
-       WHERE component_type_slug = ?
-         AND sync_priority_slug = 'high'
-         AND latest_version IS NOT NULL
-       ORDER BY slug ASC`,
-      [PLUGIN_TYPE]
+       LEFT JOIN releases
+         ON releases.component_id = components.id
+        AND releases.version = components.latest_version
+       WHERE components.component_type_slug = ?
+         AND components.sync_priority_slug = ?
+         AND components.latest_version IS NOT NULL
+       ORDER BY components.slug ASC`,
+      [PLUGIN_TYPE, HIGH_PRIORITY]
     );
 
     const blindSpots = await getBlindSpots();
 
     // Deterministic timestamp: the freshest underlying data change, so the
     // body (and its auto-generated ETag) stays identical until data moves.
+    // Urgency verdicts land ~20 minutes after the version itself, so they
+    // count as a data change too.
     let dataChangedAt = null;
     for (const plugin of plugins) {
       if (isNewer(plugin.latest_version_at, dataChangedAt)) {
         dataChangedAt = plugin.latest_version_at;
+      }
+      if (isNewer(plugin.urgency_checked_at, dataChangedAt)) {
+        dataChangedAt = plugin.urgency_checked_at;
       }
     }
     const coreRows = await db.query(`SELECT updated_at FROM app_settings WHERE setting_key = 'wordpress.current_version'`);
@@ -146,6 +182,8 @@ router.get('/latest-versions', apiAuth, async (req, res) => {
       plugins: plugins.map((plugin) => ({
         slug: plugin.slug,
         latest_version: plugin.latest_version,
+        is_urgent: Boolean(plugin.is_urgent),
+        summary: plugin.urgency_summary || null,
         checked_at: toIso(plugin.latest_version_at),
       })),
       blind_spots: blindSpots,
