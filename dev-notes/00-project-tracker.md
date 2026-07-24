@@ -19,7 +19,7 @@ Completed milestones M1–M6 have been archived to [`archive/00-project-tracker-
 
 ## M13 — Urgent Update Classification ✅
 
-**Status:** complete — v1.33.0 (2026-07-24), **shipped disabled** (`LLM_ENABLED=false`)
+**Status:** complete — v1.33.0 (2026-07-24), **live on prod and enabled** (first run: 26/26 classified, 4 urgent, all verified correct — see [`14-urgent-updates.md`](14-urgent-updates.md) §7)
 
 Adds `is_urgent` to the fast-update manifest so the fleet can distinguish an emergency security release from routine work. Without it, M12's manifest would force an out-of-cycle update for every release — too aggressive and too noisy to run. Design and as-built notes in [`14-urgent-updates.md`](14-urgent-updates.md).
 
@@ -34,7 +34,7 @@ Adds `is_urgent` to the fast-update manifest so the fleet can distinguish an eme
 - [x] **M13.9** — Verified live on dev: migration applied, 6 watchlist releases classified against OpenRouter/Haiku 4.5, both directions probed with crafted changelogs, re-sync confirmed idempotent
 - [ ] **Deferred:** tier-2 vulnerability-feed backfill (`patched_in` + severity via `vulnz-ingest`, to catch silently-patched releases); `urgent_since` for the multi-version-behind case; notification on urgent classification
 
-**Next action:** merge, deploy to dev with `LLM_ENABLED=false`, confirm the manifest is unchanged, then enable on dev and review classifications for a few days before prod.
+**Next action:** M13 is done and live. The follow-on work is **fleet-side** (`/opt/scripts`, separate repo): teach `wordpress_is_auto_update_due()` to act on `is_urgent` rather than on version drift alone, keeping the existing `wp-update.is-disabled` and `hw_block_updates` guards winning over an urgent trigger. Four real urgent entries are live in the manifest to test against.
 
 ---
 
