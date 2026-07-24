@@ -286,11 +286,11 @@ bash scripts/generate-session-secret.sh
 
 - Check logs for migration errors
 - Verify database user has CREATE TABLE privileges
-- Manually run migrations (not recommended):
-  ```javascript
-  const migrations = require('./src/migrations');
-  migrations.run();
+- Run the migrations directly, without starting the server:
+  ```bash
+  node bin/vulnz.js db:migrate
   ```
+  See the [CLI Reference](cli.md#dbmigrate---json). Migrations are forward-only and tracked in the `migrations` table — there is no rollback.
 
 ---
 
