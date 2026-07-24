@@ -92,3 +92,23 @@ Each item: a short heading, when/where it was noticed, why it matters, and a pro
 2. Consider a `format:check` script (`prettier --check .`) and wire it into the lint step, so drift is caught rather than accumulating.
 
 **Related:** M13 [`14-urgent-updates.md`](14-urgent-updates.md).
+
+---
+
+### Rename `bin/vulnz.js` to `bin/vulnz`
+
+**Noticed:** 2026-07-24 (during M13 prod rollout, v1.33.0)
+
+**What it is:** The CLI is invoked as `./bin/vulnz.js` or `node bin/vulnz.js`, but `package.json` already declares `"bin": { "vulnz": "./bin/vulnz.js" }` — so an installed or linked copy exposes the command as plain `vulnz`. The file extension is the odd one out: the script has a `#!/usr/bin/env node` shebang, is executable, and is never `require()`d, so nothing needs the `.js`.
+
+**Why it matters:** Purely tidiness — the tool is called `vulnz` everywhere in the docs and in conversation, and the `.js` is a stumbling block every time someone types the path from memory. No functional problem.
+
+**Proposed action:**
+
+1. `git mv bin/vulnz.js bin/vulnz` and update `package.json`'s `bin` target (`package-lock.json` will follow on the next install).
+2. Update the **63 references across 9 markdown files** (`docs/cli.md` has the bulk; also `README.md`, `AGENTS.md`, `CLAUDE.md`, `docs/installation.md`, `dev-notes/00-project-tracker.md`). Leave `CHANGELOG.md` and `dev-notes/archive/` alone — those are historical records.
+3. Update `tests/cli/vulnz.test.js`, which loads the file by path and sets `process.argv[1]` to it.
+4. **Check ESLint still lints it.** `eslint.config.js` is flat config; an extensionless file is not matched by the default `**/*.js` discovery, so it likely needs an explicit `files` entry or the run will silently stop checking the largest file in the project.
+5. Check for anything on the dev/prod hosts that calls the script by its current path — cron entries, `/etc/scripting/` helpers, deploy scripts, shell aliases. This is the only part that can break something outside the repo, so grep the hosts before renaming.
+
+**Related:** noticed while running `./bin/vulnz.js llm:classify-pending` on prod during the M13 rollout.
