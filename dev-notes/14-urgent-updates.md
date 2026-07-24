@@ -123,6 +123,31 @@ Rejected as another moving part to maintain on the fleet side, for a narrow case
 - **Retrospective classification is limited** to versions whose changelog was captured at the time.
 - **A missed urgent release followed by a routine one is not flagged** — see the `urgent_since` decision in §4.
 - **The model is a dependency on someone else's judgement.** The prompt is tuned to require evidence in the changelog and not speculate, but it is a probabilistic classifier making a security-relevant call. `llm:classify-release` exists partly so verdicts can be spot-checked by hand.
+- **The "undisclosed details" pattern is the most likely source of future false positives.** Some vendors write only *"this update addressed a security bug"* plus a researcher credit, with no vulnerability class, severity, or attack vector (see `ultimate-addons-for-gutenberg` in §7). Flagging those urgent is the right default — it is exactly the deliberately-vague disclosure the classifier exists to catch — but some vendors use the same wording for admin-only issues, where an out-of-cycle fleet update is not warranted. Worth watching whether it recurs and, if it becomes noisy, whether the prompt should distinguish "undisclosed" from "undisclosed by a vendor with a track record of understating".
+
+---
+
+## 7. First production run (2026-07-24)
+
+Deployed to prod on v1.33.0 and enabled the same evening. Baseline worth keeping for comparison:
+
+**26 of 26 watchlist releases classified, 4 flagged urgent.** All four verified by hand against the live wordpress.org changelogs:
+
+| plugin | evidence in the changelog | correct? |
+|---|---|---|
+| `wpforms-lite 2.0.0.2` | XSS when a WPForms captcha is combined with a crafted OptinMonster campaign | ✅ |
+| `ultimate-addons-for-gutenberg 2.20.0` | *"addressed a security bug"* + WPScan responsible-disclosure credit, no further detail | ✅ |
+| `database-collation-fix 1.2.11` | *"Fix vulnerabilty: CVE-2023-23997 sanitize and check forced algorithm"* | ✅ |
+| `enable-media-replace 4.2.2` | stored XSS via display name, PatchStack disclosure | ✅ |
+
+No false positives. Two findings from the run:
+
+- **Version scoping holds on full-history changelogs.** `database-collation-fix` publishes its entire changelog back to 2018, including a *"1.2.8 – Fix CSRF vulnerability"* entry. The classifier attributed urgency to 1.2.11 only, and ignored the older security entries. This was the main risk in feeding the changelog blob in whole, and it did not materialise.
+- **A 2023 CVE in a 2026 release is not a stale-changelog artifact.** `database-collation-fix 1.2.11` (dated Jul 2026) fixes CVE-2023-23997 — a three-year-old vulnerability only just patched. An old CVE identifier is not evidence that the model picked up a historical entry; check the release date before assuming a false positive.
+
+**The 4/26 ratio is the useful number.** 22 releases that a naive "a newer version exists" trigger would have pushed out of cycle, against 4 that justify it. If a future run flags a much larger share, that is a signal to inspect the prompt or the model rather than the fleet.
+
+**Ordering gotcha:** the first `llm:classify-pending` after the deploy found nothing, because the `:00` sync had run on the pre-deploy code and no changelogs were stored yet. Manual runs must be `wporg:sync-high` *then* `llm:classify-pending`; the crons enforce that ordering themselves (`0 * * * *` then `20 * * * *`).
 
 ---
 
