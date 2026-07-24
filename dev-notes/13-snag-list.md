@@ -54,3 +54,41 @@ Each item: a short heading, when/where it was noticed, why it matters, and a pro
 7. **Test parity** — decide on `TZ=UTC` in `tests/jest.setup.js` and note MariaDB-vs-SQLite date differences (see M11).
 
 **Related:** v1.32.1 timezone fix; [`12-fast-update-triggers.md`](12-fast-update-triggers.md); M11 (MariaDB test DB) in [`00-project-tracker.md`](00-project-tracker.md).
+
+---
+
+### Schema reference doc has drifted from the real schema
+
+**Noticed:** 2026-07-24 (during M13, v1.33.0)
+
+**What it is:** [`02-database-schema.md`](02-database-schema.md) bills itself as the full schema reference, but parts of it no longer match the database. Found while adding the M13 columns:
+
+- The `releases` block listed `created_at` / `updated_at` columns that **do not exist** on the real table, and omitted `release_date`, which does. (Corrected in M13.)
+- M12's `sync_priorities` lookup table is **absent entirely**, as are the M12 `components` columns `sync_priority_slug`, `latest_version`, `latest_version_at`, and `wporg_available`.
+
+**Why it matters:** A schema reference that is confidently wrong is worse than no reference — it is exactly the document someone consults instead of running `DESCRIBE`, and the `releases` inaccuracy predates M12, so it has been misleading for a while. The M12 gap also means the doc gives no account of how the fast-update lane is modelled.
+
+**Proposed action:**
+
+1. Add the missing M12 objects: the `sync_priorities` table and the four `components` columns.
+2. Diff the whole document against a live `SHOW CREATE TABLE` dump for every table, not just the ones recently touched — the two errors found here were both in tables nobody had flagged.
+3. Consider generating the reference from the live schema, or adding a test that fails when a migration lands without a corresponding doc update, so it cannot silently drift again.
+
+**Related:** M13 [`14-urgent-updates.md`](14-urgent-updates.md); M12 [`12-fast-update-triggers.md`](12-fast-update-triggers.md).
+
+---
+
+### Repo-wide Prettier formatting drift
+
+**Noticed:** 2026-07-24 (during M13, v1.33.0)
+
+**What it is:** Running `npm run format` reformats around a dozen files nobody has touched recently — several `dev-notes/*.md`, `docs/fast-update-triggers.md`, `src/lib/watchlist.js`, and five `tests/api/*.test.js` files. They are committed in a state Prettier disagrees with.
+
+**Why it matters:** Anyone who follows the documented workflow in `CLAUDE.md` and runs `npm run format` before committing sweeps a dozen unrelated files into their diff, which buries the actual change under formatting noise. During M13 this had to be reverted by hand to keep the commit scoped. It also means `npm run format` is effectively unsafe to run casually, which defeats its purpose.
+
+**Proposed action:**
+
+1. Run `npm run format` once across the repo and commit the result as a single, clearly-labelled formatting-only commit, so future runs are no-ops.
+2. Consider a `format:check` script (`prettier --check .`) and wire it into the lint step, so drift is caught rather than accumulating.
+
+**Related:** M13 [`14-urgent-updates.md`](14-urgent-updates.md).
