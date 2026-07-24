@@ -34,25 +34,22 @@ describe('WordPress manifest API', () => {
 
     // Two high-priority plugins with captured versions, plus a low-priority
     // one that must not appear, and a high one without a version yet.
-    await db.query('INSERT INTO components (slug, component_type_slug, title, sync_priority_slug, latest_version, latest_version_at, wporg_available) VALUES (?, ?, ?, ?, ?, ?, ?)', [
-      'woocommerce',
+    await db.query(
+      'INSERT INTO components (slug, component_type_slug, title, sync_priority_slug, latest_version, latest_version_at, wporg_available) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ['woocommerce', 'wordpress-plugin', 'WooCommerce', 'high', '10.9.5', '2026-07-23 13:04:00', 1]
+    );
+    await db.query(
+      'INSERT INTO components (slug, component_type_slug, title, sync_priority_slug, latest_version, latest_version_at, wporg_available) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ['elementor', 'wordpress-plugin', 'Elementor', 'high', '4.2.0', '2026-07-23 12:00:00', 1]
+    );
+    await db.query('INSERT INTO components (slug, component_type_slug, title, sync_priority_slug, latest_version, wporg_available) VALUES (?, ?, ?, ?, ?, ?)', [
+      'autoptimize',
       'wordpress-plugin',
-      'WooCommerce',
-      'high',
-      '10.9.5',
-      '2026-07-23 13:04:00',
+      'Autoptimize',
+      'low',
+      '3.1.0',
       1,
     ]);
-    await db.query('INSERT INTO components (slug, component_type_slug, title, sync_priority_slug, latest_version, latest_version_at, wporg_available) VALUES (?, ?, ?, ?, ?, ?, ?)', [
-      'elementor',
-      'wordpress-plugin',
-      'Elementor',
-      'high',
-      '4.2.0',
-      '2026-07-23 12:00:00',
-      1,
-    ]);
-    await db.query('INSERT INTO components (slug, component_type_slug, title, sync_priority_slug, latest_version, wporg_available) VALUES (?, ?, ?, ?, ?, ?)', ['autoptimize', 'wordpress-plugin', 'Autoptimize', 'low', '3.1.0', 1]);
     await db.query('INSERT INTO components (slug, component_type_slug, title, sync_priority_slug) VALUES (?, ?, ?, ?)', ['pending-plugin', 'wordpress-plugin', 'Pending', 'high']);
 
     await appSetting.set('wordpress.current_version', '7.0.2', 'string', null, 'versions', true);
@@ -103,5 +100,56 @@ describe('WordPress manifest API', () => {
     const response = await request(app).get('/api/wordpress/latest-versions').set('X-API-Key', apiKey).expect(200);
     // woocommerce (13:04) is fresher than elementor (12:00)
     expect(response.body.generated_at).toBe('2026-07-23T13:04:00.000Z');
+  });
+
+  // M13 — urgency
+  test('reports is_urgent false with a null summary when a release is unclassified', async () => {
+    const response = await request(app).get('/api/wordpress/latest-versions').set('X-API-Key', apiKey).expect(200);
+
+    const elementor = response.body.plugins.find((plugin) => plugin.slug === 'elementor');
+    expect(elementor.is_urgent).toBe(false);
+    expect(elementor.summary).toBeNull();
+  });
+
+  test('surfaces the urgency verdict for the current version', async () => {
+    const components = await db.query('SELECT id FROM components WHERE slug = ?', ['woocommerce']);
+    await db.query('INSERT INTO releases (component_id, version, changelog, is_urgent, urgency_summary, urgency_source_slug, urgency_checked_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [
+      components[0].id,
+      '10.9.5',
+      '<h4>10.9.5</h4><ul><li>Fix - unauthenticated SQL injection in the REST API.</li></ul>',
+      1,
+      'Fixes an unauthenticated SQL injection in the REST API.',
+      'changelog_llm',
+      '2026-07-23 13:20:00',
+    ]);
+
+    const response = await request(app).get('/api/wordpress/latest-versions').set('X-API-Key', apiKey).expect(200);
+
+    const woo = response.body.plugins.find((plugin) => plugin.slug === 'woocommerce');
+    expect(woo.is_urgent).toBe(true);
+    expect(woo.summary).toBe('Fixes an unauthenticated SQL injection in the REST API.');
+
+    // The verdict landed after the version did, so it is the freshest change.
+    expect(response.body.generated_at).toBe('2026-07-23T13:20:00.000Z');
+  });
+
+  test('ignores a verdict attached to a version that is no longer current', async () => {
+    const components = await db.query('SELECT id FROM components WHERE slug = ?', ['elementor']);
+    await db.query('INSERT INTO releases (component_id, version, is_urgent, urgency_summary, urgency_source_slug, urgency_checked_at) VALUES (?, ?, ?, ?, ?, ?)', [
+      components[0].id,
+      '4.1.9',
+      1,
+      'Older release that fixed a vulnerability.',
+      'changelog_llm',
+      '2026-07-20 09:00:00',
+    ]);
+
+    const response = await request(app).get('/api/wordpress/latest-versions').set('X-API-Key', apiKey).expect(200);
+
+    // latest_version is 4.2.0, so the 4.1.9 verdict must not leak through.
+    const elementor = response.body.plugins.find((plugin) => plugin.slug === 'elementor');
+    expect(elementor.latest_version).toBe('4.2.0');
+    expect(elementor.is_urgent).toBe(false);
+    expect(elementor.summary).toBeNull();
   });
 });

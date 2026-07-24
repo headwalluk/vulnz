@@ -74,6 +74,7 @@ const cron = require('node-cron');
 const { syncNextPlugin, syncHighPriorityPlugins } = require('./lib/wporg');
 const { syncWordPressCoreVersion } = require('./lib/wpcore');
 const { buildWatchlist } = require('./lib/watchlist');
+const { classifyPendingReleases } = require('./lib/urgency');
 const { sendWeeklyReports } = require('./lib/reporting');
 const migrations = require('./migrations');
 const { initializeGeoIP } = require('./lib/geoip');
@@ -336,6 +337,25 @@ async function startServer() {
           console.log(`Watchlist rebuilt: ${result.high.length} high-priority, ${result.blindSpots.length} blind spot(s), ${result.probed} probed.`);
         } catch (err) {
           console.error('Error rebuilding watchlist:', err);
+        }
+      });
+
+      // Urgent update classification (M13): decide whether each newly-seen
+      // watchlist release is a security fix worth an out-of-cycle update.
+      // Offset 20 minutes past the hour so the high-priority lane (0 * * * *)
+      // has finished writing changelogs before the queue is drained. Kept out
+      // of the sync itself so a slow provider never delays the manifest.
+      cron.schedule('20 * * * *', async () => {
+        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to classify pending release urgency...');
+        try {
+          const summary = await classifyPendingReleases();
+          if (summary.skipped) {
+            process.env.LOG_LEVEL === 'debug' && console.log(`Urgency classification skipped: ${summary.reason}`);
+          } else if (summary.classified > 0 || summary.failed > 0) {
+            console.log(`Urgency classification: ${summary.classified} classified (${summary.urgent} urgent), ${summary.failed} failed.`);
+          }
+        } catch (err) {
+          console.error('Error running urgency classification:', err);
         }
       });
 
