@@ -27,8 +27,12 @@ const notificationSite = require('../src/models/notificationSite');
 const notificationQueue = require('../src/models/notificationQueue');
 const { processQueue } = require('../src/lib/notificationProcessor');
 const { syncWordPressCoreVersion, getWordPressVersionInfo } = require('../src/lib/wpcore');
-const { syncHighPriorityPlugins } = require('../src/lib/wporg');
+const { syncHighPriorityPlugins, fetchPluginChangelog } = require('../src/lib/wporg');
+const { classifyRelease, classifyPendingReleases, countPendingReleases, findStoredRelease, saveVerdict } = require('../src/lib/urgency');
+const { llmConfig } = require('../src/lib/llm/client');
+const { listTasks } = require('../src/lib/llm/tasks');
 const { buildWatchlist, getBlindSpots, getStaticWatchlist, addStaticWatchlistEntry, removeStaticWatchlistEntry } = require('../src/lib/watchlist');
+const migrations = require('../src/migrations');
 const db = require('../src/db');
 
 const program = new Command();
@@ -943,7 +947,9 @@ program
       if (opts.json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        console.log(`Watchlist rebuilt: ${result.high.length} high-priority (${result.staticCount} static, ${result.derivedCount} derived), ${result.blindSpots.length} blind spot(s), ${result.probed} probed.`);
+        console.log(
+          `Watchlist rebuilt: ${result.high.length} high-priority (${result.staticCount} static, ${result.derivedCount} derived), ${result.blindSpots.length} blind spot(s), ${result.probed} probed.`
+        );
         if (result.blindSpots.length) {
           console.log(`Blind spots: ${result.blindSpots.join(', ')}`);
         }
@@ -1027,6 +1033,194 @@ program
       }
       await db.end();
       process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// db:migrate [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('db:migrate')
+  .description('Apply any pending database migrations without starting the server')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const applied = await migrations.run();
+
+      if (opts.json) {
+        console.log(JSON.stringify({ applied, count: applied.length }, null, 2));
+      } else if (applied.length === 0) {
+        console.log('No pending migrations — the schema is up to date.');
+      } else {
+        console.log(`Applied ${applied.length} migration(s):`);
+        for (const name of applied) {
+          console.log(`  ${name}`);
+        }
+      }
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// llm:status [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('llm:status')
+  .description('Show LLM provider configuration and the classification backlog')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const config = llmConfig();
+      const pending = await countPendingReleases();
+      const status = {
+        enabled: config.enabled,
+        api_key_present: config.apiKey !== '',
+        base_url: config.baseUrl,
+        model: config.model,
+        timeout_ms: config.timeoutMs,
+        max_attempts: config.maxAttempts,
+        pending_classifications: pending,
+        tasks: listTasks(),
+      };
+
+      if (opts.json) {
+        console.log(JSON.stringify(status, null, 2));
+      } else {
+        console.log(`Enabled:  ${status.enabled ? 'yes' : 'no'}`);
+        console.log(`API key:  ${status.api_key_present ? 'present' : 'MISSING'}`);
+        console.log(`Endpoint: ${status.base_url}`);
+        console.log(`Model:    ${status.model}`);
+        console.log(`Pending:  ${status.pending_classifications} release(s) awaiting classification`);
+        console.log('Tasks:');
+        for (const task of status.tasks) {
+          console.log(`  ${task.slug} — ${task.description}`);
+        }
+      }
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// llm:classify-release <slug> <version> [--save] [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('llm:classify-release <slug> <version>')
+  .description('Classify a wordpress.org plugin release as urgent or routine')
+  .option('--save', 'Persist the verdict against the stored release')
+  .option('--json', 'Output as JSON')
+  .action(async (slug, version, opts) => {
+    try {
+      const stored = await findStoredRelease(slug, version);
+      let changelog = stored && stored.changelog ? stored.changelog : null;
+
+      // Fall back to wordpress.org when we have no changelog stored. Only the
+      // current release's changelog is published, so this can only help for
+      // the version that is live right now.
+      if (!changelog) {
+        const fetched = await fetchPluginChangelog(slug);
+        if (!fetched.ok) {
+          process.stderr.write(`Error: ${fetched.reason}\n`);
+          await db.end();
+          process.exit(1);
+        }
+        if (fetched.version !== version) {
+          process.stderr.write(`Error: no changelog stored for ${slug} ${version}, and wordpress.org currently publishes ${fetched.version}.\n`);
+          process.stderr.write('wordpress.org only exposes the changelog for the current release.\n');
+          await db.end();
+          process.exit(1);
+        }
+        changelog = fetched.changelog;
+      }
+
+      const outcome = await classifyRelease({ slug, version, changelog });
+
+      if (!outcome.ok) {
+        process.stderr.write(`Error: ${outcome.error}\n`);
+        await db.end();
+        process.exit(1);
+      }
+
+      let saved = false;
+      if (opts.save) {
+        if (!stored) {
+          process.stderr.write(`Error: cannot save — no stored release found for ${slug} ${version}.\n`);
+          await db.end();
+          process.exit(1);
+        }
+        await saveVerdict(stored.id, outcome.verdict);
+        saved = true;
+      }
+
+      const result = {
+        slug,
+        version,
+        is_urgent: outcome.verdict.is_urgent,
+        summary: outcome.verdict.summary,
+        source: outcome.verdict.source,
+        model: outcome.model,
+        saved,
+      };
+
+      if (opts.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(`${slug} ${version}`);
+        console.log(`  is_urgent: ${result.is_urgent}`);
+        console.log(`  summary:   ${result.summary}`);
+        console.log(`  source:    ${result.source} (${result.model})`);
+        console.log(saved ? '  Saved.' : '  Not saved (dry run — pass --save to persist).');
+      }
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// llm:classify-pending [--limit <n>] [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('llm:classify-pending')
+  .description('Classify watchlist releases that have no urgency verdict yet')
+  .option('--limit <n>', 'Maximum releases to classify in this run')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const limit = opts.limit ? parseInt(opts.limit, 10) : undefined;
+      if (opts.limit && (Number.isNaN(limit) || limit < 1)) {
+        process.stderr.write('Error: --limit must be a positive integer.\n');
+        await db.end();
+        process.exit(1);
+      }
+
+      const summary = await classifyPendingReleases({ limit });
+
+      if (opts.json) {
+        console.log(JSON.stringify(summary, null, 2));
+      } else if (summary.skipped) {
+        console.log(`Skipped: ${summary.reason}`);
+      } else {
+        console.log(`Classified ${summary.classified} release(s): ${summary.urgent} urgent, ${summary.failed} failed.`);
+      }
+      await db.end();
+      process.exit(summary.skipped || summary.failed > 0 ? 1 : 0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();

@@ -222,6 +222,33 @@ Revoked API key: abc123def456abc123def456abc123def456
 
 ---
 
+## Database Commands
+
+### `db:migrate [--json]`
+
+Apply any pending migrations without starting the server. Migrations also run automatically at API startup, so this is for applying a schema change ahead of a deploy, or for working with the CLI on a database that is not yet up to date (CLI commands do **not** run migrations themselves).
+
+```bash
+node bin/vulnz.js db:migrate
+```
+
+Output:
+
+```
+Applied 1 migration(s):
+  20260724190000-add-release-urgency.js
+```
+
+When there is nothing to do:
+
+```
+No pending migrations — the schema is up to date.
+```
+
+Migrations are forward-only and tracked in the `migrations` table — there is no rollback.
+
+---
+
 ## App Settings Commands
 
 VULNZ stores runtime configuration in the database. These commands manage the key-value settings store, which supports typed values (string, integer, float, boolean).
@@ -509,6 +536,71 @@ WordPress core version synced: latest=7.0.2 (24 safe versions cached).
 ```
 
 Exits non-zero if the sync could not update the settings (e.g. wordpress.org unreachable), leaving the existing values untouched.
+
+---
+
+## LLM Classification Commands
+
+Manage the classification that decides whether a plugin release is an emergency security update or routine work — the `is_urgent` flag in the fast-update manifest. See [Fast update triggers](fast-update-triggers.md#urgent-updates) for what the flag means and how it is derived.
+
+### `llm:status [--json]`
+
+Show provider configuration and the size of the classification backlog. Useful for confirming a deployment picked up its API key.
+
+```bash
+node bin/vulnz.js llm:status
+```
+
+Output:
+
+```
+Enabled:  yes
+API key:  present
+Endpoint: https://openrouter.ai/api/v1
+Model:    anthropic/claude-haiku-4.5
+Pending:  3 release(s) awaiting classification
+Tasks:
+  release-urgency — Classify a WordPress plugin release as an urgent security update or a routine one
+```
+
+### `llm:classify-release <slug> <version> [--save] [--json]`
+
+Classify a single wordpress.org plugin release. **Dry run by default** — pass `--save` to persist the verdict against the stored release.
+
+```bash
+node bin/vulnz.js llm:classify-release woocommerce 10.9.5
+```
+
+Output:
+
+```
+woocommerce 10.9.5
+  is_urgent: false
+  summary:   Fixes VAT exemption not applying during block checkout for logged-in users.
+  source:    changelog_llm (anthropic/claude-haiku-4.5)
+  Not saved (dry run — pass --save to persist).
+```
+
+The changelog is read from the stored release if VULNZ already has one. Otherwise it is fetched live from wordpress.org — which only publishes the changelog for the **current** release, so classifying an older version is only possible when its changelog was captured at the time.
+
+`source` reports how the verdict was reached: `changelog_llm` for the model's own judgement, or `keyword_override` where the changelog named a critical vulnerability class the model had not flagged.
+
+### `llm:classify-pending [--limit <n>] [--json]`
+
+Classify watchlist releases that have no verdict yet — the same work the hourly cron does, run on demand. Useful straight after enabling `LLM_ENABLED`, to populate the manifest without waiting for the next scheduled pass.
+
+```bash
+node bin/vulnz.js wporg:sync-high        # capture current changelogs first
+node bin/vulnz.js llm:classify-pending
+```
+
+Output:
+
+```
+Classified 4 release(s): 1 urgent, 0 failed.
+```
+
+Exits non-zero if the run was skipped (classification disabled or no API key) or any release failed. Failed releases stay queued and are retried on the next run.
 
 ---
 

@@ -25,16 +25,27 @@ const runMigration = async (migrationName) => {
   await db.query('INSERT INTO migrations (name) VALUES (?)', [migrationName]);
 };
 
+/**
+ * Apply every migration that has not run yet, in filename order.
+ * @returns {Promise<string[]>} the migrations applied by this call, in order
+ */
 const run = async () => {
   await createMigrationsTable();
   const ranMigrations = await getRanMigrations();
-  const migrationFiles = fs.readdirSync(migrationsDir).filter((file) => file.endsWith('.js') && file !== 'index.js');
+  const migrationFiles = fs
+    .readdirSync(migrationsDir)
+    .filter((file) => file.endsWith('.js') && file !== 'index.js')
+    .sort();
 
+  const applied = [];
   for (const file of migrationFiles) {
     if (!ranMigrations.includes(file)) {
       await runMigration(file);
+      applied.push(file);
     }
   }
+
+  return applied;
 };
 
 module.exports = { run };
