@@ -117,6 +117,50 @@ async function recordLatestVersion(componentId, rawVersion, changelog = null) {
 }
 
 /**
+ * Read-only check of whether a plugin slug is published on wordpress.org.
+ *
+ * Deliberately touches neither the database nor the component row, which is
+ * what separates it from syncPluginComponent(): the malware CLI calls this
+ * before flagging a component, and a fake plugin squatting on a real slug
+ * must not end up with the genuine plugin's title and description written
+ * over it.
+ *
+ * @param {string} slug
+ * @returns {Promise<{status:number, available:boolean|null, name:string|null}>}
+ *   available is true (published), false (absent), or null (couldn't tell —
+ *   a timeout, rate limit, or 5xx).
+ */
+async function probeWpOrgSlug(slug, { fetchImpl } = {}) {
+  const fetch = fetchImpl || (await import('node-fetch')).default;
+  const config = wporgConfig();
+  const url = `${config.baseUrl}${config.endpoint}${slug}.json`;
+
+  const response = await fetch(url, {
+    timeout: config.timeout,
+    headers: { 'User-Agent': config.userAgent },
+  });
+
+  if (response.status === 404) {
+    return { status: 404, available: false, name: null };
+  }
+
+  if (response.status !== 200) {
+    return { status: response.status, available: null, name: null };
+  }
+
+  const data = await response.json();
+
+  // wordpress.org sometimes answers 200 with an error body rather than 404.
+  // Treating that as "published" would block a genuine malware flag, so it
+  // is read as absent.
+  if (!data || data.error) {
+    return { status: 200, available: false, name: null };
+  }
+
+  return { status: 200, available: true, name: typeof data.name === 'string' ? stripAll(data.name) : null };
+}
+
+/**
  * Sync a single plugin component from wordpress.org. Shared by both the
  * background low-priority rotation and the hourly high-priority lane.
  * @returns {Promise<{slug:string, status:number, available:boolean|null, version:string|null}>}
@@ -324,6 +368,7 @@ module.exports = {
   syncNextPlugin,
   syncHighPriorityPlugins,
   syncPluginComponent,
+  probeWpOrgSlug,
   recordLatestVersion,
   fetchPluginChangelog,
   parseWpOrgDate,

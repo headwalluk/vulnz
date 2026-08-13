@@ -19,7 +19,12 @@ const wporg = require('../../src/lib/wporg');
 let db;
 
 async function addComponent(slug, priority) {
-  const result = await db.query('INSERT INTO components (slug, component_type_slug, title, sync_priority_slug) VALUES (?, ?, ?, ?)', [slug, 'wordpress-plugin', slug, priority || 'low']);
+  const result = await db.query('INSERT INTO components (slug, component_type_slug, title, sync_priority_slug) VALUES (?, ?, ?, ?)', [
+    slug,
+    'wordpress-plugin',
+    slug,
+    priority || 'low',
+  ]);
   return result.insertId;
 }
 
@@ -142,5 +147,77 @@ describe('wporg sync lanes', () => {
     expect(synced.some((url) => url.includes('low-one'))).toBe(true);
     expect(synced.some((url) => url.includes('high-one'))).toBe(false);
     delete process.env.WPORG_UPDATE_BATCH_SIZE;
+  });
+});
+
+// ─── probeWpOrgSlug (M14) ─────────────────────────────────────────────────────
+
+describe('wporg.probeWpOrgSlug', () => {
+  beforeAll(async () => {
+    db = await createTestDatabase();
+    mockDb.query.mockImplementation((...args) => db.query(...args));
+    await initializeSchema(db);
+  });
+
+  afterAll(async () => {
+    await cleanupTestDatabase(db);
+  });
+
+  beforeEach(() => {
+    mockDb.query.mockClear();
+  });
+
+  it('reports a published plugin as available, with its name', async () => {
+    const fetchImpl = async () => ({ status: 200, json: async () => ({ name: 'Contact Form 7', version: '6.1.6' }) });
+
+    const result = await wporg.probeWpOrgSlug('contact-form-7', { fetchImpl });
+
+    expect(result).toEqual({ status: 200, available: true, name: 'Contact Form 7' });
+  });
+
+  it('reports a 404 slug as absent', async () => {
+    const fetchImpl = async () => ({ status: 404 });
+
+    const result = await wporg.probeWpOrgSlug('easypost', { fetchImpl });
+
+    expect(result).toEqual({ status: 404, available: false, name: null });
+  });
+
+  it('treats a 200 carrying an error body as absent, so a real flag is not blocked', async () => {
+    const fetchImpl = async () => ({ status: 200, json: async () => ({ error: 'Plugin not found.' }) });
+
+    const result = await wporg.probeWpOrgSlug('easypost', { fetchImpl });
+
+    expect(result).toEqual({ status: 200, available: false, name: null });
+  });
+
+  it('reports availability as unknown on a transient error', async () => {
+    const fetchImpl = async () => ({ status: 503 });
+
+    const result = await wporg.probeWpOrgSlug('easypost', { fetchImpl });
+
+    expect(result).toEqual({ status: 503, available: null, name: null });
+  });
+
+  it('does not write to the database', async () => {
+    const fetchImpl = async () => ({ status: 200, json: async () => ({ name: 'Contact Form 7' }) });
+
+    await wporg.probeWpOrgSlug('contact-form-7', { fetchImpl });
+
+    // A squatted slug must not have the genuine plugin's metadata written
+    // over its component row, so the probe touches nothing.
+    expect(mockDb.query).not.toHaveBeenCalled();
+  });
+
+  it('requests the plugin-info endpoint for the slug', async () => {
+    let requestedUrl = null;
+    const fetchImpl = async (url) => {
+      requestedUrl = url;
+      return { status: 404 };
+    };
+
+    await wporg.probeWpOrgSlug('easypost', { fetchImpl });
+
+    expect(requestedUrl).toBe('https://api.wordpress.org/plugins/info/1.0/easypost.json');
   });
 });

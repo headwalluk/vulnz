@@ -13,6 +13,7 @@
 
 const mockDb = {
   end: jest.fn().mockResolvedValue(undefined),
+  query: jest.fn(),
 };
 
 const mockUser = {
@@ -37,6 +38,20 @@ const mockFeed = {
   listReleasesBySlug: jest.fn(),
 };
 
+const mockComponent = {
+  findByTypeAndSlug: jest.fn(),
+  findOrCreate: jest.fn(),
+  flagAsMalware: jest.fn(),
+  clearMalwareFlag: jest.fn(),
+  findMalware: jest.fn(),
+};
+
+const mockWporg = {
+  probeWpOrgSlug: jest.fn(),
+  syncHighPriorityPlugins: jest.fn(),
+  fetchPluginChangelog: jest.fn(),
+};
+
 // ─── Module mocks ─────────────────────────────────────────────────────────────
 
 jest.mock('dotenv', () => ({ config: jest.fn() }));
@@ -44,6 +59,8 @@ jest.mock('../../src/db', () => mockDb);
 jest.mock('../../src/models/user', () => mockUser);
 jest.mock('../../src/models/apiKey', () => mockApiKey);
 jest.mock('../../src/models/feed', () => mockFeed);
+jest.mock('../../src/models/component', () => mockComponent);
+jest.mock('../../src/lib/wporg', () => mockWporg);
 
 // ─── runCli helper ────────────────────────────────────────────────────────────
 
@@ -123,6 +140,13 @@ beforeEach(() => {
   mockFeed.getStatus.mockReset();
   mockFeed.findComponentBySlug.mockReset();
   mockFeed.listReleasesBySlug.mockReset();
+  mockDb.query.mockReset();
+  mockComponent.findByTypeAndSlug.mockReset();
+  mockComponent.findOrCreate.mockReset();
+  mockComponent.flagAsMalware.mockReset();
+  mockComponent.clearMalwareFlag.mockReset();
+  mockComponent.findMalware.mockReset();
+  mockWporg.probeWpOrgSlug.mockReset();
 });
 
 // ─── user:add ─────────────────────────────────────────────────────────────────
@@ -711,5 +735,223 @@ describe('CLI: release:list', () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toMatch(/Error: Timeout/);
     expect(result.stdout).toBe('');
+  });
+});
+
+// ─── component:malware:add ────────────────────────────────────────────────────
+
+describe('CLI: component:malware:add', () => {
+  const PLUGIN_TYPE = 'wordpress-plugin';
+
+  /**
+   * Answer the two direct db.query calls the command makes: the component
+   * type existence check, and the release count.
+   */
+  function mockDbForFlag({ knownType = true, releaseCount = 0 } = {}) {
+    mockDb.query.mockImplementation(async (sql) => {
+      if (/FROM component_types/.test(sql)) {
+        return knownType ? [{ slug: PLUGIN_TYPE }] : [];
+      }
+      if (/COUNT\(\*\) AS total FROM releases/.test(sql)) {
+        return [{ total: releaseCount }];
+      }
+      return [];
+    });
+  }
+
+  test('flags a slug that is absent from wordpress.org and exits 0', async () => {
+    mockDbForFlag({ releaseCount: 3 });
+    mockWporg.probeWpOrgSlug.mockResolvedValue({ status: 404, available: false, name: null });
+    mockComponent.findByTypeAndSlug.mockResolvedValue({ id: 77, slug: 'easypost', is_malware: 0 });
+
+    const result = await runCli(['component:malware:add', PLUGIN_TYPE, 'easypost', '--summary', 'Backdoor file dropper']);
+
+    expect(result.exitCode).toBe(0);
+    expect(mockComponent.flagAsMalware).toHaveBeenCalledWith(77, { summary: 'Backdoor file dropper' });
+    expect(result.stdout).toMatch(/Flagged as malware: wordpress-plugin\/easypost/);
+    expect(result.stdout).toMatch(/all 3 known release\(s\)/);
+    expect(result.stderr).toBe('');
+  });
+
+  test('refuses to flag a slug that is published on wordpress.org', async () => {
+    mockDbForFlag();
+    mockWporg.probeWpOrgSlug.mockResolvedValue({ status: 200, available: true, name: 'Contact Form 7' });
+
+    const result = await runCli(['component:malware:add', PLUGIN_TYPE, 'contact-form-7']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/published on wordpress\.org as "Contact Form 7"/);
+    expect(result.stderr).toMatch(/--force/);
+    expect(mockComponent.flagAsMalware).not.toHaveBeenCalled();
+  });
+
+  test('--force flags a published slug anyway', async () => {
+    mockDbForFlag({ releaseCount: 1 });
+    mockComponent.findByTypeAndSlug.mockResolvedValue({ id: 88, slug: 'contact-form-7', is_malware: 0 });
+
+    const result = await runCli(['component:malware:add', PLUGIN_TYPE, 'contact-form-7', '--force']);
+
+    expect(result.exitCode).toBe(0);
+    expect(mockWporg.probeWpOrgSlug).not.toHaveBeenCalled();
+    expect(mockComponent.flagAsMalware).toHaveBeenCalledWith(88, { summary: null });
+  });
+
+  test('warns but proceeds when wordpress.org cannot be reached', async () => {
+    mockDbForFlag();
+    mockWporg.probeWpOrgSlug.mockRejectedValue(new Error('ETIMEDOUT'));
+    mockComponent.findByTypeAndSlug.mockResolvedValue({ id: 99, slug: 'easypost', is_malware: 0 });
+
+    const result = await runCli(['component:malware:add', PLUGIN_TYPE, 'easypost']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/Warning: could not reach wordpress\.org/);
+    expect(mockComponent.flagAsMalware).toHaveBeenCalled();
+  });
+
+  test('does not probe wordpress.org for non-plugin component types', async () => {
+    mockDb.query.mockImplementation(async (sql) => {
+      if (/FROM component_types/.test(sql)) {
+        return [{ slug: 'npm-package' }];
+      }
+      return [{ total: 0 }];
+    });
+    mockComponent.findByTypeAndSlug.mockResolvedValue({ id: 5, slug: 'evil-pkg', is_malware: 0 });
+
+    const result = await runCli(['component:malware:add', 'npm-package', 'evil-pkg']);
+
+    expect(result.exitCode).toBe(0);
+    expect(mockWporg.probeWpOrgSlug).not.toHaveBeenCalled();
+  });
+
+  test('rejects a slug that sanitizes to nothing, rather than creating a junk row', async () => {
+    mockDbForFlag();
+
+    const result = await runCli(['component:malware:add', PLUGIN_TYPE, '']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/not a usable component slug/);
+    expect(mockComponent.findOrCreate).not.toHaveBeenCalled();
+    expect(mockComponent.flagAsMalware).not.toHaveBeenCalled();
+  });
+
+  test('rejects an unknown component type and exits 1', async () => {
+    mockDbForFlag({ knownType: false });
+
+    const result = await runCli(['component:malware:add', 'wordpress-plugni', 'easypost']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/unknown component type "wordpress-plugni"/);
+    expect(mockComponent.flagAsMalware).not.toHaveBeenCalled();
+  });
+
+  test('creates the component when the slug has not been ingested yet', async () => {
+    mockDbForFlag();
+    mockWporg.probeWpOrgSlug.mockResolvedValue({ status: 404, available: false, name: null });
+    mockComponent.findByTypeAndSlug.mockResolvedValue(undefined);
+    mockComponent.findOrCreate.mockResolvedValue({ id: 123, slug: 'easypost' });
+
+    const result = await runCli(['component:malware:add', PLUGIN_TYPE, 'easypost']);
+
+    expect(result.exitCode).toBe(0);
+    expect(mockComponent.findOrCreate).toHaveBeenCalledWith('easypost', PLUGIN_TYPE, 'easypost');
+    expect(result.stdout).toMatch(/Created component: easypost/);
+    expect(mockComponent.flagAsMalware).toHaveBeenCalledWith(123, { summary: null });
+  });
+
+  test('re-flagging an already-flagged component updates it and says so', async () => {
+    mockDbForFlag({ releaseCount: 2 });
+    mockWporg.probeWpOrgSlug.mockResolvedValue({ status: 404, available: false, name: null });
+    mockComponent.findByTypeAndSlug.mockResolvedValue({ id: 77, slug: 'easypost', is_malware: 1 });
+
+    const result = await runCli(['component:malware:add', PLUGIN_TYPE, 'easypost', '--summary', 'Updated wording']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/already flagged/);
+    expect(mockComponent.flagAsMalware).toHaveBeenCalledWith(77, { summary: 'Updated wording' });
+  });
+});
+
+// ─── component:malware:remove ─────────────────────────────────────────────────
+
+describe('CLI: component:malware:remove', () => {
+  test('clears the flag and exits 0', async () => {
+    mockComponent.findByTypeAndSlug.mockResolvedValue({ id: 77, slug: 'easypost', is_malware: 1 });
+
+    const result = await runCli(['component:malware:remove', 'wordpress-plugin', 'easypost']);
+
+    expect(result.exitCode).toBe(0);
+    expect(mockComponent.clearMalwareFlag).toHaveBeenCalledWith(77);
+    expect(result.stdout).toMatch(/Cleared malware flag: wordpress-plugin\/easypost/);
+  });
+
+  test('reports an unflagged component without touching it', async () => {
+    mockComponent.findByTypeAndSlug.mockResolvedValue({ id: 77, slug: 'easypost', is_malware: 0 });
+
+    const result = await runCli(['component:malware:remove', 'wordpress-plugin', 'easypost']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/Not flagged as malware/);
+    expect(mockComponent.clearMalwareFlag).not.toHaveBeenCalled();
+  });
+
+  test('reports an unknown component', async () => {
+    mockComponent.findByTypeAndSlug.mockResolvedValue(undefined);
+
+    const result = await runCli(['component:malware:remove', 'wordpress-plugin', 'nope']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/No component found: wordpress-plugin\/nope/);
+    expect(mockComponent.clearMalwareFlag).not.toHaveBeenCalled();
+  });
+});
+
+// ─── component:malware:list ───────────────────────────────────────────────────
+
+describe('CLI: component:malware:list', () => {
+  const flagged = [
+    {
+      id: 77,
+      slug: 'easypost',
+      component_type_slug: 'wordpress-plugin',
+      title: 'easypost',
+      malware_summary: 'Backdoor file dropper',
+      malware_source_slug: 'manual',
+      malware_flagged_at: '2026-08-12T09:00:00.000Z',
+      release_count: 2,
+    },
+  ];
+
+  test('outputs a formatted table and exits 0', async () => {
+    mockComponent.findMalware.mockResolvedValue(flagged);
+
+    const result = await runCli(['component:malware:list']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/SLUG/);
+    expect(result.stdout).toMatch(/easypost/);
+    expect(result.stdout).toMatch(/Backdoor file dropper/);
+    expect(result.stdout).toMatch(/1 component\(s\) flagged/);
+    expect(result.stderr).toBe('');
+  });
+
+  test('outputs valid JSON with --json', async () => {
+    mockComponent.findMalware.mockResolvedValue(flagged);
+
+    const result = await runCli(['component:malware:list', '--json']);
+
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].slug).toBe('easypost');
+    expect(parsed[0].release_count).toBe(2);
+  });
+
+  test('reports an empty list', async () => {
+    mockComponent.findMalware.mockResolvedValue([]);
+
+    const result = await runCli(['component:malware:list']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/No components are flagged as malware/);
   });
 });
