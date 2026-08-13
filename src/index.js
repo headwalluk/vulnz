@@ -44,6 +44,7 @@ const componentType = require('./models/componentType');
 const component = require('./models/component');
 const website = require('./models/website');
 const websiteComponent = require('./models/websiteComponent');
+const websiteMalware = require('./models/websiteMalware');
 const role = require('./models/role');
 const user = require('./models/user');
 const userRole = require('./models/userRole');
@@ -245,6 +246,7 @@ async function startServer() {
     await securityEvent.createTable();
     await fileSecurityIssue.createTable();
     await componentChange.createTable();
+    await websiteMalware.createTable();
     console.log('Database tables created or already exist.');
 
     if (process.env.NODE_APP_INSTANCE === '0') {
