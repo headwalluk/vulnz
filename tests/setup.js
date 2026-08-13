@@ -386,6 +386,36 @@ async function initializeSchema(db) {
     )
   `);
 
+  // Create component_changes table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS component_changes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      website_id INTEGER NOT NULL,
+      component_id INTEGER NOT NULL,
+      change_type TEXT NOT NULL,
+      old_release_id INTEGER,
+      new_release_id INTEGER,
+      changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      changed_by_user_id INTEGER,
+      changed_via TEXT DEFAULT 'api',
+      FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE,
+      FOREIGN KEY (component_id) REFERENCES components(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create website_malware_alerts table (M15)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS website_malware_alerts (
+      website_id INTEGER NOT NULL,
+      component_id INTEGER NOT NULL,
+      first_detected_at DATETIME NOT NULL,
+      notified_at DATETIME,
+      PRIMARY KEY (website_id, component_id),
+      FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE,
+      FOREIGN KEY (component_id) REFERENCES components(id) ON DELETE CASCADE
+    )
+  `);
+
   // Create app_settings table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS app_settings (
