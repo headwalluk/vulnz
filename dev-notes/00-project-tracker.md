@@ -19,9 +19,26 @@ Completed milestones are archived: [M1–M6](archive/00-project-tracker-m1-m6-ar
 
 ---
 
-## M16 — Malware in the Report Emails
+## M16 — Malware Alerts for Customers
 
 **Status:** not started — **next up**
+
+**Decision (2026-08-13, Paul):** a malware detection **forces an immediate email to the site's owner** — it does not wait for that user's weekly report slot. M15's alert channel was shipped operator-only on purpose, so its real-world behaviour could be judged against a live inbox before it was ever pointed at a customer. That judgement is now made: it works, so it gets routed to customers.
+
+This widens M16 beyond "add a block to the weekly report". Per-site contact routing was previously deferred; it is now the core of this milestone.
+
+### The constraint that governs the whole design
+
+Paul's requirement, and the thing to weigh every decision here against:
+
+> Emails from VULNZ need to be **eye-catching, quick to analyse, and trustworthy.** What must not happen is customers receiving false positives — they will tune the alerts out, or filter them to a folder, and then the one that matters is never read.
+
+An alert channel's value is entirely spent the first time it cries wolf. Two mechanisms already protect this and must not be weakened:
+
+1. **The wordpress.org slug-squatting guard** (`component:malware:add`) — the only realistic source of a false positive is a human flagging a slug that a legitimate plugin also uses. That guard is what stands between a typo and every customer running that plugin being told they are compromised.
+2. **Per-(website, component) dedup** — the same alert never repeats, which is what stops the channel becoming background noise.
+
+A corollary worth stating: because customer-facing alerts raise the cost of a mistake sharply, `--force` on `component:malware:add` should be treated as a deliberate, checked action from here on, not a way past an inconvenient guard.
 
 The weekly report is currently **completely blind to known malware.** This is not a cosmetic gap, and it is worth being precise about why, because it is not what you would assume from M14:
 
@@ -32,20 +49,23 @@ M14's `has_vulnerabilities` coupling was applied in `component.search()` and in 
 
 Goal: a known-malware detection on a customer's site is reported as an emergency in its own right — visually distinct, at the top, and never mixed in with routine "these plugins have CVEs" rows. Malware and vulnerability are different statements and should not be presented as the same thing.
 
-- [ ] **M16.1** — Decide the reporting rule: does malware force a site into the report even when it has no vulnerabilities (almost certainly yes), and does it force a report to be sent to a user whose sites are otherwise clean? Currently `sendSummaryEmail()` always sends; confirm before changing behaviour
-- [ ] **M16.2** — Extend the report data assembly in `src/lib/reporting.js` (`sendSummaryEmail`, around lines 76–120) to gather malware detections per user. `websiteMalware.findAffectedWebsites(userId)` already returns exactly this, owner-scoped — reuse it rather than writing new SQL
-- [ ] **M16.3** — Make sure malware-only sites reach the report: either widen `website.findAll`'s `onlyVulnerable` join (careful — it is used by `GET /api/websites?only_vulnerable=`, so changing it changes API behaviour too) or union the malware sites in at the reporting layer. Prefer the reporting layer unless the API change is wanted deliberately
-- [ ] **M16.4** — Add a malware block to `src/emails/vulnerability-report.hbs`, above the executive summary. Distinct treatment (the red `#991B1B` used by `malware-alert.hbs` is the established colour), listing domain, component slug, version, and `malware_summary`. State plainly that updating will not fix it — every version is flagged — and that the component must be removed and the site checked for anything it dropped
-- [ ] **M16.5** — Add malware to `executiveSummary` so the "all clear" wording cannot appear while malware is present, and adjust the subject line in `sendVulnerabilityReport()` (`src/lib/email.js`) — "Attention Required!" understates a backdoor
-- [ ] **M16.6** — Consider the white-label case: `user.enable_white_label` / `white_label_html` change the report header. Confirm the malware block still reads correctly under a customer's own branding
-- [ ] **M16.7** — Tests: a user with a malware-carrying site gets the block; a clean user does not; a malware-only site (no vulnerabilities at all) still appears; the "all clear" path cannot trigger with malware present
-- [ ] **M16.8** — Once the reports read `is_malware` directly, retire the `has_vulnerabilities` coupling: delete `malwareTaintsReleases()` and its two call sites, update `docs/api-usage.md` and [`15-known-malware.md`](15-known-malware.md) §4, and close the snag-list item. Requires the fleet (`/opt/scripts`) and vulnz-woo to branch on `is_malware` first — check both before removing
+- [x] **M16.1** — ~~Decide the reporting rule~~ **Decided:** malware forces an immediate email to the site's owner, independent of the weekly cycle (see above)
+- [ ] **M16.2** — Route the immediate alert to the website's owner. The recipient already resolves without new schema: `websites.user_id` → `users.reporting_email` falling back to `users.username`, the same rule `sendSummaryEmail()` uses. Keep `MALWARE_ALERT_EMAIL` as an operator copy on every alert rather than replacing it — Paul wants to keep seeing what customers see
+- [ ] **M16.3** — Split the alert template: `malware-alert.hbs` currently addresses an operator ("Sent by VULNZ because…", an API endpoint reference, the account name of the owner). A customer needs different wording, no internal references, and the white-label treatment the weekly report already applies. Either branch inside the template on an `isOperator` flag or use two templates — two templates is probably cleaner given how much of the body differs
+- [ ] **M16.4** — Decide what happens for a site whose owner is an administrator, or has no usable email: fall back to the operator address only, and never fail silently. `validateEmailAddress()` already exists for the address check
+- [ ] **M16.5** — Extend the report data assembly in `src/lib/reporting.js` (`sendSummaryEmail`, around lines 76–120) so the weekly report also carries anything still outstanding. `websiteMalware.findAffectedWebsites(userId)` already returns exactly this, owner-scoped — reuse it rather than writing new SQL. The immediate alert is the primary channel; the weekly report is the backstop for anything not yet cleaned up
+- [ ] **M16.6** — Make sure malware-only sites reach the weekly report: either widen `website.findAll`'s `onlyVulnerable` join (careful — it is used by `GET /api/websites?only_vulnerable=`, so changing it changes API behaviour too) or union the malware sites in at the reporting layer. Prefer the reporting layer unless the API change is wanted deliberately
+- [ ] **M16.7** — Add a malware block to `src/emails/vulnerability-report.hbs`, above the executive summary. Distinct treatment (the red `#991B1B` used by `malware-alert.hbs` is the established colour), listing domain, component slug, version, and `malware_summary`. State plainly that updating will not fix it — every version is flagged — and that the component must be removed and the site checked for anything it dropped
+- [ ] **M16.8** — Add malware to `executiveSummary` so the "all clear" wording cannot appear while malware is present, and adjust the subject line in `sendVulnerabilityReport()` (`src/lib/email.js`) — "Attention Required!" understates a backdoor
+- [ ] **M16.9** — White-label: `user.enable_white_label` / `white_label_html` change the report header. Both the customer alert and the report block must read correctly under a customer's own branding
+- [ ] **M16.10** — Tests: the site owner receives the immediate alert and the operator gets a copy; a missing or invalid owner address falls back to the operator without failing; dedup still holds across both recipients; a malware-only site (no vulnerabilities at all) reaches the weekly report; the "all clear" path cannot trigger with malware present
+- [ ] **M16.11** — Once the reports read `is_malware` directly, retire the `has_vulnerabilities` coupling: delete `malwareTaintsReleases()` and its two call sites, update `docs/api-usage.md` and [`15-known-malware.md`](15-known-malware.md) §4, and close the snag-list item. Requires the fleet (`/opt/scripts`) and vulnz-woo to branch on `is_malware` first — check both before removing
 
 **Context for picking this up cold:**
 
-- Reports are weekly, per user, sent by `sendWeeklyReports()` (`src/lib/reporting.js:284`) on a cron at `REPORTING_HOUR`, with the day chosen per user (`users.reporting_weekday`, CHAR(3) day codes). Recipient is `users.reporting_email` falling back to `users.username`.
+- Reports are weekly, per user, sent by `sendWeeklyReports()` (`src/lib/reporting.js:284`) on a cron at `REPORTING_HOUR`, with the day chosen per user (`users.reporting_weekday`, CHAR(3) day codes). Recipient is `users.reporting_email` falling back to `users.username` — the same resolution the customer alert should use.
 - Administrators get a report covering **all** websites; everyone else only their own. The same `isAdministrator ? null : userId` pattern runs through every query in `sendSummaryEmail()`.
-- The immediate operator alert built in M15 (`src/lib/malwareAlert.js`, `src/emails/malware-alert.hbs`) is a good reference for tone and for what a malware block needs to say. It is a separate channel and stays as it is — it goes to one operator address, whereas the report goes to the customer.
+- The M15 alert (`src/lib/malwareAlert.js`, `src/emails/malware-alert.hbs`) is the thing being extended, not a separate reference: its detection, dedup and failure handling all stay, and what changes is who receives it and how the customer-facing copy reads. `checkWebsiteForMalware()` already has the website row in hand, so the owner lookup is a single `user.findUserById(website.user_id)` — it is already doing exactly that call for the owner's name.
 - Full background on the malware feature: [`15-known-malware.md`](15-known-malware.md).
 
 ---
