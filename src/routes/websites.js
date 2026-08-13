@@ -44,6 +44,18 @@ const addVulnerabilityCount = (website) => {
   website.vulnerability_count = vulnerablePlugins + vulnerableThemes;
 };
 
+/**
+ * Count components flagged as known malware. Kept separate from
+ * vulnerability_count on purpose: a backdoor and a CVE are different
+ * statements, and a caller should be able to act on one without inferring
+ * it from the other.
+ */
+const addMalwareCount = (website) => {
+  const malwarePlugins = (website['wordpress-plugins'] || []).filter((plugin) => plugin.is_malware).length;
+  const malwareThemes = (website['wordpress-themes'] || []).filter((theme) => theme.is_malware).length;
+  website.malware_count = malwarePlugins + malwareThemes;
+};
+
 const addUrl = (website) => {
   website.url = `${website.is_ssl ? 'https' : 'http'}://${website.domain}`;
 };
@@ -139,6 +151,7 @@ router.get('/', apiAuth, async (req, res) => {
       website['wordpress-plugins'] = wordpressPlugins;
       website['wordpress-themes'] = wordpressThemes;
       addVulnerabilityCount(website);
+      addMalwareCount(website);
       addUrl(website);
     }
 
@@ -298,6 +311,7 @@ router.get('/:domain', apiAuth, canAccessWebsite, async (req, res) => {
     req.website['wordpress-plugins'] = wordpressPlugins;
     req.website['wordpress-themes'] = wordpressThemes;
     addVulnerabilityCount(req.website);
+    addMalwareCount(req.website);
     addUrl(req.website);
     res.json({
       ...tidyWebsite(req.website),

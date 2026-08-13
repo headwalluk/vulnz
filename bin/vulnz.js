@@ -28,7 +28,7 @@ const notificationQueue = require('../src/models/notificationQueue');
 const { processQueue } = require('../src/lib/notificationProcessor');
 const { syncWordPressCoreVersion, getWordPressVersionInfo } = require('../src/lib/wpcore');
 const { syncHighPriorityPlugins, fetchPluginChangelog, probeWpOrgSlug } = require('../src/lib/wporg');
-const { sanitizeComponentSlug, stripAll } = require('../src/lib/sanitizer');
+const { sanitizeComponentSlug, stripAll, isUrl } = require('../src/lib/sanitizer');
 const { classifyRelease, classifyPendingReleases, countPendingReleases, findStoredRelease, saveVerdict } = require('../src/lib/urgency');
 const { llmConfig } = require('../src/lib/llm/client');
 const { listTasks } = require('../src/lib/llm/tasks');
@@ -616,11 +616,22 @@ program
   .command('component:malware:add <type> <slug>')
   .description('Flag a component as known malware (applies to every version)')
   .option('--summary <text>', 'One-line description of what it does, e.g. "Backdoor file dropper"')
+  .option('--url <url>', 'Link to a write-up, e.g. https://vulnz.net/malware/wordpress-plugin/easypost/')
   .option('--force', 'Flag it even though the slug is published on wordpress.org')
   .action(async (type, rawSlug, opts) => {
     try {
       const slug = sanitizeComponentSlug(rawSlug);
       const summary = opts.summary ? stripAll(opts.summary).substring(0, MALWARE_SUMMARY_MAX_LENGTH) : null;
+      const url = opts.url || null;
+
+      // A broken link in a customer-facing alert costs more trust than no
+      // link, so reject a malformed one rather than storing it.
+      if (url && !isUrl(url)) {
+        process.stderr.write(`Error: "${url}" is not a valid URL.\n`);
+        await db.end();
+        process.exit(1);
+        return;
+      }
 
       // This command creates the component if it does not exist, so an empty
       // slug would leave an unreachable junk row behind.
@@ -676,13 +687,14 @@ program
         console.log(`Created component: ${slug} (id=${componentId}, type=${type})`);
       }
 
-      await component.flagAsMalware(componentId, { summary });
+      await component.flagAsMalware(componentId, { summary, url });
 
       const releases = await db.query('SELECT COUNT(*) AS total FROM releases WHERE component_id = ?', [componentId]);
       const releaseCount = parseInt(releases[0].total, 10);
 
       console.log(`Flagged as malware: ${type}/${slug} (id=${componentId})`);
       console.log(`Summary: ${summary || '(none)'}`);
+      console.log(`URL: ${url || '(none)'}`);
       console.log(`Applies to all ${releaseCount} known release(s), and any ingested later.`);
       if (existing && existing.is_malware) {
         console.log('Note: this component was already flagged — the summary and timestamp have been updated.');

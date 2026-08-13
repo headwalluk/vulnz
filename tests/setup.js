@@ -325,6 +325,7 @@ async function initializeSchema(db) {
       wporg_available INTEGER,
       is_malware INTEGER NOT NULL DEFAULT 0,
       malware_summary TEXT,
+      malware_url TEXT,
       malware_source_slug TEXT,
       malware_flagged_at DATETIME,
       UNIQUE(slug, component_type_slug),
