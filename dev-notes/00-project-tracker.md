@@ -9,17 +9,17 @@ The current line of work is **known malware**. M14 added a component-level `is_m
 
 Two fake plugins found on the hosting fleet are flagged on prod and dev: `easypost` and `wp-core-sync`, both backdoor file droppers.
 
-> ### ⚠️ Prod is behind: running **v1.35.0**, latest tag is **v1.37.0**
+**Prod is on v1.37.0**, verified 2026-08-13 against `GET https://api.vulnz.net/` and the public search endpoint: `malware_url` is present and a flagged component reports `has_vulnerabilities: false`, so both migrations and the decoupling are live.
+
+> ### ⚠️ Outstanding check: consumers of `has_vulnerabilities`
 >
-> v1.36.0 and v1.37.0 are committed, tagged and pushed but **not deployed**. Both have migrations that run on startup — a `malware_url` column and an HTML-entity decode of existing `websites.title` values. Deploying is the first thing to do next session.
->
-> Deploying v1.36.0 changes an API contract: a malware component no longer reports `has_vulnerabilities: true`. **Unverified:** whether `vulnz-woo` or `/opt/scripts` infer malware from that field. Check before or immediately after deploying — see M16.11.
+> v1.36.0 removed the malware → `has_vulnerabilities` coupling and **is already live on prod**. It was never verified whether `vulnz-woo` or `/opt/scripts` inferred malware from that field. If either did, it has been silently blind to malware since that deploy. Check both and switch them to `is_malware` — see M16.11.
 
 **Next up: M16 — malware alerts for customers.** M16.1 (decided) and M16.11 (done early, in v1.36.0) are complete; the remaining work is routing the immediate alert to the site owner and adding a malware block to the weekly report. This is the piece that reaches customers rather than just the operator.
 
 **In flight elsewhere (2026-08-13):** browser JS for the `vulnz.net/search/` page and WordPress-side work, both in other repos. They consume `is_malware` / `malware_summary` / `malware_url` from the search endpoint. Anything the API needs to hand them that it does not yet may land as small follow-ups.
 
-**Priority order:** deploy v1.37.0 → M16 (customer alerts) → M11 (MariaDB test DB) → M7 (env cleanup) → M8 (legacy columns).
+**Priority order:** M16 (customer alerts) → M11 (MariaDB test DB) → M7 (env cleanup) → M8 (legacy columns).
 
 Tech debt and small rough edges live in [`13-snag-list.md`](13-snag-list.md), not here.
 
