@@ -184,6 +184,7 @@ CREATE TABLE components (
   wporg_available TINYINT(1) NULL,
   is_malware TINYINT(1) NOT NULL DEFAULT 0,
   malware_summary VARCHAR(255) NULL,
+  malware_url VARCHAR(255) NULL,
   malware_source_slug VARCHAR(50) NULL,
   malware_flagged_at DATETIME NULL,
   url VARCHAR(255) NULL,
@@ -210,7 +211,7 @@ CREATE TABLE components (
 - `sync_priority_slug`: which sync lane the component is in — `high` is the hourly watchlist sweep, `low` the background rotation (M12).
 - `latest_version` / `latest_version_at`: current release per wordpress.org, cached here so the fleet manifest is a direct indexed read rather than a `MAX()` over `releases`.
 - `wporg_available`: `NULL` unknown / `1` seen on wordpress.org / `0` absent (404). Distinct from `synced_from_wporg`, which only says whether a sync was attempted.
-- `is_malware` / `malware_summary` / `malware_source_slug` / `malware_flagged_at`: the known-malware verdict (M14). Component-level rather than per-release, because malware is a property of the artefact — every version is bad, including versions ingested after the flag was set. Set via the CLI only; no API route writes these columns. See [`15-known-malware.md`](15-known-malware.md).
+- `is_malware` / `malware_summary` / `malware_url` / `malware_source_slug` / `malware_flagged_at`: the known-malware verdict (M14). Component-level rather than per-release, because malware is a property of the artefact — every version is bad, including versions ingested after the flag was set. Set via the CLI only; no API route writes these columns. `malware_url` is an optional link to a write-up, left NULL rather than derived from the slug so that a customer-facing alert never carries a 404. See [`15-known-malware.md`](15-known-malware.md).
 
 > **Note:** this table's definition has been verified against the live schema as of v1.34.0. Other tables in this document may still have drifted — see the snag list.
 
@@ -240,7 +241,7 @@ CREATE TABLE releases (
 
 - `changelog`: wordpress.org changelog HTML, captured at sync time. Populated **only** for high-priority (watchlist) components — it is the classifier's input and the audit trail for its verdict.
 - `is_urgent`: whether this release fixes a vulnerability exploitable against a default installation. Served by the fleet manifest; defaults to `0` in every uncertain case.
-- `urgency_checked_at`: `NULL` means "pending classification" — this column *is* the work queue.
+- `urgency_checked_at`: `NULL` means "pending classification" — this column _is_ the work queue.
 
 ### urgency_sources
 
@@ -253,12 +254,12 @@ CREATE TABLE urgency_sources (
 );
 ```
 
-| slug | Meaning |
-|---|---|
-| `changelog_llm` | Classified from the wordpress.org changelog by an LLM |
+| slug               | Meaning                                                                     |
+| ------------------ | --------------------------------------------------------------------------- |
+| `changelog_llm`    | Classified from the wordpress.org changelog by an LLM                       |
 | `keyword_override` | Forced urgent by an unambiguous changelog keyword the model had not flagged |
-| `manual` | Set by hand via the CLI |
-| `none` | No signal available — changelog absent or classifier disabled |
+| `manual`           | Set by hand via the CLI                                                     |
+| `none`             | No signal available — changelog absent or classifier disabled               |
 
 ### vulnerabilities
 

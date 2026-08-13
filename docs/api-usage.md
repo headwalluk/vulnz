@@ -140,7 +140,40 @@ curl "https://api.vulnz.net/api/components/search?query=easypost&type=wordpress-
 
 `is_malware` is also returned by `GET /api/components/{type}/{slug}`, `GET /api/components/{id}`, and `GET /api/components/{type}/{slug}/{version}`.
 
-While a component is flagged, **every one of its releases also reports `has_vulnerabilities: true`**, even though no vulnerability URLs are recorded against them. That is deliberate: existing clients branch on `has_vulnerabilities` and so act on a malware verdict with no change required. New clients should branch on `is_malware`, which distinguishes "this has a known vulnerability" from "this is malicious software" — the coupling is intended to be temporary.
+### Malware on a Website
+
+`GET /api/websites/{domain}` reports `malware_count` alongside `vulnerability_count`, and marks the offending components inline:
+
+```json
+{
+  "title": "Headwall Demo & Dev",
+  "vulnerability_count": 0,
+  "malware_count": 1,
+  "wordpress-plugins": [
+    {
+      "slug": "easypost",
+      "version": "2.4.1",
+      "has_vulnerabilities": false,
+      "vulnerabilities": [],
+      "is_malware": true,
+      "malware_summary": "Backdoor file dropper",
+      "malware_url": "https://vulnz.net/malware/wordpress-plugin/easypost/",
+      "malware_first_detected_at": "2026-08-13T10:19:33.000Z"
+    }
+  ]
+}
+```
+
+- `malware_count` counts flagged plugins and themes. It is independent of `vulnerability_count` — a site can have malware and zero vulnerabilities, as above.
+- `malware_url` is null when no write-up has been recorded.
+- `malware_first_detected_at` is null until the site has synced since the component was flagged, because detections are stamped by the ingest path rather than by reads.
+- `has_vulnerabilities: false` on a malware component is correct and deliberate: no vulnerability has been recorded against that release. Act on `is_malware`.
+
+`has_vulnerabilities` and `is_malware` are **independent signals**. A flagged component reports `has_vulnerabilities: false` unless an actual vulnerability has been recorded against that release, because "this has a known CVE" and "this is malicious software" are different statements calling for different responses. Branch on `is_malware`.
+
+> **Changed in v1.36.0.** Between v1.34.0 and v1.35.x a flagged component also forced `has_vulnerabilities: true` on all of its releases, as a temporary way to make existing clients react without a code change. That coupling has been removed. If you were relying on it, switch to `is_malware`.
+
+`malware_url` links to a write-up of what the malware does, and is null when none has been recorded.
 
 The flag is set by an administrator via the CLI (`vulnz component:malware:add`). There is no API write path for it, and no API key of any role can set or clear it.
 

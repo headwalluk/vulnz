@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.36.0 - 2026-08-13
+
+### Changed
+
+- **`is_malware` and `has_vulnerabilities` are now independent signals (M16)**. A component flagged as known malware no longer forces `has_vulnerabilities: true` on its releases. That coupling shipped in v1.34.0 as a deliberate, documented shortcut so existing clients would react without a code change; it is removed because the signal was simply wrong. A consumer seeing `has_vulnerabilities: true` could not distinguish a CVE in WooCommerce from a backdoor dropper, and the two call for very different responses. `has_vulnerabilities` again means recorded vulnerabilities and nothing else. See [`dev-notes/15-known-malware.md`](dev-notes/15-known-malware.md#10-honest-signals-v1360).
+  - **Migration note for API consumers:** anything relying on `has_vulnerabilities` to detect malware must switch to `is_malware`. Nothing else about the flag has changed.
+
+### Features
+
+- **Malware reported on its own terms across the website endpoints**:
+  - **`malware_count`** on `GET /api/websites` and `GET /api/websites/{domain}`, alongside the existing `vulnerability_count` and independent of it — a site can have malware and zero vulnerabilities.
+  - **`is_malware`, `malware_summary`, `malware_url` and `malware_first_detected_at`** on each component in a website's `wordpress-plugins` / `wordpress-themes` arrays, so the offending component is identifiable inline rather than by cross-referencing another endpoint.
+  - `malware_first_detected_at` is the first sighting on that specific site, and is null until the site has synced since the component was flagged — detections are stamped by the ingest path, not by reads.
+- **`malware_url`**: an optional link to a write-up of what the malware does, set with `vulnz component:malware:add --url <url>` and returned by every component and website read path. Nullable and stored explicitly rather than derived from the slug: a derived link would exist for every flagged component whether or not the page did, and a 404 in a customer-facing alert costs more trust than a missing link. A malformed URL is rejected rather than stored.
+
+### Bug Fixes
+
+- **HTML entities in website titles**: `websites.title` was stored exactly as WordPress sent it, so a site whose `get_bloginfo('name')` returns `Headwall Demo &amp; Dev` had the entity stored in the database and served in every API response. Titles are now normalised with `stripAll()` on write, and existing rows are decoded by migration — the same treatment component titles received in v1.24.x. Tag stripping is part of this and matters independently: the weekly report renders the title unescaped (`{{{websiteTitle}}}`), so a title containing markup would previously have reached the email as raw HTML.
+
+### Database
+
+- New `components.malware_url` column (nullable).
+- Migration decodes HTML entities in existing `websites.title` values.
+
+### Upgrading
+
+The migration runs on startup (or via `vulnz db:migrate`) and needs no configuration. The only behavioural change to watch for is the `has_vulnerabilities` decoupling above — check any consumer that inferred malware from it, in particular the `vulnz-woo` plugin and fleet scripts.
+
+---
+
 ## 1.35.0 - 2026-08-13
 
 ### Features
