@@ -19,7 +19,7 @@ Completed milestones M1–M6 have been archived to [`archive/00-project-tracker-
 
 ## M14 — Known Malware Flagging ✅
 
-**Status:** built and verified on dev — v1.34.0 (2026-08-12). Not yet on prod.
+**Status:** complete — v1.34.0 (2026-08-12), **live on prod** (deployed 2026-08-13, verified against the public search endpoint on `api.vulnz.net`)
 
 Fake plugins dropped by an attacker were ingested by the normal fleet path and read back completely clean: they appear in neither wordpress.org nor Wordfence, so nothing ever contradicted the default. Adds a component-level `is_malware` verdict that covers every version, present and future. Design and as-built notes in [`15-known-malware.md`](15-known-malware.md).
 
@@ -32,7 +32,7 @@ Fake plugins dropped by an attacker were ingested by the normal fleet path and r
 - [x] **M14.7** — Verified live on dev: `easypost` flagged, guard correctly refused `contact-form-7`, search returns `is_malware: true`, a never-before-seen version auto-created on lookup inherits the flag
 - [ ] **Deferred:** malware alerts in the report emails (the fleet reads its data out of the reports, so this is what closes the loop); `malware: [...]` array on the fleet manifest for proactive sweeps; dropping the `has_vulnerabilities` coupling
 
-**Next action:** deploy v1.34.0 to prod, then flag the fake plugin slugs found on the fleet. The report-email alert is the next piece of work.
+**Next action:** M14 is done and live. The follow-on work is the **report emails** — a known-malware detection on a customer site warrants a strong emergency alert, not a row in the vulnerability table. That is what closes the loop, because the fleet does not read data out of VULNZ; it acts on the reports. Doing it is also the precondition for dropping the `has_vulnerabilities` coupling (snag list).
 
 **Note on numbering:** M14 was previously pencilled in for premium plugin version sources (paused 2026-07-29, never written into this tracker). That work needs a new number.
 
