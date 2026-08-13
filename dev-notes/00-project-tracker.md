@@ -1,98 +1,78 @@
 # VULNZ API — Project Tracker
 
 **Lead:** Paul Faulkner <paul@headwall-hosting.com>
-**Last updated:** 2026-07-24
+**Last updated:** 2026-08-13
 
 ## Current Status
 
-M9 bulk releases endpoint built and round-trip tested with vulnz-ingest WordPress.org feed on dev server. 16 new tests (246 total passing). Dependencies updated, nodemailer SMTP injection vulnerability patched.
+**Live on prod: v1.35.0.** The current line of work is **known malware**. M14 added a component-level `is_malware` flag set only via the CLI; M15 added the ability to find which websites are carrying it, plus an immediate email alert when a sync reports one. Both are deployed and verified on production.
 
-MCP server initiative kicked off — requirements captured in [`11-mcp-server-requirements.md`](11-mcp-server-requirements.md). Preparing the codebase for MCP work by decommissioning the legacy web UI first.
+Two fake plugins found on the hosting fleet are flagged on prod and dev: `easypost` and `wp-core-sync`, both backdoor file droppers.
 
-**Priority order:** M10 (UI decommission) → M11 (MariaDB test DB) → M7 (env cleanup) → M8 (legacy columns) → MCP layers (new milestones to be defined from the requirements doc).
+**Next up: M16 — malware in the report emails.** This is the piece that reaches customers rather than just the operator, and it is a prerequisite for retiring the `is_malware` → `has_vulnerabilities` coupling that M14 shipped as deliberate debt.
 
-**Next action:** M10 work is complete on branch `m10-ui-decommission` (v1.31.0). Ten commits deleting the legacy web UI, session subsystem, password reset flow, UI build pipeline, and orphaned dependencies; adding a new status landing page with HTML/JSON content negotiation; and updating all docs. 235 tests passing (down from 246 — the 21 missing were auth tests covering deleted routes, plus the pre-existing validate-token failure is gone). Local smoke test against the real dev MariaDB confirmed everything works. **Pending:** merge to `main`, deploy to dev host, deploy to prod, soak 24–48 hours, then start M11.
+**Priority order:** M16 (malware in reports) → M11 (MariaDB test DB) → M7 (env cleanup) → M8 (legacy columns).
 
-Completed milestones M1–M6 have been archived to [`archive/00-project-tracker-m1-m6-archive.md`](archive/00-project-tracker-m1-m6-archive.md).
+Tech debt and small rough edges live in [`13-snag-list.md`](13-snag-list.md), not here.
 
----
-
-## M15 — Malware Detection on Websites ✅
-
-**Status:** complete — v1.35.0 (2026-08-13), **live on prod** (immediate alert verified there against a synthesised website update carrying `easypost`)
-
-M14 made it possible to say a component is malware. M15 answers the operational question that follows: which sites are carrying it? Two independent routes to that answer — an immediate email when a sync reports one, and an authenticated endpoint to poll if the email is missed. Notes in [`15-known-malware.md`](15-known-malware.md#8-m15--detection-on-websites-v1350).
-
-- [x] **M15.1** — `website_malware_alerts` table + `src/models/websiteMalware.js` (migration + `tests/setup.js`; applied to dev MariaDB)
-- [x] **M15.2** — `GET /api/websites/malware`: live join, owner-scoped, registered ahead of `/:domain`
-- [x] **M15.3** — Immediate alert: `malware-alert.hbs`, `sendMalwareAlert()`, `src/lib/malwareAlert.js`, hooked into the website update path
-- [x] **M15.4** — Per-(website, component) dedup with re-infection detection; `MALWARE_ALERT_ENABLED` / `MALWARE_ALERT_EMAIL`
-- [x] **M15.5** — 20 new tests (354 passing), `.env.example`, API usage guide, design note
-- [x] **M15.6** — `component_changes` added to the SQLite test schema, making the website update path testable end to end for the first time
-- [ ] **Deferred:** per-site contact routing for the alert (needs contact data that does not exist yet); malware as its own category in the report emails
-
-**Next action:** M15 is done and live. Next is the **report emails** — the piece that reaches customers rather than just the operator, and the precondition for dropping the `has_vulnerabilities` coupling.
+Completed milestones are archived: [M1–M6](archive/00-project-tracker-m1-m6-archive.md), [M9–M15](archive/00-project-tracker-m9-m15-archive.md).
 
 ---
 
-## M14 — Known Malware Flagging ✅
+## M16 — Malware in the Report Emails
 
-**Status:** complete — v1.34.0 (2026-08-12), **live on prod** (deployed 2026-08-13, verified against the public search endpoint on `api.vulnz.net`)
+**Status:** not started — **next up**
 
-Fake plugins dropped by an attacker were ingested by the normal fleet path and read back completely clean: they appear in neither wordpress.org nor Wordfence, so nothing ever contradicted the default. Adds a component-level `is_malware` verdict that covers every version, present and future. Design and as-built notes in [`15-known-malware.md`](15-known-malware.md).
+The weekly report is currently **completely blind to known malware.** This is not a cosmetic gap, and it is worth being precise about why, because it is not what you would assume from M14:
 
-- [x] **M14.1** — `malware_sources` lookup table + `components.is_malware` / `malware_summary` / `malware_source_slug` / `malware_flagged_at` (migration + `tests/setup.js`; applied to dev MariaDB)
-- [x] **M14.2** — Model layer: `flagAsMalware` / `clearMalwareFlag` / `findMalware` / `findByTypeAndSlug`, plus `malwareTaintsReleases()` as the single seam for the `has_vulnerabilities` coupling
-- [x] **M14.3** — `is_malware` + `malware_summary` on all four read paths; **search first**, since vulnz.net's browser search is where a fake plugin reading clean is most visible
-- [x] **M14.4** — `probeWpOrgSlug()`: read-only, non-mutating wordpress.org lookup, so the CLI can refuse to flag a slug squatting on a real plugin
-- [x] **M14.5** — 3 CLI commands (`component:malware:add` / `:remove` / `:list`); writes are CLI-only by design — no API route sets these columns
-- [x] **M14.6** — 37 new tests (334 passing), API usage guide, CLI reference, design note, snag-list entry for the `has_vulnerabilities` coupling
-- [x] **M14.7** — Verified live on dev: `easypost` flagged, guard correctly refused `contact-form-7`, search returns `is_malware: true`, a never-before-seen version auto-created on lookup inherits the flag
-- [ ] **Deferred:** malware alerts in the report emails (the fleet reads its data out of the reports, so this is what closes the loop); `malware: [...]` array on the fleet manifest for proactive sweeps; dropping the `has_vulnerabilities` coupling
+- `website.findAll(..., onlyVulnerable = true)` — the query that decides which sites appear in the report at all — does an **INNER JOIN on `vulnerabilities`** (`src/models/website.js:28`). A site whose only problem is malware has no vulnerability rows, so it never enters the report.
+- `websiteComponent.getComponents()` computes `has_vulnerabilities` purely from that same vulnerabilities join (`src/models/websiteComponent.js:30-59`). It does not consult `is_malware`.
 
-**Next action:** M14 is done and live. The follow-on work is the **report emails** — a known-malware detection on a customer site warrants a strong emergency alert, not a row in the vulnerability table. That is what closes the loop, because the fleet does not read data out of VULNZ; it acts on the reports. Doing it is also the precondition for dropping the `has_vulnerabilities` coupling (snag list).
+M14's `has_vulnerabilities` coupling was applied in `component.search()` and in `src/routes/components.js` — the **component** read paths. It was never applied to the **website→component** path the report is built from. So flagging a component today changes nothing whatsoever in any customer's weekly email.
 
-**Note on numbering:** M14 was previously pencilled in for premium plugin version sources (paused 2026-07-29, never written into this tracker). That work needs a new number.
+Goal: a known-malware detection on a customer's site is reported as an emergency in its own right — visually distinct, at the top, and never mixed in with routine "these plugins have CVEs" rows. Malware and vulnerability are different statements and should not be presented as the same thing.
 
----
+- [ ] **M16.1** — Decide the reporting rule: does malware force a site into the report even when it has no vulnerabilities (almost certainly yes), and does it force a report to be sent to a user whose sites are otherwise clean? Currently `sendSummaryEmail()` always sends; confirm before changing behaviour
+- [ ] **M16.2** — Extend the report data assembly in `src/lib/reporting.js` (`sendSummaryEmail`, around lines 76–120) to gather malware detections per user. `websiteMalware.findAffectedWebsites(userId)` already returns exactly this, owner-scoped — reuse it rather than writing new SQL
+- [ ] **M16.3** — Make sure malware-only sites reach the report: either widen `website.findAll`'s `onlyVulnerable` join (careful — it is used by `GET /api/websites?only_vulnerable=`, so changing it changes API behaviour too) or union the malware sites in at the reporting layer. Prefer the reporting layer unless the API change is wanted deliberately
+- [ ] **M16.4** — Add a malware block to `src/emails/vulnerability-report.hbs`, above the executive summary. Distinct treatment (the red `#991B1B` used by `malware-alert.hbs` is the established colour), listing domain, component slug, version, and `malware_summary`. State plainly that updating will not fix it — every version is flagged — and that the component must be removed and the site checked for anything it dropped
+- [ ] **M16.5** — Add malware to `executiveSummary` so the "all clear" wording cannot appear while malware is present, and adjust the subject line in `sendVulnerabilityReport()` (`src/lib/email.js`) — "Attention Required!" understates a backdoor
+- [ ] **M16.6** — Consider the white-label case: `user.enable_white_label` / `white_label_html` change the report header. Confirm the malware block still reads correctly under a customer's own branding
+- [ ] **M16.7** — Tests: a user with a malware-carrying site gets the block; a clean user does not; a malware-only site (no vulnerabilities at all) still appears; the "all clear" path cannot trigger with malware present
+- [ ] **M16.8** — Once the reports read `is_malware` directly, retire the `has_vulnerabilities` coupling: delete `malwareTaintsReleases()` and its two call sites, update `docs/api-usage.md` and [`15-known-malware.md`](15-known-malware.md) §4, and close the snag-list item. Requires the fleet (`/opt/scripts`) and vulnz-woo to branch on `is_malware` first — check both before removing
 
-## M13 — Urgent Update Classification ✅
+**Context for picking this up cold:**
 
-**Status:** complete — v1.33.0 (2026-07-24), **live on prod and enabled** (first run: 26/26 classified, 4 urgent, all verified correct — see [`14-urgent-updates.md`](14-urgent-updates.md) §7)
-
-Adds `is_urgent` to the fast-update manifest so the fleet can distinguish an emergency security release from routine work. Without it, M12's manifest would force an out-of-cycle update for every release — too aggressive and too noisy to run. Design and as-built notes in [`14-urgent-updates.md`](14-urgent-updates.md).
-
-- [x] **M13.1** — `urgency_sources` lookup table + `releases.changelog` / `is_urgent` / `urgency_summary` / `urgency_source_slug` / `urgency_checked_at` (migration + `tests/setup.js`; DDL validated against dev MariaDB on scratch tables)
-- [x] **M13.2** — `src/lib/llm/` provider-agnostic layer: OpenRouter client (timeout, retry on 429/5xx only, defensive JSON extraction) + task registry designed for additional prompts
-- [x] **M13.3** — `release-urgency` task: prompt scoped to "exploitable against a default installation", explicitly excluding dependency-advisory bumps and admin-only issues
-- [x] **M13.4** — `src/lib/urgency.js`: pending queue, keyword override (raises only), verdict persistence
-- [x] **M13.5** — Changelog capture in the high-priority wporg lane (fast lane only); `is_urgent` + `summary` on the manifest; `generated_at` accounts for verdicts
-- [x] **M13.6** — Hourly `20 * * * *` cron + 3 CLI commands (`llm:status`, `llm:classify-release`, `llm:classify-pending`)
-- [x] **M13.7** — 24 new tests (297 passing), `.env.example`, CLI reference, feature guide, design note
-- [x] **M13.8** — `db:migrate` CLI command (migrations previously ran only at API startup, so the CLI could not be used against an un-migrated database)
-- [x] **M13.9** — Verified live on dev: migration applied, 6 watchlist releases classified against OpenRouter/Haiku 4.5, both directions probed with crafted changelogs, re-sync confirmed idempotent
-- [ ] **Deferred:** tier-2 vulnerability-feed backfill (`patched_in` + severity via `vulnz-ingest`, to catch silently-patched releases); `urgent_since` for the multi-version-behind case; notification on urgent classification
-
-**Next action:** M13 is done and live. The follow-on work is **fleet-side** (`/opt/scripts`, separate repo): teach `wordpress_is_auto_update_due()` to act on `is_urgent` rather than on version drift alone, keeping the existing `wp-update.is-disabled` and `hw_block_updates` guards winning over an urgent trigger. Four real urgent entries are live in the manifest to test against.
+- Reports are weekly, per user, sent by `sendWeeklyReports()` (`src/lib/reporting.js:284`) on a cron at `REPORTING_HOUR`, with the day chosen per user (`users.reporting_weekday`, CHAR(3) day codes). Recipient is `users.reporting_email` falling back to `users.username`.
+- Administrators get a report covering **all** websites; everyone else only their own. The same `isAdministrator ? null : userId` pattern runs through every query in `sendSummaryEmail()`.
+- The immediate operator alert built in M15 (`src/lib/malwareAlert.js`, `src/emails/malware-alert.hbs`) is a good reference for tone and for what a malware block needs to say. It is a separate channel and stays as it is — it goes to one operator address, whereas the report goes to the customer.
+- Full background on the malware feature: [`15-known-malware.md`](15-known-malware.md).
 
 ---
 
-## M12 — Fast Update Triggers ✅
+## M11 — MariaDB Test Database Migration
 
-**Status:** complete — v1.32.0 (2026-07-23)
+**Status:** not started
 
-Fleet fast-update manifest so ~320 sites across 10 servers can patch a critical WordPress/plugin release within the hour instead of waiting for the overnight cycle. Full design and as-built notes in [`12-fast-update-triggers.md`](12-fast-update-triggers.md).
+Replace the in-memory SQLite test backend with a real local MariaDB test database. The current setup uses `tests/setup.js` to stand up in-memory SQLite and apply a MySQL→SQLite SQL translation shim. This was convenient for speed and zero-config, but it creates a real dev/prod inconsistency: tests exercise SQLite semantics, production runs MariaDB, and a class of bugs (BigInt handling, JSON functions, FULLTEXT indexes, `INSERT IGNORE` semantics, CHAR padding, boolean parsing) can pass in tests and fail in prod.
 
-- [x] **M12.1** — `sync_priorities` lookup table + `components.sync_priority_slug` / `latest_version` / `latest_version_at` / `wporg_available` (migration + `tests/setup.js`)
-- [x] **M12.2** — Two wporg sync lanes: hourly high-priority (`syncHighPriorityPlugins`) + existing low rotation; capture `data.version` → `latest_version` + release upsert + availability
-- [x] **M12.3** — Watchlist builder (`src/lib/watchlist.js`): static ∪ top-N watchable by prod install count; blind-spot reporting; on-demand availability probing
-- [x] **M12.4** — WordPress core version sync (`src/lib/wpcore.js`) from stable-check → dynamic `wordpress.current_version` + `wordpress.safe_versions`; `classifyWordPressVersion()`. **Fixed the stale-version root cause** (`data/reference.json` hardcoded 6.9)
-- [x] **M12.5** — `GET /api/wordpress/latest-versions` manifest route (apiAuth, cache headers, Swagger)
-- [x] **M12.6** — Crons (high/core/watchlist) + startup core sync + 4 CLI commands
-- [x] **M12.7** — 32 new tests (268 passing), `.env.example`, docs
-- [ ] **Deferred:** theme support (child-theme filtering unresolved); weekly-report insecure-vs-outdated split using `classify()`; the 55 unfixable-bundled-plugin sites
+**Evidence this is real, collected since:** `component.search()` cannot be integration-tested at all because SQLite has no `MATCH … AGAINST` (M14, worked around with a mocked-db unit test). `WebsiteComponent.deleteByType()` uses MySQL multi-table `DELETE … FROM … JOIN` syntax that SQLite cannot parse, so the entire website update path had to be mocked to be testable (M15, worked around per-test). `component_changes` was simply absent from the test schema until M15. Array expansion for `IN (?)` is driver-specific and silently does nothing under SQLite (M15). Every one of these is a place where the tests do not exercise what production runs.
 
-**Chips at M7:** added `parseStr()` to `env.js`; `wporg.js` moved off raw `process.env`.
+**Rationale for sequencing before M7:** M7 normalises ~40 env vars including booleans and enum-like strings. MariaDB and SQLite parse these differently, and the env-cleanup work benefits from running against accurate DB semantics.
+
+### Tasks
+
+- [ ] **M11.1** — Create `vulnz_t` database on local dev MariaDB. Grant the existing dev DB user access to it, or create a dedicated test user
+- [ ] **M11.2** — Add `.env.test` template file (documented, not committed — add to `.gitignore` alongside `.env`). Update `jest.setup.js` (or equivalent) to load `.env.test` when `NODE_ENV=test`. Set `TZ=UTC` there at the same time — the suite currently runs in the host's local timezone, so the v1.32.1 UTC fix is not exercised (see the date/time item in the snag list)
+- [ ] **M11.3** — Remove the MySQL→SQLite translation shim from `tests/setup.js`. Rip out the `better-sqlite3` dependency from `package.json`
+- [ ] **M11.4** — Rewrite `createTestDatabase()` and `cleanupTestDatabase()` to use MariaDB. Swap the between-test reset strategy from DROP/CREATE (expensive on real MariaDB) to `TRUNCATE TABLE` with `SET FOREIGN_KEY_CHECKS=0` around it
+- [ ] **M11.5** — Audit all tests for SQLite-specific assumptions: FULLTEXT search behaviour, JSON function differences, CHAR padding, NULL comparison, `INSERT IGNORE` vs `INSERT … ON DUPLICATE KEY`, case sensitivity. Fix any tests that were written against the wrong semantics — these are latent bugs
+- [ ] **M11.6** — Un-mock what only had to be mocked because of SQLite: `component.search()` (`tests/api/malware.test.js`, `tests/api/components.test.js`), `WebsiteComponent.deleteByType()` (`tests/api/website-malware.test.js`, `tests/api/websites.test.js`). These are the concrete payoff for the migration
+- [ ] **M11.7** — Verify all tests pass against real MariaDB. Document any tests where behaviour differed and required fixes
+- [ ] **M11.8** — Update `dev-notes/06-testing-guide.md` with new setup instructions: how to create the test DB, how to configure `.env.test`, how tests isolate between files
+- [ ] **M11.9** — Update `CLAUDE.md` and `AGENTS.md` to remove references to the SQLite shim and document the new MariaDB-required test setup
+- [ ] **M11.10** — If CI is in use, update the CI config to provision a MariaDB service container before running tests
+- [ ] **M11.11** — Update CHANGELOG with a developer-facing note about the test setup change, and mention in the README that running tests now requires a local MariaDB instance
 
 ---
 
@@ -100,15 +80,17 @@ Fleet fast-update manifest so ~320 sites across 10 servers can patch a critical 
 
 **Status:** not started
 
-~40 env vars across 13 files bypass `src/lib/env.js` and use raw `process.env` access with inline `parseInt`/string comparison. Violates the project's no-direct-`process.env` rule. Risk: NaN bugs from misconfigured integers, boolean parsing failures (`'True'`/`'1'`/`'yes'` all silently fail), and no startup validation for critical vars like `SESSION_SECRET`.
+~30 env vars across 13 files bypass `src/lib/env.js` and use raw `process.env` access with inline `parseInt`/string comparison. Violates the project's no-direct-`process.env` rule. Risk: NaN bugs from misconfigured integers, boolean parsing failures (`'True'`/`'1'`/`'yes'` all silently fail), and no startup validation for critical vars.
 
-- [ ] **M7.1** — Normalize integer env vars in `env.js`: `SESSION_DURATION_DAYS`, `PASSWORD_RESET_TOKEN_DURATION`, `PASSWORD_MIN_*` (6 vars), `REPORTING_HOUR`, `REPORTING_BATCH_SIZE`, `WPORG_RESYNC_DAYS`, `WEBSITE_AUTO_DELETE_DAYS`, `API_LOG_RETENTION_DAYS`, `MAX_API_KEYS_PER_USER`, `HTTP_LISTEN_PORT`, `WPORG_TIMEOUT_MS`, `WPORG_UPDATE_BATCH_SIZE`
+Scope shrank after M10 removed the session-related vars. `src/lib/email.js` is the most visible remaining offender — it reads eight `SMTP_*` and `REPORTING_*` vars directly at module load.
+
+- [ ] **M7.1** — Normalize integer env vars in `env.js`: `REPORTING_HOUR`, `REPORTING_BATCH_SIZE`, `WPORG_RESYNC_DAYS`, `WEBSITE_AUTO_DELETE_DAYS`, `API_LOG_RETENTION_DAYS`, `MAX_API_KEYS_PER_USER`, `HTTP_LISTEN_PORT`, `PASSWORD_MIN_*` (still used by `validatePassword()` for the CLI)
 - [ ] **M7.2** — Normalize boolean env vars in `env.js`: `CORS_ENABLED`, `CORS_CREDENTIALS`, `WEBSITE_AUTO_DELETE_ENABLED`, `SMTP_IGNORE_TLS`
 - [ ] **M7.3** — Normalize enum env vars in `env.js`: `SERVER_MODE`, `REFERENCE_UPDATE_METHOD`
-- [ ] **M7.4** — Normalize string env vars in `env.js` with validation where appropriate: `BASE_URL`, `SESSION_SECRET`, `SMTP_HOST`/`PORT`/`USER`/`PASS`/`FROM`, `DB_HOST`/`USER`/`PASSWORD`/`NAME`, `CORS_ORIGIN`, `VULNZ_NOTIFY_SECRET`, `GEOIP_DATABASE_PATH`, `WPORG_API_BASE_URL`/`PLUGIN_INFO_ENDPOINT`/`USER_AGENT`, `REPORTING` text vars, `EXAMPLE_WP_COMPONENT_*`
-- [ ] **M7.5** — Replace all raw `process.env` reads in `src/` with normalized values — update `index.js`, `config/db.js`, `lib/email.js`, `lib/geoip.js`, `lib/passwordValidation.js`, `lib/referenceData.js`, `lib/reporting.js`, `lib/wporg.js`, `middleware/notifyAuth.js`, `models/apiCallLog.js`, `models/user.js`, `routes/auth.js`, `routes/config.js`
+- [ ] **M7.4** — Normalize string env vars in `env.js` with validation where appropriate: `BASE_URL`, `SMTP_HOST`/`PORT`/`USER`/`PASS`/`FROM`, `DB_HOST`/`USER`/`PASSWORD`/`NAME`, `CORS_ORIGIN`, `VULNZ_NOTIFY_SECRET`, `GEOIP_DATABASE_PATH`, `REPORTING` text vars, `EXAMPLE_WP_COMPONENT_*`
+- [ ] **M7.5** — Replace all raw `process.env` reads in `src/` with normalized values — `index.js`, `config/db.js`, `lib/email.js`, `lib/geoip.js`, `lib/passwordValidation.js`, `lib/referenceData.js`, `lib/reporting.js`, `middleware/notifyAuth.js`, `models/apiCallLog.js`, `models/emailLog.js`, `models/user.js`, `routes/config.js`
 - [ ] **M7.6** — Update `.env.example` with any missing vars and add validation notes
-- [ ] **M7.7** — Tests: ensure test suite still passes with normalized env vars, add `jest.setup.js` entries for any new required vars
+- [ ] **M7.7** — Tests: ensure the suite still passes with normalized env vars, add `jest.setup.js` entries for any new required vars
 
 ---
 
@@ -134,87 +116,31 @@ Since v1.29.2 `platform_metadata` and the legacy version columns (`wordpress_ver
 
 ---
 
-## M9 — Bulk Releases Endpoint ✅
+## Recently Completed
 
-**Status:** complete (v1.30.0)
+Full task lists in [`archive/00-project-tracker-m9-m15-archive.md`](archive/00-project-tracker-m9-m15-archive.md).
 
-New API endpoint to receive bulk component+version (release) data from external ingest tools. The Wordfence ingest creates releases only for vulnerable versions. This endpoint allows vulnz-ingest to also register non-vulnerable releases discovered from WordPress.org's recently-updated feed, giving a complete picture of a plugin's release history. Modelled after `POST /api/vulnerabilities/bulk` but creates only components+releases (no vulnerability URLs required).
+| Milestone                               | Version | Shipped    | Summary                                                                                                                                                             |
+| --------------------------------------- | ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **M15** — Malware Detection on Websites | v1.35.0 | 2026-08-13 | `GET /api/websites/malware` + immediate email alert on sync, deduplicated per (website, component). [Notes](15-known-malware.md#8-m15--detection-on-websites-v1350) |
+| **M14** — Known Malware Flagging        | v1.34.0 | 2026-08-13 | Component-level `is_malware` covering every version; CLI-only writes; wordpress.org slug-squatting guard. [Notes](15-known-malware.md)                              |
+| **M13** — Urgent Update Classification  | v1.33.0 | 2026-07-24 | `is_urgent` on the fleet manifest via LLM changelog classification. [Notes](14-urgent-updates.md)                                                                   |
+| **M12** — Fast Update Triggers          | v1.32.0 | 2026-07-23 | Fleet version manifest, priority wporg sync lanes, WordPress core version sync. [Notes](12-fast-update-triggers.md)                                                 |
+| **M10** — Web UI Decommission           | v1.31.0 | 2026-04-11 | CLI + API only; sessions, password reset and the UI build pipeline all removed.                                                                                     |
+| **M9** — Bulk Releases Endpoint         | v1.30.0 | 2026-04-10 | `POST /api/releases/bulk` for vulnz-ingest.                                                                                                                         |
 
-Round-trip tested 2026-04-10 against dev server with vulnz-ingest WordPress.org feed: 9,841 releases created across 250 plugins, deduplication confirmed on second run.
+**Deferred out of completed milestones**, not yet scheduled:
 
-- [x] **M9.1** — Design endpoint contract: `POST /api/releases/bulk` accepting `{ items: [{ componentTypeSlug, componentSlug, version, releaseDate? }] }` with max 500 items per request. Auth via `apiOrSessionAuth`. Response: `{ created, duplicates, errors }`
-- [x] **M9.2** — Create route in `src/routes/releases.js` with validation: require `componentTypeSlug`, `componentSlug`, `version` per item. Validate `componentTypeSlug` exists. Sanitize slugs and versions using existing sanitizer helpers. Reject batch if items > 500
-- [x] **M9.3** — Implement batch processing: auto-create components (`INSERT IGNORE` pattern), auto-create releases (`INSERT IGNORE` pattern). Use in-request caching (Maps) for component type and component lookups, matching the pattern in `POST /api/vulnerabilities/bulk`
-- [x] **M9.4** — Register route in `src/index.js` with `app.use('/api/releases', releasesRouter)`. Add `apiOrSessionAuth` and `logApiCall` middleware
-- [x] **M9.5** — Add Swagger JSDoc comments to the route with full request/response schema documentation
-- [x] **M9.6** — Write tests in `tests/api/releases.test.js`: auth required, validation errors, successful bulk create, duplicate handling, component auto-creation, max items limit, mixed valid/invalid items. 16 tests, all passing.
-- [x] **M9.7** — Add `bulkCreateReleases()` method to `VulnzClient` in vulnz-ingest project (`src/api/vulnz-client.js`) so ingest feeds can push to the new endpoint
-- [x] **M9.8** — Update documentation: CHANGELOG, database schema doc, Swagger/OpenAPI output verification
-
----
-
-## M10 — Web UI Decommission & Status Landing Page
-
-**Status:** ready to deploy (v1.31.0) — work complete on branch `m10-ui-decommission`, local smoke-tested, pending merge + prod deploy
-
-Decommission the legacy admin web UI, leaving vulnz-api as a clean CLI + API core. This is the prerequisite for MCP work (see [`11-mcp-server-requirements.md`](11-mcp-server-requirements.md)): slimming the codebase before layering on new functionality, and removing the session-auth dual path that complicates every middleware.
-
-Admin functionality that was previously handled via the web UI moves to two places going forward:
-- **CLI** (`bin/vulnz.js`) — where it already lives for user, key, site, queue, and setting management.
-- **vulnz-woo WordPress plugin** — the WP admin area becomes the primary customer-facing admin UI. Missing functionality will be added to that plugin as needed, not to vulnz-api. The only things the legacy vulnz-api UI was being used for were login, checking website ownership, and occasionally reassigning website ownership — none of which justify keeping the UI alive.
-
-The `/` route — currently a search box — will be replaced with a minimal status landing page mirroring the layout in [`verifytrusted-api-front-page.png`](verifytrusted-api-front-page.png): logo, title, version, tagline, a "System Operational" status pill, and a 2×2 button grid. Content-negotiated — HTML for browsers, JSON for `Accept: application/json` so curl and agents get structured data.
-
-**Scope overlap with M7:** this milestone subsumes the removal of session-related env vars (`SESSION_SECRET`, `SESSION_DURATION_DAYS`, `PASSWORD_RESET_TOKEN_DURATION`, `PASSWORD_MIN_*`). M7 picks up the remaining ~35 env var normalisations after this lands.
-
-**Resolved prerequisites:**
-
-- ✅ Sessions: fully removed. Passport LocalStrategy, `express-session`, the MySQL session store, the `sessions` table, and `src/models/session.js` all go.
-- ✅ Password reset: email-based flow fully removed. `passwordResetToken` model + table, email template, and reset routes all go. CLI `user:reset-password` remains the only way to reset a password.
-- ✅ Swagger: **both** `openapi.json` and the Swagger UI HTML are retained. The spec is machine-readable for MCP/tooling; the UI is human-readable for developers. Both are API documentation, not admin UI.
-- ✅ Landing page: HTML with content-negotiated JSON response. Mirrors the VerifyTrusted layout — no live DB stats in v1 (keep it simple; add later if useful).
-
-### Tasks
-
-- [x] **M10.1** — Audit current UI surface: list every view template, static asset directory, UI-only route, session-dependent middleware, and UI-related env var. Capture in a short inventory note before starting deletions so we can refer back if anything unexpected breaks
-- [x] **M10.2** — Delete the search-box view and any other public/admin page routes; remove view template files and static asset directories wholesale
-- [x] **M10.3** — Remove Passport LocalStrategy, `express-session`, the MySQL session store middleware, and related session wiring from `src/index.js`
-- [x] **M10.4** — Remove `src/models/session.js` and create a migration to drop the `sessions` table
-- [x] **M10.5** — Remove `src/models/passwordResetToken.js`, create a migration to drop the `password_reset_tokens` table, remove the reset email template, and delete the reset routes in `src/routes/auth.js`. The `user:reset-password` CLI command remains untouched
-- [x] **M10.6** — Rename `apiOrSessionAuth` → `apiAuth` (and `optionalApiOrSessionAuth` → `optionalApiAuth`) in `src/middleware/` and update every route that uses them. Simplify the middleware body to API-key-only — no session fallback
-- [x] **M10.7** — Remove `SESSION_SECRET`, `SESSION_DURATION_DAYS`, `PASSWORD_RESET_TOKEN_DURATION`, and `PASSWORD_MIN_*` from `src/lib/env.js` and `.env.example`. Remove any code that reads them
-- [x] **M10.8** — Remove newly-unused dependencies from `package.json`: `passport`, `passport-local`, `express-session`, the session store package, and the view engine (EJS/Pug/whichever is in use). Keep `passport` + `passport-http-header-strategy` if the API key strategy depends on them — double-check before removing. Run `npm prune` and commit the updated lockfile
-- [x] **M10.9** — Build the new `/` route mirroring [`verifytrusted-api-front-page.png`](verifytrusted-api-front-page.png). HTML response contains: Vulnz logo, title ("VULNZ API"), version (read dynamically from `package.json`), tagline ("Self-hosted vulnerability database for WordPress plugins, themes, and npm packages"), a "System Operational" status pill (green when healthy), and a 2×2 button grid linking to: Health Check (`/health` or `/api/health` — whichever exists), GitHub Repo (link to the repo URL from `package.json`), API Documentation (Swagger UI), OpenAPI Spec (`/openapi.json`). Footer with copyright. Single self-contained HTML file with inline CSS — no build step, no frontend framework
-- [x] **M10.10** — Add content negotiation: when `Accept: application/json`, return a JSON object with the same core fields (`name`, `version`, `tagline`, `status`, `links: { health, github, swaggerUi, openapi }`). Agents and `curl` get structured data; browsers get the HTML page
-- [x] **M10.11** — Verify the Swagger UI HTML mount is intact at its existing path (likely `/api-docs`) and that `/openapi.json` still serves the generated spec. Link both from the landing page
-- [x] **M10.12** — Update tests: delete web-UI/session test files, remove session-auth cases from API route tests, ensure every route test authenticates via API key only. Target: all existing non-UI tests still pass
-- [x] **M10.13** — Add tests for the new `/` landing page: HTML response contains expected elements (title, version, all four buttons), JSON response matches the expected shape, version is read from `package.json` not hardcoded, status pill reflects actual health
-- [x] **M10.14** — Update `CLAUDE.md`, `AGENTS.md`, `README.md`, and `dev-notes/03-architecture-overview.md` to reflect the CLI + API-only shape. Remove references to the web UI, session auth, password reset flow, and `SETUP_MODE`. Note that admin UI is now the `vulnz-woo` WordPress plugin
-- [x] **M10.15** — Update `dev-notes/05-security-patterns.md` to reflect API-key-only auth, remove session security notes
-- [x] **M10.16** — Bump version (minor bump) and update the CHANGELOG with a clear breaking-change note. Document the migration path for anyone who had been using the web UI: use the CLI, or use vulnz-woo
-- [ ] **M10.17** — Deploy to dev, verify the landing page renders correctly in a browser, verify JSON negotiation with `curl -H "Accept: application/json" http://localhost:3020/`, verify a sample of API endpoints still work with an API key, then deploy to prod and soak for 24–48 hours before starting M11. **Partially done**: local smoke test completed against the real dev MariaDB (migrations ran, landing page HTML/JSON both render, `/doc`, `/openapi.json`, `/api/ping`, favicon all serve correctly). Pending: merge `m10-ui-decommission` to `main`, deploy to the dev host, deploy to prod, soak
+- **M13:** tier-2 vulnerability-feed backfill (`patched_in` + severity via vulnz-ingest, to catch silently-patched releases); `urgent_since` for the multi-version-behind case; notification on urgent classification.
+- **M14/M15:** `malware: [slug, …]` array on the fleet manifest for proactive host-side sweeps (no consumer today); per-site contact routing for the immediate alert, replacing the single `MALWARE_ALERT_EMAIL`.
+- **M12:** theme support in the fast-update lane (child-theme filtering unresolved); weekly-report insecure-vs-outdated split; the 55 unfixable-bundled-plugin sites.
 
 ---
 
-## M11 — MariaDB Test Database Migration
+## Other Repositories
 
-**Status:** not started — **follows M10**
+Work that belongs to VULNZ but does not live in this repo:
 
-Replace the in-memory SQLite test backend with a real local MariaDB test database. The current setup uses `tests/setup.js` to stand up in-memory SQLite and apply a MySQL→SQLite SQL translation shim. This was convenient for speed and zero-config, but it creates a real dev/prod inconsistency: tests exercise SQLite semantics, production runs MariaDB, and a class of bugs (BigInt handling, JSON functions, FULLTEXT indexes, `INSERT IGNORE` semantics, CHAR padding, boolean parsing) can pass in tests and fail in prod.
-
-M10 shrinks the test surface first — UI tests, session tests, and password-reset tests all disappear — so the migration lands against a smaller, cleaner suite.
-
-**Rationale for sequencing before M7:** M7 normalises ~40 env vars including booleans and enum-like strings. MariaDB and SQLite parse these differently, and the env-cleanup work benefits from running against accurate DB semantics.
-
-### Tasks
-
-- [ ] **M11.1** — Create `vulnz_t` database on local dev MariaDB. Grant the existing dev DB user access to it, or create a dedicated test user
-- [ ] **M11.2** — Add `.env.test` template file (documented, not committed — add to `.gitignore` alongside `.env`). Update `jest.setup.js` (or equivalent) to load `.env.test` when `NODE_ENV=test`
-- [ ] **M11.3** — Remove the MySQL→SQLite translation shim from `tests/setup.js`. Rip out the `better-sqlite3` dependency from `package.json`
-- [ ] **M11.4** — Rewrite `createTestDatabase()` and `cleanupTestDatabase()` to use MariaDB. Swap the between-test reset strategy from DROP/CREATE (expensive on real MariaDB) to `TRUNCATE TABLE` with `SET FOREIGN_KEY_CHECKS=0` around it
-- [ ] **M11.5** — Audit all tests for SQLite-specific assumptions: FULLTEXT search behaviour, JSON function differences, CHAR padding, NULL comparison, `INSERT IGNORE` vs `INSERT ... ON DUPLICATE KEY`, case sensitivity. Fix any tests that were written against the wrong semantics — these are latent bugs
-- [ ] **M11.6** — Verify all tests pass against real MariaDB. Document any tests where behaviour differed and required fixes
-- [ ] **M11.7** — Update `dev-notes/06-testing-guide.md` with new setup instructions: how to create the test DB, how to configure `.env.test`, how tests isolate between files
-- [ ] **M11.8** — Update `CLAUDE.md` and `AGENTS.md` to remove references to the SQLite shim and document the new MariaDB-required test setup
-- [ ] **M11.9** — If CI is in use, update the CI config to provision a MariaDB service container before running tests
-- [ ] **M11.10** — Update CHANGELOG with a developer-facing note about the test setup change, and mention in the README that running tests now requires a local MariaDB instance
+- **`/opt/scripts` (fleet, separate repo)** — teach `wordpress_is_auto_update_due()` to act on `is_urgent` from the M12/M13 manifest rather than on version drift alone, keeping the existing `wp-update.is-disabled` and `hw_block_updates` guards winning over an urgent trigger. Four real urgent entries are live in the manifest to test against. Also the eventual consumer for malware slugs.
+- **`vulnz-woo` (WordPress plugin)** — the customer-facing admin UI. Should branch on `is_malware` rather than `has_vulnerabilities`, which M16.8 depends on.
+- **`vulnz-ingest`** — feed aggregation, pushes to the bulk endpoints. Candidate home for premium plugin version scrapers (paused 2026-07-29; needs a milestone number when resumed — M14 was reassigned to known malware).
