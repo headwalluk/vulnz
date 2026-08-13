@@ -27,7 +27,8 @@ const notificationSite = require('../src/models/notificationSite');
 const notificationQueue = require('../src/models/notificationQueue');
 const { processQueue } = require('../src/lib/notificationProcessor');
 const { syncWordPressCoreVersion, getWordPressVersionInfo } = require('../src/lib/wpcore');
-const { syncHighPriorityPlugins, fetchPluginChangelog } = require('../src/lib/wporg');
+const { syncHighPriorityPlugins, fetchPluginChangelog, probeWpOrgSlug } = require('../src/lib/wporg');
+const { sanitizeComponentSlug, stripAll } = require('../src/lib/sanitizer');
 const { classifyRelease, classifyPendingReleases, countPendingReleases, findStoredRelease, saveVerdict } = require('../src/lib/urgency');
 const { llmConfig } = require('../src/lib/llm/client');
 const { listTasks } = require('../src/lib/llm/tasks');
@@ -36,6 +37,13 @@ const migrations = require('../src/migrations');
 const db = require('../src/db');
 
 const program = new Command();
+
+// The only component type wordpress.org exposes a plugin-info endpoint for,
+// and therefore the only one the malware commands can safety-check.
+const WORDPRESS_PLUGIN_TYPE = 'wordpress-plugin';
+
+// components.malware_summary is VARCHAR(255).
+const MALWARE_SUMMARY_MAX_LENGTH = 255;
 
 program.name('vulnz').description('Vulnz API admin CLI').version(require('../package.json').version);
 
@@ -590,6 +598,187 @@ program
           console.log('');
           console.log(`${releases.length} release(s) listed.`);
         }
+      }
+
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// component:malware:add <type> <slug> [--summary <text>] [--force]
+// ---------------------------------------------------------------------------
+program
+  .command('component:malware:add <type> <slug>')
+  .description('Flag a component as known malware (applies to every version)')
+  .option('--summary <text>', 'One-line description of what it does, e.g. "Backdoor file dropper"')
+  .option('--force', 'Flag it even though the slug is published on wordpress.org')
+  .action(async (type, rawSlug, opts) => {
+    try {
+      const slug = sanitizeComponentSlug(rawSlug);
+      const summary = opts.summary ? stripAll(opts.summary).substring(0, MALWARE_SUMMARY_MAX_LENGTH) : null;
+
+      // This command creates the component if it does not exist, so an empty
+      // slug would leave an unreachable junk row behind.
+      if (!slug) {
+        process.stderr.write(`Error: "${rawSlug}" is not a usable component slug.\n`);
+        await db.end();
+        process.exit(1);
+        return;
+      }
+
+      const componentTypes = await db.query('SELECT slug FROM component_types WHERE slug = ?', [type]);
+      if (componentTypes.length === 0) {
+        process.stderr.write(`Error: unknown component type "${type}".\n`);
+        await db.end();
+        process.exit(1);
+        return;
+      }
+
+      // Fake plugins commonly squat on a real plugin's slug. Flagging one of
+      // those would tell the whole fleet that a legitimate plugin is
+      // malicious, so check wordpress.org first. The stored wporg_available
+      // column is no use here — it is NULL for the overwhelming majority of
+      // components — so this is a live lookup.
+      if (type === WORDPRESS_PLUGIN_TYPE && !opts.force) {
+        let probe;
+        try {
+          probe = await probeWpOrgSlug(slug);
+        } catch (err) {
+          probe = { status: 0, available: null, name: null, error: err.message };
+        }
+
+        if (probe.available === true) {
+          process.stderr.write(`Error: "${slug}" is published on wordpress.org as "${probe.name || slug}".\n`);
+          process.stderr.write(`       https://wordpress.org/plugins/${slug}/\n`);
+          process.stderr.write('       Flagging it would report a legitimate plugin as malware across the fleet.\n');
+          process.stderr.write('       If the wordpress.org listing is itself malicious, re-run with --force.\n');
+          await db.end();
+          process.exit(1);
+          return;
+        }
+
+        if (probe.available === null) {
+          // Don't block an incident response on a wordpress.org blip.
+          console.log(`Warning: could not reach wordpress.org to check "${slug}" (${probe.error || `status ${probe.status}`}). Proceeding.`);
+        }
+      }
+
+      const existing = await component.findByTypeAndSlug(type, slug);
+      const target = existing || (await component.findOrCreate(slug, type, slug));
+      const componentId = parseInt(target.id, 10);
+
+      if (!existing) {
+        console.log(`Created component: ${slug} (id=${componentId}, type=${type})`);
+      }
+
+      await component.flagAsMalware(componentId, { summary });
+
+      const releases = await db.query('SELECT COUNT(*) AS total FROM releases WHERE component_id = ?', [componentId]);
+      const releaseCount = parseInt(releases[0].total, 10);
+
+      console.log(`Flagged as malware: ${type}/${slug} (id=${componentId})`);
+      console.log(`Summary: ${summary || '(none)'}`);
+      console.log(`Applies to all ${releaseCount} known release(s), and any ingested later.`);
+      if (existing && existing.is_malware) {
+        console.log('Note: this component was already flagged — the summary and timestamp have been updated.');
+      }
+
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// component:malware:remove <type> <slug>
+// ---------------------------------------------------------------------------
+program
+  .command('component:malware:remove <type> <slug>')
+  .description('Clear the malware flag from a component')
+  .action(async (type, rawSlug) => {
+    try {
+      const slug = sanitizeComponentSlug(rawSlug);
+      const target = await component.findByTypeAndSlug(type, slug);
+
+      if (!target) {
+        console.log(`No component found: ${type}/${slug}`);
+        await db.end();
+        process.exit(0);
+        return;
+      }
+
+      if (!target.is_malware) {
+        console.log(`Not flagged as malware: ${type}/${slug}`);
+        await db.end();
+        process.exit(0);
+        return;
+      }
+
+      await component.clearMalwareFlag(parseInt(target.id, 10));
+      console.log(`Cleared malware flag: ${type}/${slug} (id=${parseInt(target.id, 10)})`);
+
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// component:malware:list [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('component:malware:list')
+  .description('List all components flagged as known malware')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const flagged = await component.findMalware();
+
+      if (opts.json) {
+        console.log(
+          JSON.stringify(
+            flagged.map((row) => ({
+              ...row,
+              id: parseInt(row.id, 10),
+              release_count: parseInt(row.release_count, 10),
+            })),
+            null,
+            2
+          )
+        );
+      } else if (flagged.length === 0) {
+        console.log('No components are flagged as malware.');
+      } else {
+        const colWidths = {
+          slug: Math.max(4, ...flagged.map((row) => row.slug.length)),
+          type: Math.max(4, ...flagged.map((row) => row.component_type_slug.length)),
+          summary: Math.max(7, ...flagged.map((row) => (row.malware_summary || '').length)),
+        };
+
+        const pad = (str, len) => String(str || '').padEnd(len);
+        const header = `${pad('SLUG', colWidths.slug)}  ${pad('TYPE', colWidths.type)}  ${pad('SUMMARY', colWidths.summary)}  RELEASES  FLAGGED`;
+        console.log(header);
+        console.log('-'.repeat(header.length));
+
+        for (const row of flagged) {
+          const flaggedAt = row.malware_flagged_at ? new Date(row.malware_flagged_at).toISOString().substring(0, 19).replace('T', ' ') : '-';
+          console.log(
+            `${pad(row.slug, colWidths.slug)}  ${pad(row.component_type_slug, colWidths.type)}  ${pad(row.malware_summary || '-', colWidths.summary)}  ${String(row.release_count).padStart(8)}  ${flaggedAt}`
+          );
+        }
+
+        console.log(`\n${flagged.length} component(s) flagged.`);
       }
 
       await db.end();
