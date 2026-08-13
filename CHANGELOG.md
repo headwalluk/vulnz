@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.35.0 - 2026-08-13
+
+### Features
+
+- **Malware detection on websites (M15)**: M14 answered "is this component malware?"; this answers the operational question — **which of my sites are carrying it?** Two routes to that answer, one push and one pull, so missing the first does not mean missing the problem. See [`dev-notes/15-known-malware.md`](dev-notes/15-known-malware.md#8-m15--detection-on-websites-v1350).
+  - **`GET /api/websites/malware`**: every website with one or more known-malware components, and which components those are. Administrators see all websites; other users see only their own. Computed live from the component flags, so flagging a component makes every site already carrying it appear immediately — no re-sync from any host required. An empty list is the healthy response.
+  - **Immediate email alert**: when a website sync reports a flagged component, VULNZ emails straight away rather than waiting for the weekly report. Enabled with `MALWARE_ALERT_ENABLED=true` and `MALWARE_ALERT_EMAIL`; both default to off, so the feature ships inert.
+  - **Alerts are deduplicated per (website, component)**: the first sighting emails, later syncs stay quiet. Hosts sync continuously, so without this the same alert would repeat until it was filtered away as noise — which is exactly the email that must not be missed. A component cleaned off a site and later reappearing counts as a fresh infection and alerts again.
+  - **Dedup could not reuse `component_changes` "added" events**: a site already carrying a fake plugin before that component was flagged never registers it as newly added, which is precisely the situation M14 shipped into. Hence the small `website_malware_alerts` table.
+  - **Fails safe**: detections are recorded before any send is attempted and regardless of whether alerting is enabled, so the endpoint stays accurate with email switched off; a failed send leaves the alert unnotified so the next sync retries it; and a mail failure never fails the host's website update.
+  - **New env vars**: `MALWARE_ALERT_ENABLED` (default `false`), `MALWARE_ALERT_EMAIL`.
+
+### Database
+
+- New `website_malware_alerts` table — per-(website, component) dedup state for the immediate alert. The detection itself is always derived live from the component flag.
+
+### Testing
+
+- `component_changes` was missing from the SQLite test schema entirely and is now created, making the website update path testable end to end for the first time. Together with `WebsiteComponent.deleteByType()`'s MySQL-only multi-table `DELETE` syntax, this is another instance of the divergence M11 (MariaDB test database) exists to remove.
+
+### Upgrading
+
+The migration runs on startup (or via `vulnz db:migrate`). Nothing else is required: `GET /api/websites/malware` works immediately and reports any site already carrying a flagged component. To turn on the immediate email, add to `.env` and restart:
+
+```bash
+MALWARE_ALERT_ENABLED=true
+MALWARE_ALERT_EMAIL='security@example.com'
+```
+
+---
+
 ## 1.34.0 - 2026-08-12
 
 ### Features

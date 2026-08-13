@@ -144,6 +144,63 @@ While a component is flagged, **every one of its releases also reports `has_vuln
 
 The flag is set by an administrator via the CLI (`vulnz component:malware:add`). There is no API write path for it, and no API key of any role can set or clear it.
 
+### Finding Affected Websites
+
+`GET /api/websites/malware` lists every website carrying one or more known-malware components, and which components those are. Administrators see all websites; other users see only their own.
+
+```bash
+curl "https://api.vulnz.net/api/websites/malware" -H "X-Api-Key: ${VULNZ_API_KEY}"
+```
+
+```json
+{
+  "websites": [
+    {
+      "domain": "example.com",
+      "title": "Example Site",
+      "user_id": 1,
+      "is_dev": false,
+      "malware_components": [
+        {
+          "slug": "easypost",
+          "type": "wordpress-plugin",
+          "version": "2.4.1",
+          "summary": "Backdoor file dropper",
+          "first_detected_at": "2026-08-13T10:41:00.000Z"
+        }
+      ]
+    }
+  ],
+  "total_websites": 1,
+  "total_components": 2
+}
+```
+
+An empty `websites` array means nothing is affected — that is the healthy response.
+
+The result is computed live from the component flags, so flagging a component makes every site already carrying it appear immediately, with no re-sync needed from the host. `first_detected_at` is null until a site has synced since the component was flagged, because detection timestamps are recorded by the ingest path rather than by this read-only endpoint.
+
+This is the polling counterpart to the immediate email alert below: if an alert is missed, this endpoint still reports the site.
+
+### Immediate Malware Alerts
+
+When a website sync (`PUT /api/websites/{domain}`) reports a component flagged as known malware, VULNZ emails an alert straight away — it does not wait for the weekly report.
+
+Configure it in `.env`:
+
+```bash
+MALWARE_ALERT_ENABLED=true
+MALWARE_ALERT_EMAIL='security@example.com'
+```
+
+Both default to off, so the feature ships inert.
+
+**Alerts are deduplicated per (website, component).** The first sighting emails; later syncs stay quiet. This matters because hosts sync continuously — without it, the same alert would repeat until it was filtered away as noise, which is exactly the email that must not be missed. If a component is cleaned off a site and later reappears, that counts as a fresh infection and alerts again.
+
+If the send fails, the alert is retried on the site's next sync rather than being silently dropped, and a mail failure never fails the host's update. Detections are recorded whether or not alerting is enabled, so `GET /api/websites/malware` is accurate either way.
+
+The recipient is a single operator address for now. Routing alerts to each website's own point of contact needs per-site contact data that does not exist yet.
+
 ### Adding a Website
 
 ```bash
