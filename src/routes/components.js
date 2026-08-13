@@ -145,7 +145,10 @@ function buildComponentResponse(componentRow, releases) {
  *                   type: integer
  *                   description: Total number of matching components across all pages.
  */
-router.get('/search', unauthenticatedSearchLimiter, optionalApiAuth, logApiCall, async (req, res) => {
+// optionalApiAuth runs before the limiter on purpose: the limiter skips
+// authenticated callers, and it can only see req.user if authentication has
+// already happened.
+router.get('/search', optionalApiAuth, unauthenticatedSearchLimiter, logApiCall, async (req, res) => {
   try {
     const query = sanitizeSearchQuery(req.query.query || '');
     const page = parseInt(req.query.page, 10) || 1;

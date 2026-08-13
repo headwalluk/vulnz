@@ -105,6 +105,12 @@ function normalizeEnv() {
   }
   process.env.UNAUTH_SEARCH_LIMIT_PER_SECOND = String(uslps);
 
+  // UNAUTH_SEARCH_WINDOW_SECONDS normalization: integer >= 1, default 10.
+  // The window over which the per-second limit is counted. A longer window
+  // absorbs the burst of requests a search-as-you-type box produces without
+  // raising the sustained rate.
+  process.env.UNAUTH_SEARCH_WINDOW_SECONDS = String(parseIntEnv('UNAUTH_SEARCH_WINDOW_SECONDS', { min: 1, default: 10 }));
+
   // Additional environment variable normalizations...
   process.env.EMAIL_LOG_MAX_AGE_DAYS = String(parseIntEnv('EMAIL_LOG_MAX_AGE_DAYS', { min: 0, default: 14 }));
 
