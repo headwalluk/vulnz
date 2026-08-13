@@ -22,7 +22,7 @@ Each item: a short heading, when/where it was noticed, why it matters, and a pro
 
 **Proposed action (to scope in a future milestone):**
 
-1. Decide the intended role of reference data. Options: (a) drop it entirely and let migrations seed defaults + the CLI/API manage settings thereafter; (b) keep it as a *seed-only* mechanism that runs once on a fresh install and never overwrites existing values; (c) keep it but make it opt-in per key.
+1. Decide the intended role of reference data. Options: (a) drop it entirely and let migrations seed defaults + the CLI/API manage settings thereafter; (b) keep it as a _seed-only_ mechanism that runs once on a fresh install and never overwrites existing values; (c) keep it but make it opt-in per key.
 2. Remove the test-fixture entries (`unknown.test_setting`, `wordpress.invalid_version`) from `data/reference.json`, or move them into a test fixture file so production startup is quiet.
 3. Ensure no setting owned by a live sync (e.g. `wordpress.current_version`, and now `wordpress.safe_versions`) can ever be listed in reference data — or better, make reference application never overwrite `is_system` settings that a sync maintains.
 4. Update or remove the `.env.example` `REFERENCE_UPDATE_*` lines and the CHANGELOG-referenced `reference.json` URL accordingly.
@@ -116,23 +116,14 @@ Each item: a short heading, when/where it was noticed, why it matters, and a pro
 
 ---
 
-### Decouple `is_malware` from `has_vulnerabilities`
+---
 
-**Noticed:** 2026-08-12 (M14, v1.34.0 — accepted as debt at design time, not discovered later)
+## Resolved
 
-**What it is:** While a component has `is_malware = 1`, every one of its releases is reported with `has_vulnerabilities: true` across the search, component, and release endpoints — even though no `vulnerabilities` rows exist for them. The coercion is funnelled through one helper, `malwareTaintsReleases()` in `src/models/component.js`, called from there and from `buildComponentResponse()` in `src/routes/components.js`.
+### Decouple `is_malware` from `has_vulnerabilities` — RESOLVED v1.36.0
 
-**Why it matters:**
+**Noticed:** 2026-08-12 (M14, accepted as debt at design time) — **Resolved:** 2026-08-13 (M16)
 
-- **It conflates two different statements.** "This version has a known vulnerability" and "this software is malicious" are not the same claim, and a consumer that can only see `has_vulnerabilities` cannot tell a CVE in WooCommerce from a backdoor dropper masquerading as a plugin. They warrant very different responses.
-- **It was the right call for the quick win.** The fleet and vulnz-woo already branch on `has_vulnerabilities`, so routing the verdict through it meant both acted on a flagged component the moment M14 shipped, with no client-side change and no window where the database knew something the fleet did not. That was the explicit trade.
-- **It gets stickier the longer it stays.** Once something starts *relying* on malware showing up as a vulnerability, removing it becomes a breaking change rather than a cleanup.
+A flagged component used to force `has_vulnerabilities: true` on all of its releases, so clients already branching on that field would react to malware without a code change. It was always meant to be temporary, and it was retired sooner than planned because the signal was simply wrong: a backdoor and a CVE call for different responses, and a caller could not tell them apart.
 
-**Proposed action (once consumers read `is_malware` directly):**
-
-1. Teach the report emails to treat malware as its own category — a strong emergency alert, not a row in the vulnerability table. This is the main consumer and the one that makes the distinction visible to customers.
-2. Update the fleet (`/opt/scripts`, separate repo) and `vulnz-woo` to branch on `is_malware` rather than inferring it from `has_vulnerabilities`.
-3. Delete `malwareTaintsReleases()` and its two call sites, so `has_vulnerabilities` means exactly what it says again.
-4. Update `docs/api-usage.md` (the "Known malware" section documents the coupling as temporary) and the M14 note.
-
-**Related:** [`15-known-malware.md`](15-known-malware.md) §4.
+`malwareTaintsReleases()` and both call sites are gone. Malware is reported only by `is_malware`, with `malware_summary` and `malware_url` beside it, and — on websites — `malware_count` and `malware_first_detected_at` per component.

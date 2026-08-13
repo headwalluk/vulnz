@@ -409,12 +409,14 @@ Mark a component as known malware. The verdict applies to **every version** of t
 
 These are CLI-only by design. There is no API write path for the malware flag: `GET /api/components/:type/:slug` auto-creates components and the vulnerability POST route is open to any authenticated key, so a fleet key must not be able to set (or clear) a verdict that is actioned across every site at once. Reads are on the API as normal — see the [API usage guide](api-usage.md#known-malware).
 
-### `component:malware:add <type> <slug> [--summary <text>] [--force]`
+### `component:malware:add <type> <slug> [--summary <text>] [--url <url>] [--force]`
 
 Flag a component as known malware, creating it first if the slug has never been ingested.
 
 ```bash
-node bin/vulnz.js component:malware:add wordpress-plugin easypost --summary "Backdoor file dropper"
+node bin/vulnz.js component:malware:add wordpress-plugin easypost \
+  --summary "Backdoor file dropper" \
+  --url "https://vulnz.net/malware/wordpress-plugin/easypost/"
 ```
 
 Output:
@@ -422,8 +424,11 @@ Output:
 ```
 Flagged as malware: wordpress-plugin/easypost (id=36183)
 Summary: Backdoor file dropper
+URL: https://vulnz.net/malware/wordpress-plugin/easypost/
 Applies to all 2 known release(s), and any ingested later.
 ```
+
+`--url` links to a write-up of what the malware does and is surfaced to API consumers as `malware_url`. It is optional and left null when omitted — deliberately not derived from the slug, because a link that 404s in a customer-facing alert costs more trust than no link at all. A malformed URL is rejected rather than stored.
 
 **The wordpress.org safety check.** Fake plugins commonly squat on a legitimate plugin's slug, and flagging one of those would report a real plugin as malware across the whole fleet. For `wordpress-plugin` components the command therefore does a live wordpress.org lookup first and refuses to flag a slug that is published there:
 
