@@ -32,6 +32,9 @@ jest.mock('../../src/models/component', () => ({
   create: jest.fn(),
   update: jest.fn(),
   delete: jest.fn(),
+  // Not mocked away: the routes call this to shape every component response,
+  // and its real behaviour (a boolean read of the row) is what we want here.
+  malwareTaintsReleases: (componentRow) => Boolean(componentRow && componentRow.is_malware),
 }));
 
 const componentModel = require('../../src/models/component');
@@ -143,7 +146,6 @@ describe('Components API', () => {
     // Create Express app
     app = express();
     app.use(express.json());
-
 
     app.use(passport.initialize());
 
@@ -431,6 +433,91 @@ describe('Components API', () => {
       const response = await request(app).get(`/api/components/${testComponent.id}`);
 
       expect(response.status).toBe(401);
+    });
+  });
+
+  describe('Known malware components (M14)', () => {
+    let malwareComponent;
+
+    beforeAll(async () => {
+      const result = await db.query(
+        `INSERT INTO components (title, slug, component_type_slug, description, is_malware, malware_summary, malware_source_slug, malware_flagged_at)
+         VALUES (?, ?, ?, ?, 1, ?, 'manual', CURRENT_TIMESTAMP)`,
+        ['easypost', 'easypost', testComponentType.slug, '', 'Backdoor file dropper']
+      );
+      malwareComponent = { id: result.insertId, slug: 'easypost' };
+
+      // Two releases, neither with any vulnerability URL recorded against it.
+      await db.query('INSERT INTO releases (component_id, version) VALUES (?, ?)', [malwareComponent.id, '1.0.0']);
+      await db.query('INSERT INTO releases (component_id, version) VALUES (?, ?)', [malwareComponent.id, '3.7.2']);
+    });
+
+    test('GET by type and slug reports is_malware and the summary', async () => {
+      const response = await request(app).get(`/api/components/${testComponentType.slug}/${malwareComponent.slug}`).set('X-API-Key', regularApiKey);
+
+      expect(response.status).toBe(200);
+      expect(response.body.is_malware).toBe(true);
+      expect(response.body.malware_summary).toBe('Backdoor file dropper');
+    });
+
+    test('GET by type and slug marks every release vulnerable', async () => {
+      const response = await request(app).get(`/api/components/${testComponentType.slug}/${malwareComponent.slug}`).set('X-API-Key', regularApiKey);
+
+      expect(response.body.releases).toHaveLength(2);
+      for (const release of response.body.releases) {
+        expect(release.has_vulnerabilities).toBe(true);
+      }
+    });
+
+    test('GET by ID reports is_malware', async () => {
+      const response = await request(app).get(`/api/components/${malwareComponent.id}`).set('X-API-Key', regularApiKey);
+
+      expect(response.status).toBe(200);
+      expect(response.body.is_malware).toBe(true);
+      expect(response.body.releases.every((release) => release.has_vulnerabilities)).toBe(true);
+    });
+
+    test('GET a specific version reports is_malware and has_vulnerabilities', async () => {
+      const response = await request(app).get(`/api/components/${testComponentType.slug}/${malwareComponent.slug}/3.7.2`).set('X-API-Key', regularApiKey);
+
+      expect(response.status).toBe(200);
+      expect(response.body.is_malware).toBe(true);
+      expect(response.body.malware_summary).toBe('Backdoor file dropper');
+      expect(response.body.has_vulnerabilities).toBe(true);
+      expect(response.body.vulnerabilities).toEqual([]);
+    });
+
+    test('a version auto-created on lookup inherits the flag', async () => {
+      // The lookup route creates unknown releases on the fly — a fake plugin
+      // reappearing with a new version string must still read as malware.
+      const response = await request(app).get(`/api/components/${testComponentType.slug}/${malwareComponent.slug}/9.9.9`).set('X-API-Key', regularApiKey);
+
+      expect(response.status).toBe(200);
+      expect(response.body.version).toBe('9.9.9');
+      expect(response.body.is_malware).toBe(true);
+      expect(response.body.has_vulnerabilities).toBe(true);
+    });
+
+    test('a clean component is unaffected', async () => {
+      const response = await request(app).get(`/api/components/${testComponentType.slug}/${testComponent.slug}`).set('X-API-Key', regularApiKey);
+
+      expect(response.body.is_malware).toBe(false);
+      expect(response.body.malware_summary).toBeNull();
+    });
+
+    test('there is no API write path for the flag', async () => {
+      // PUT only accepts title/description/url — is_malware must be ignored,
+      // not persisted, even for an administrator.
+      const response = await request(app).put(`/api/components/${testComponent.id}`).set('X-API-Key', adminApiKey).send({
+        is_malware: true,
+        malware_summary: 'Should not stick',
+      });
+
+      expect(response.status).toBe(400);
+
+      const [row] = await db.query('SELECT is_malware, malware_summary FROM components WHERE id = ?', [testComponent.id]);
+      expect(row.is_malware).toBeFalsy();
+      expect(row.malware_summary).toBeNull();
     });
   });
 
