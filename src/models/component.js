@@ -1,6 +1,10 @@
 const db = require('../db');
 const versionCompare = require('../lib/versionCompare');
 
+// Who decided a component is malware. Mirrors the malware_sources lookup
+// table seeded by the M14 migration.
+const MALWARE_SOURCE_MANUAL = 'manual';
+
 async function createTable() {
   const sql = `
     CREATE TABLE IF NOT EXISTS components (
@@ -85,6 +89,7 @@ async function search(query, page = 1, limit = 10, { type, ecosystem } = {}) {
   const dataSql = `
     SELECT
       c.id AS component_id, c.slug, c.component_type_slug, c.title, c.url,
+      c.is_malware, c.malware_summary,
       ct.title AS component_type_title,
       e.slug AS ecosystem_slug, e.name AS ecosystem_name,
       r.id AS release_id, r.version,
@@ -111,6 +116,8 @@ async function search(query, page = 1, limit = 10, { type, ecosystem } = {}) {
         ecosystem_name: row.ecosystem_name || null,
         title: row.title,
         url: row.url,
+        is_malware: !!row.is_malware,
+        malware_summary: row.malware_summary || null,
         releases: new Map(),
       });
     }
@@ -137,7 +144,10 @@ async function search(query, page = 1, limit = 10, { type, ecosystem } = {}) {
       component.releases = Array.from(component.releases.values());
       component.releases.sort((a, b) => versionCompare(b.version, a.version));
       for (const release of component.releases) {
-        release.has_vulnerabilities = release.vulnerabilities.length > 0;
+        // Every version of a malware component is bad, whether or not a
+        // vulnerability URL was ever recorded against it. See
+        // malwareTaintsReleases() for why this rides on has_vulnerabilities.
+        release.has_vulnerabilities = component.is_malware || release.vulnerabilities.length > 0;
       }
       result.push(component);
     }
@@ -261,10 +271,83 @@ async function invalidateStaleSyncs(daysThreshold = 7) {
   return result.affectedRows || 0;
 }
 
+/**
+ * Whether a component's malware verdict should also be reported as
+ * has_vulnerabilities on every one of its releases.
+ *
+ * TEMPORARY COMPATIBILITY SHIM (M14). Malware and vulnerability are not the
+ * same statement, and conflating them here is deliberate debt: the fleet and
+ * the vulnz-woo plugin already branch on has_vulnerabilities, so routing the
+ * malware verdict through it means both act on a flagged component the
+ * moment it is flagged, with no client-side change. Consumers should move to
+ * the explicit is_malware field; when they all have, delete this helper and
+ * its callers. Tracked in dev-notes/13-snag-list.md.
+ *
+ * @param {{is_malware?: number|boolean}} component
+ * @returns {boolean}
+ */
+const malwareTaintsReleases = (component) => Boolean(component && component.is_malware);
+
+/**
+ * Look up a single component by its type and slug.
+ * @returns {Promise<object|undefined>}
+ */
+const findByTypeAndSlug = async (componentTypeSlug, slug) => {
+  const rows = await db.query('SELECT * FROM components WHERE component_type_slug = ? AND slug = ?', [componentTypeSlug, slug]);
+  return Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
+};
+
+/**
+ * Mark a component as known malware. Applies to every version, present and
+ * future — the flag lives on the component, so releases ingested later
+ * inherit it without further action.
+ *
+ * @param {number} componentId
+ * @param {{summary?: string|null, source?: string}} options
+ */
+const flagAsMalware = async (componentId, { summary = null, source = MALWARE_SOURCE_MANUAL } = {}) => {
+  await db.query('UPDATE components SET is_malware = 1, malware_summary = ?, malware_source_slug = ?, malware_flagged_at = CURRENT_TIMESTAMP WHERE id = ?', [
+    summary || null,
+    source,
+    componentId,
+  ]);
+};
+
+/**
+ * Clear a malware verdict — for a slug flagged in error.
+ * @param {number} componentId
+ */
+const clearMalwareFlag = async (componentId) => {
+  await db.query('UPDATE components SET is_malware = 0, malware_summary = NULL, malware_source_slug = NULL, malware_flagged_at = NULL WHERE id = ?', [componentId]);
+};
+
+/**
+ * Every component currently flagged as malware, most recently flagged first.
+ */
+const findMalware = async () => {
+  return await db.query(`
+    SELECT
+      c.id, c.slug, c.component_type_slug, c.title,
+      c.malware_summary, c.malware_source_slug, c.malware_flagged_at,
+      COUNT(r.id) AS release_count
+    FROM components c
+    LEFT JOIN releases r ON r.component_id = c.id
+    WHERE c.is_malware = 1
+    GROUP BY c.id
+    ORDER BY c.malware_flagged_at DESC, c.slug ASC
+  `);
+};
+
 module.exports = {
   createTable,
   search,
   findOrCreate,
+  findByTypeAndSlug,
+  flagAsMalware,
+  clearMalwareFlag,
+  findMalware,
+  malwareTaintsReleases,
+  MALWARE_SOURCE_MANUAL,
   findUnmaintainedPlugins,
   findNewlyPublishedPlugins,
   invalidateWpOrgSyncStatus,
