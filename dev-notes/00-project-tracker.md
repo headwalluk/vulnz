@@ -1,17 +1,25 @@
 # VULNZ API — Project Tracker
 
 **Lead:** Paul Faulkner <paul@headwall-hosting.com>
-**Last updated:** 2026-08-13
+**Last updated:** 2026-08-13 (end of the malware session — v1.34.0 → v1.37.0)
 
 ## Current Status
 
-**Live on prod: v1.35.0.** The current line of work is **known malware**. M14 added a component-level `is_malware` flag set only via the CLI; M15 added the ability to find which websites are carrying it, plus an immediate email alert when a sync reports one. Both are deployed and verified on production.
+The current line of work is **known malware**. M14 added a component-level `is_malware` flag set only via the CLI; M15 added the ability to find which websites are carrying it, plus an immediate email alert when a sync reports one; v1.36.0 made the signals honest and v1.37.0 fixed search rate limiting for the browser search box.
 
 Two fake plugins found on the hosting fleet are flagged on prod and dev: `easypost` and `wp-core-sync`, both backdoor file droppers.
 
-**Next up: M16 — malware in the report emails.** This is the piece that reaches customers rather than just the operator, and it is a prerequisite for retiring the `is_malware` → `has_vulnerabilities` coupling that M14 shipped as deliberate debt.
+> ### ⚠️ Prod is behind: running **v1.35.0**, latest tag is **v1.37.0**
+>
+> v1.36.0 and v1.37.0 are committed, tagged and pushed but **not deployed**. Both have migrations that run on startup — a `malware_url` column and an HTML-entity decode of existing `websites.title` values. Deploying is the first thing to do next session.
+>
+> Deploying v1.36.0 changes an API contract: a malware component no longer reports `has_vulnerabilities: true`. **Unverified:** whether `vulnz-woo` or `/opt/scripts` infer malware from that field. Check before or immediately after deploying — see M16.11.
 
-**Priority order:** M16 (malware in reports) → M11 (MariaDB test DB) → M7 (env cleanup) → M8 (legacy columns).
+**Next up: M16 — malware alerts for customers.** M16.1 (decided) and M16.11 (done early, in v1.36.0) are complete; the remaining work is routing the immediate alert to the site owner and adding a malware block to the weekly report. This is the piece that reaches customers rather than just the operator.
+
+**In flight elsewhere (2026-08-13):** browser JS for the `vulnz.net/search/` page and WordPress-side work, both in other repos. They consume `is_malware` / `malware_summary` / `malware_url` from the search endpoint. Anything the API needs to hand them that it does not yet may land as small follow-ups.
+
+**Priority order:** deploy v1.37.0 → M16 (customer alerts) → M11 (MariaDB test DB) → M7 (env cleanup) → M8 (legacy columns).
 
 Tech debt and small rough edges live in [`13-snag-list.md`](13-snag-list.md), not here.
 
