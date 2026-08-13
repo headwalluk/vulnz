@@ -5,13 +5,43 @@ const { hasRole, apiAuth, optionalApiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 const { isUrl, sanitizeVersion, sanitizeSearchQuery, sanitizeComponentSlug } = require('../lib/sanitizer');
 const { unauthenticatedSearchLimiter } = require('../middleware/rateLimit');
-const component = require('../models/component');
+// Named componentModel rather than component: several handlers below declare
+// a local `component` for the row they are working on.
+const componentModel = require('../models/component');
 
 function sanitiseComponentSlugMiddleware(req, res, next) {
   if (req.params.componentSlug) {
     req.params.componentSlug = sanitizeComponentSlug(req.params.componentSlug);
   }
   next();
+}
+
+/**
+ * Shape a component row and its releases for the API.
+ *
+ * A malware verdict is reported explicitly as is_malware, and for now also
+ * forces has_vulnerabilities on every release — see
+ * componentModel.malwareTaintsReleases() for why, and for when that stops.
+ *
+ * @param {object} componentRow row from the components table
+ * @param {object[]} releases release rows, each with has_vulnerabilities
+ */
+function buildComponentResponse(componentRow, releases) {
+  const isMalware = componentModel.malwareTaintsReleases(componentRow);
+
+  return {
+    ...componentRow,
+    id: parseInt(componentRow.id, 10),
+    synced_from_wporg: !!componentRow.synced_from_wporg,
+    is_malware: isMalware,
+    malware_summary: componentRow.malware_summary || null,
+    releases: releases.map((release) => ({
+      ...release,
+      id: parseInt(release.id, 10),
+      component_id: parseInt(release.component_id, 10),
+      has_vulnerabilities: isMalware || !!release.has_vulnerabilities,
+    })),
+  };
 }
 
 /**
@@ -85,6 +115,19 @@ function sanitiseComponentSlugMiddleware(req, res, next) {
  *                             nullable: true
  *                             description: Human-readable ecosystem name.
  *                             example: WordPress
+ *                           is_malware:
+ *                             type: boolean
+ *                             description: >
+ *                               True when this component is known malware —
+ *                               every version of it, present and future.
+ *                               Flagged by an administrator via the CLI; there
+ *                               is no API write path for this field.
+ *                             example: false
+ *                           malware_summary:
+ *                             type: string
+ *                             nullable: true
+ *                             description: One-line description of what the malware does. Null unless is_malware is true.
+ *                             example: Backdoor file dropper
  *                           releases:
  *                             type: array
  *                             items:
@@ -114,7 +157,7 @@ router.get('/search', unauthenticatedSearchLimiter, optionalApiAuth, logApiCall,
       return res.status(400).send('Search query is required.');
     }
 
-    const components = await component.search(query, page, limit, { type, ecosystem });
+    const components = await componentModel.search(query, page, limit, { type, ecosystem });
     res.json(components);
   } catch (err) {
     console.error(err);
@@ -388,16 +431,19 @@ router.get('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, s
       release = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [component[0].id, version]);
     }
     const vulnerabilities = await db.query('SELECT * FROM vulnerabilities WHERE release_id = ?', [release[0].id]);
+    const isMalware = componentModel.malwareTaintsReleases(component[0]);
     res.json({
       ...release[0],
       id: parseInt(release[0].id, 10),
       component_id: parseInt(release[0].component_id, 10),
+      is_malware: isMalware,
+      malware_summary: component[0].malware_summary || null,
       vulnerabilities: vulnerabilities.map((v) => ({
         ...v,
         id: parseInt(v.id, 10),
         release_id: parseInt(v.release_id, 10),
       })),
-      has_vulnerabilities: vulnerabilities.length > 0,
+      has_vulnerabilities: isMalware || vulnerabilities.length > 0,
     });
   } catch (err) {
     console.error(err);
@@ -454,17 +500,7 @@ router.get('/:componentTypeSlug/:componentSlug', apiAuth, logApiCall, sanitiseCo
     `,
       [component[0].id]
     );
-    res.json({
-      ...component[0],
-      id: parseInt(component[0].id, 10),
-      synced_from_wporg: !!component[0].synced_from_wporg,
-      releases: releases.map((r) => ({
-        ...r,
-        id: parseInt(r.id, 10),
-        component_id: parseInt(r.component_id, 10),
-        has_vulnerabilities: !!r.has_vulnerabilities,
-      })),
-    });
+    res.json(buildComponentResponse(component[0], releases));
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
@@ -488,17 +524,7 @@ router.get('/:id', apiAuth, logApiCall, async (req, res) => {
     `,
       [id]
     );
-    res.json({
-      ...component[0],
-      id: parseInt(component[0].id, 10),
-      synced_from_wporg: !!component[0].synced_from_wporg,
-      releases: releases.map((r) => ({
-        ...r,
-        id: parseInt(r.id, 10),
-        component_id: parseInt(r.component_id, 10),
-        has_vulnerabilities: !!r.has_vulnerabilities,
-      })),
-    });
+    res.json(buildComponentResponse(component[0], releases));
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
@@ -633,10 +659,26 @@ module.exports = router;
  *         url:
  *           type: string
  *           description: A URL related to the component.
+ *         is_malware:
+ *           type: boolean
+ *           readOnly: true
+ *           description: >
+ *             True when this component is known malware — every version of it,
+ *             present and future. Set by an administrator via the CLI
+ *             (`vulnz component:malware:add`); there is no API write path.
+ *             While it is true, every release of the component also reports
+ *             has_vulnerabilities.
+ *         malware_summary:
+ *           type: string
+ *           nullable: true
+ *           readOnly: true
+ *           description: One-line description of what the malware does. Null unless is_malware is true.
  *       example:
  *         id: 1
  *         slug: "example-plugin"
  *         component_type_slug: "wordpress-plugin"
  *         title: "Example Plugin"
  *         description: "An example WordPress plugin."
+ *         is_malware: false
+ *         malware_summary: null
  */
