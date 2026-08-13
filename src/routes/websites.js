@@ -11,6 +11,8 @@ const SecurityEvent = require('../models/securityEvent');
 const SecurityEventType = require('../models/securityEventType');
 const FileSecurityIssue = require('../models/fileSecurityIssue');
 const ComponentChange = require('../models/componentChange');
+const WebsiteMalware = require('../models/websiteMalware');
+const { checkWebsiteForMalware } = require('../lib/malwareAlert');
 const { lookupIp } = require('../lib/geoip');
 
 const getWebsiteComponents = async (website) => {
@@ -145,6 +147,118 @@ router.get('/', apiAuth, async (req, res) => {
       total,
       page,
       limit,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+/**
+ * @swagger
+ * /api/websites/malware:
+ *   get:
+ *     summary: List websites carrying known malware
+ *     description: >
+ *       Every website with one or more components flagged as known malware,
+ *       and which components those are. Administrators see all websites;
+ *       other users see only their own.
+ *
+ *
+ *       Computed live from the component flags, so a component flagged today
+ *       appears here immediately for every site already carrying it — no
+ *       re-sync from the host is needed. This is the polling counterpart to
+ *       the immediate email alert: if the email is missed, this endpoint
+ *       still reports the site.
+ *     tags:
+ *       - Websites
+ *     responses:
+ *       200:
+ *         description: Websites carrying known malware (an empty list means nothing is affected).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 websites:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       domain:
+ *                         type: string
+ *                         example: example.com
+ *                       title:
+ *                         type: string
+ *                       user_id:
+ *                         type: integer
+ *                       is_dev:
+ *                         type: boolean
+ *                       malware_components:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             slug:
+ *                               type: string
+ *                               example: easypost
+ *                             type:
+ *                               type: string
+ *                               example: wordpress-plugin
+ *                             version:
+ *                               type: string
+ *                             summary:
+ *                               type: string
+ *                               nullable: true
+ *                               example: Backdoor file dropper
+ *                             first_detected_at:
+ *                               type: string
+ *                               format: date-time
+ *                               nullable: true
+ *                 total_websites:
+ *                   type: integer
+ *                 total_components:
+ *                   type: integer
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/malware', apiAuth, async (req, res) => {
+  try {
+    const roles = await User.getRoles(req.user.id);
+    const isAdmin = roles.includes('administrator');
+
+    const rows = await WebsiteMalware.findAffectedWebsites(isAdmin ? null : req.user.id);
+
+    // One row per (website, malware component) — group by website.
+    const websitesByDomain = new Map();
+    for (const row of rows) {
+      if (!websitesByDomain.has(row.domain)) {
+        websitesByDomain.set(row.domain, {
+          domain: row.domain,
+          title: row.website_title,
+          user_id: parseInt(row.user_id, 10),
+          is_dev: !!row.is_dev,
+          malware_components: [],
+        });
+      }
+
+      websitesByDomain.get(row.domain).malware_components.push({
+        slug: row.slug,
+        type: row.component_type_slug,
+        version: row.version,
+        summary: row.malware_summary || null,
+        first_detected_at: row.first_detected_at || null,
+      });
+    }
+
+    const websites = Array.from(websitesByDomain.values());
+
+    res.json({
+      websites,
+      total_websites: websites.length,
+      total_components: rows.length,
     });
   } catch (err) {
     console.error(err);
@@ -569,6 +683,13 @@ router.put('/:domain', apiAuth, canAccessWebsite, async (req, res) => {
       console.log('Component changes recorded:', componentChangeSummary);
 
       await Website.touch(req.website.id);
+
+      // Immediate known-malware alert. Only runs when components changed
+      // hands, and only says anything the first time a given component is
+      // seen on this site. Never throws: a mail failure must not fail the
+      // host's sync, and the detection is recorded either way, so
+      // GET /api/websites/malware still reports the site.
+      await checkWebsiteForMalware(req.website);
     }
 
     // Handle version updates if provided
