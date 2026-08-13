@@ -90,6 +90,7 @@ fetch('http://localhost:3000/api/components/search?query=woocommerce&limit=10')
       "url": "https://wordpress.org/plugins/woocommerce/",
       "is_malware": false,
       "malware_summary": null,
+      "malware_url": null,
       "releases": [
         {
           "version": "8.5.0",
@@ -128,9 +129,10 @@ curl "https://api.vulnz.net/api/components/search?query=easypost&type=wordpress-
       "title": "easypost",
       "is_malware": true,
       "malware_summary": "Backdoor file dropper",
+      "malware_url": "https://vulnz.net/malware/wordpress-plugin/easypost/",
       "releases": [
-        { "version": "2.4.1", "vulnerabilities": [], "has_vulnerabilities": true },
-        { "version": "1.0.0", "vulnerabilities": [], "has_vulnerabilities": true }
+        { "version": "2.4.1", "vulnerabilities": [], "has_vulnerabilities": false },
+        { "version": "1.0.0", "vulnerabilities": [], "has_vulnerabilities": false }
       ]
     }
   ],
@@ -592,19 +594,35 @@ curl -X POST \
 
 ### Unauthenticated Requests
 
-Public search endpoint is rate-limited (configurable via `UNAUTH_SEARCH_LIMIT_PER_SECOND`):
+The public search endpoint is rate-limited per client IP. Two settings control it:
 
-**Default**: 1 request per second per IP
+| Setting                          | Default | Meaning                                                          |
+| -------------------------------- | ------- | ---------------------------------------------------------------- |
+| `UNAUTH_SEARCH_LIMIT_PER_SECOND` | `1`     | Sustained rate, averaged over the window. `0` disables limiting. |
+| `UNAUTH_SEARCH_WINDOW_SECONDS`   | `10`    | The window the rate is counted over.                             |
 
-**Headers returned**:
+The budget is `limit × window` requests per window — 10 back-to-back requests at the defaults. Counting over a window rather than a single second is what makes search-as-you-type workable: typing a slug produces a burst of requests and then silence, and a one-second window rejected that even when the average rate was well within budget.
 
-- `X-RateLimit-Limit`: Maximum requests allowed
-- `X-RateLimit-Remaining`: Requests remaining
-- `Retry-After`: Seconds to wait (if limit exceeded)
+**Headers returned** (`RateLimit` draft-7 format):
+
+- `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`
+- `Retry-After` when the limit is exceeded
+
+**When the limit is hit** the response is `429` with a JSON body:
+
+```json
+{
+  "error": "Too many requests",
+  "message": "Search is rate limited for unauthenticated callers. Slow down, or use an API key.",
+  "retry_after_seconds": 7
+}
+```
+
+Note that other error responses from the search endpoint are **plain text**, not JSON — a missing query returns `400 Search query is required.` So check `response.ok` before calling `response.json()`.
 
 ### Authenticated Requests
 
-Requests with valid API keys have more generous limits (not currently enforced, but reserved for future use).
+Requests with a valid API key are **not** subject to the search limit — they are identified, logged and revocable, so the anonymous IP budget does not apply. If a browser-side search box is hitting 429s, sending an API key is an alternative to raising the anonymous limit, though it does mean exposing that key to the browser.
 
 ---
 

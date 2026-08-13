@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.37.0 - 2026-08-13
+
+### Changed
+
+- **Search rate limiting now counts over a window instead of a single second**, so a search-as-you-type box no longer returns 429s during ordinary use. The sustained rate is unchanged — `UNAUTH_SEARCH_LIMIT_PER_SECOND` still means what it says, averaged over the new `UNAUTH_SEARCH_WINDOW_SECONDS` (default `10`) — but the budget can now be spent in a burst, which is how typing actually behaves. At the defaults a client may fire 10 searches back to back rather than one per second.
+- **429 responses are now JSON** (`{ error, message, retry_after_seconds }`) rather than plain text, and the endpoint emits draft-7 `RateLimit-*` headers plus `Retry-After`. Note that other search errors remain plain text — check `response.ok` before parsing.
+
+### Bug Fixes
+
+- **Authenticated callers were being rate-limited as anonymous.** The limiter was mounted ahead of `optionalApiAuth` on the search route, so `req.user` was never populated by the time the limiter ran: its "skip authenticated users" branch never fired, and its key generator always fell through to the IP path. Authentication now runs first, and API-key callers bypass the anonymous limit as originally intended.
+  - The same dead branch would have failed open in a worse way had it ever executed — the handler returned without sending a response or calling `next()`, hanging the request until the client gave up. It is gone.
+- **The rate-limit key came from the raw `X-Forwarded-For` header**, which is client-supplied, so the limit could be bypassed entirely by varying it — and a request through multiple proxies produced a `"client, proxy1"` list as its key instead of an address. It now uses `req.ip`, which Express derives from the trusted hop (`trust proxy` is already set), normalised to a /56 for IPv6 so a client cannot rotate through its own prefix for a fresh budget.
+
+### Upgrading
+
+No action required; the new defaults are more permissive for legitimate use and stricter against evasion. `UNAUTH_SEARCH_WINDOW_SECONDS` can be lowered towards `1` to restore the old pacing. If a browser client parses the 429 body, note it is now JSON.
+
+---
+
 ## 1.36.0 - 2026-08-13
 
 ### Changed
