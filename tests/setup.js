@@ -294,6 +294,16 @@ async function initializeSchema(db) {
   await db.run(`INSERT OR IGNORE INTO sync_priorities (slug, title) VALUES ('high', 'High — re-synced hourly')`);
   await db.run(`INSERT OR IGNORE INTO sync_priorities (slug, title) VALUES ('low', 'Low — background rotation')`);
 
+  // Create malware_sources lookup table (M14)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS malware_sources (
+      slug TEXT NOT NULL PRIMARY KEY,
+      title TEXT NOT NULL
+    )
+  `);
+  await db.run(`INSERT OR IGNORE INTO malware_sources (slug, title) VALUES ('manual', 'Flagged by hand via the CLI')`);
+  await db.run(`INSERT OR IGNORE INTO malware_sources (slug, title) VALUES ('feed', 'Flagged by an ingest feed')`);
+
   // Create components table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS components (
@@ -313,9 +323,14 @@ async function initializeSchema(db) {
       latest_version TEXT,
       latest_version_at DATETIME,
       wporg_available INTEGER,
+      is_malware INTEGER NOT NULL DEFAULT 0,
+      malware_summary TEXT,
+      malware_source_slug TEXT,
+      malware_flagged_at DATETIME,
       UNIQUE(slug, component_type_slug),
       FOREIGN KEY (component_type_slug) REFERENCES component_types(slug),
-      FOREIGN KEY (sync_priority_slug) REFERENCES sync_priorities(slug)
+      FOREIGN KEY (sync_priority_slug) REFERENCES sync_priorities(slug),
+      FOREIGN KEY (malware_source_slug) REFERENCES malware_sources(slug)
     )
   `);
 
