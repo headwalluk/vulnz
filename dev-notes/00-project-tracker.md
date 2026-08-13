@@ -17,6 +17,24 @@ Completed milestones M1–M6 have been archived to [`archive/00-project-tracker-
 
 ---
 
+## M15 — Malware Detection on Websites ✅
+
+**Status:** built and verified on dev — v1.35.0 (2026-08-13). Not yet on prod.
+
+M14 made it possible to say a component is malware. M15 answers the operational question that follows: which sites are carrying it? Two independent routes to that answer — an immediate email when a sync reports one, and an authenticated endpoint to poll if the email is missed. Notes in [`15-known-malware.md`](15-known-malware.md#8-m15--detection-on-websites-v1350).
+
+- [x] **M15.1** — `website_malware_alerts` table + `src/models/websiteMalware.js` (migration + `tests/setup.js`; applied to dev MariaDB)
+- [x] **M15.2** — `GET /api/websites/malware`: live join, owner-scoped, registered ahead of `/:domain`
+- [x] **M15.3** — Immediate alert: `malware-alert.hbs`, `sendMalwareAlert()`, `src/lib/malwareAlert.js`, hooked into the website update path
+- [x] **M15.4** — Per-(website, component) dedup with re-infection detection; `MALWARE_ALERT_ENABLED` / `MALWARE_ALERT_EMAIL`
+- [x] **M15.5** — 20 new tests (354 passing), `.env.example`, API usage guide, design note
+- [x] **M15.6** — `component_changes` added to the SQLite test schema, making the website update path testable end to end for the first time
+- [ ] **Deferred:** per-site contact routing for the alert (needs contact data that does not exist yet); malware as its own category in the report emails
+
+**Next action:** deploy v1.35.0 to prod and set `MALWARE_ALERT_ENABLED` / `MALWARE_ALERT_EMAIL`. Then the report emails — the piece that reaches customers rather than just the operator.
+
+---
+
 ## M14 — Known Malware Flagging ✅
 
 **Status:** complete — v1.34.0 (2026-08-12), **live on prod** (deployed 2026-08-13, verified against the public search endpoint on `api.vulnz.net`)
