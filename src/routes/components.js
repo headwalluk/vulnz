@@ -19,27 +19,27 @@ function sanitiseComponentSlugMiddleware(req, res, next) {
 /**
  * Shape a component row and its releases for the API.
  *
- * A malware verdict is reported explicitly as is_malware, and for now also
- * forces has_vulnerabilities on every release — see
- * componentModel.malwareTaintsReleases() for why, and for when that stops.
+ * A malware verdict is reported only as is_malware. It does not touch
+ * has_vulnerabilities, which means recorded vulnerabilities and nothing
+ * else — the two are different statements about a component and were
+ * briefly conflated in M14. See 15-known-malware.md §10.
  *
  * @param {object} componentRow row from the components table
  * @param {object[]} releases release rows, each with has_vulnerabilities
  */
 function buildComponentResponse(componentRow, releases) {
-  const isMalware = componentModel.malwareTaintsReleases(componentRow);
-
   return {
     ...componentRow,
     id: parseInt(componentRow.id, 10),
     synced_from_wporg: !!componentRow.synced_from_wporg,
-    is_malware: isMalware,
+    is_malware: !!componentRow.is_malware,
     malware_summary: componentRow.malware_summary || null,
+    malware_url: componentRow.malware_url || null,
     releases: releases.map((release) => ({
       ...release,
       id: parseInt(release.id, 10),
       component_id: parseInt(release.component_id, 10),
-      has_vulnerabilities: isMalware || !!release.has_vulnerabilities,
+      has_vulnerabilities: !!release.has_vulnerabilities,
     })),
   };
 }
@@ -431,19 +431,19 @@ router.get('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, s
       release = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [component[0].id, version]);
     }
     const vulnerabilities = await db.query('SELECT * FROM vulnerabilities WHERE release_id = ?', [release[0].id]);
-    const isMalware = componentModel.malwareTaintsReleases(component[0]);
     res.json({
       ...release[0],
       id: parseInt(release[0].id, 10),
       component_id: parseInt(release[0].component_id, 10),
-      is_malware: isMalware,
+      is_malware: !!component[0].is_malware,
       malware_summary: component[0].malware_summary || null,
+      malware_url: component[0].malware_url || null,
       vulnerabilities: vulnerabilities.map((v) => ({
         ...v,
         id: parseInt(v.id, 10),
         release_id: parseInt(v.release_id, 10),
       })),
-      has_vulnerabilities: isMalware || vulnerabilities.length > 0,
+      has_vulnerabilities: vulnerabilities.length > 0,
     });
   } catch (err) {
     console.error(err);

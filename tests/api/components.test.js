@@ -32,9 +32,6 @@ jest.mock('../../src/models/component', () => ({
   create: jest.fn(),
   update: jest.fn(),
   delete: jest.fn(),
-  // Not mocked away: the routes call this to shape every component response,
-  // and its real behaviour (a boolean read of the row) is what we want here.
-  malwareTaintsReleases: (componentRow) => Boolean(componentRow && componentRow.is_malware),
 }));
 
 const componentModel = require('../../src/models/component');
@@ -460,12 +457,14 @@ describe('Components API', () => {
       expect(response.body.malware_summary).toBe('Backdoor file dropper');
     });
 
-    test('GET by type and slug marks every release vulnerable', async () => {
+    test('GET by type and slug leaves has_vulnerabilities honest (M16)', async () => {
       const response = await request(app).get(`/api/components/${testComponentType.slug}/${malwareComponent.slug}`).set('X-API-Key', regularApiKey);
 
       expect(response.body.releases).toHaveLength(2);
+      // M14 forced these true. Malware is now reported only by is_malware —
+      // no vulnerability has ever been recorded against these releases.
       for (const release of response.body.releases) {
-        expect(release.has_vulnerabilities).toBe(true);
+        expect(release.has_vulnerabilities).toBe(false);
       }
     });
 
@@ -474,17 +473,29 @@ describe('Components API', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.is_malware).toBe(true);
-      expect(response.body.releases.every((release) => release.has_vulnerabilities)).toBe(true);
+      expect(response.body.releases.some((release) => release.has_vulnerabilities)).toBe(false);
     });
 
-    test('GET a specific version reports is_malware and has_vulnerabilities', async () => {
+    test('GET a specific version reports is_malware without claiming a vulnerability', async () => {
       const response = await request(app).get(`/api/components/${testComponentType.slug}/${malwareComponent.slug}/3.7.2`).set('X-API-Key', regularApiKey);
 
       expect(response.status).toBe(200);
       expect(response.body.is_malware).toBe(true);
       expect(response.body.malware_summary).toBe('Backdoor file dropper');
-      expect(response.body.has_vulnerabilities).toBe(true);
+      expect(response.body.has_vulnerabilities).toBe(false);
       expect(response.body.vulnerabilities).toEqual([]);
+    });
+
+    test('reports the malware write-up URL, or null when unset', async () => {
+      const withoutUrl = await request(app).get(`/api/components/${testComponentType.slug}/${malwareComponent.slug}`).set('X-API-Key', regularApiKey);
+      expect(withoutUrl.body.malware_url).toBeNull();
+
+      await db.query('UPDATE components SET malware_url = ? WHERE id = ?', ['https://vulnz.net/malware/wordpress-plugin/easypost/', malwareComponent.id]);
+
+      const withUrl = await request(app).get(`/api/components/${testComponentType.slug}/${malwareComponent.slug}`).set('X-API-Key', regularApiKey);
+      expect(withUrl.body.malware_url).toBe('https://vulnz.net/malware/wordpress-plugin/easypost/');
+
+      await db.query('UPDATE components SET malware_url = NULL WHERE id = ?', [malwareComponent.id]);
     });
 
     test('a version auto-created on lookup inherits the flag', async () => {
@@ -495,7 +506,7 @@ describe('Components API', () => {
       expect(response.status).toBe(200);
       expect(response.body.version).toBe('9.9.9');
       expect(response.body.is_malware).toBe(true);
-      expect(response.body.has_vulnerabilities).toBe(true);
+      expect(response.body.has_vulnerabilities).toBe(false);
     });
 
     test('a clean component is unaffected', async () => {
