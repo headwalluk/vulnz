@@ -29,11 +29,15 @@ const deleteByType = async (websiteId, componentType) => {
 
 const getComponents = async (websiteId, componentType) => {
   const query = `
-        SELECT c.slug, c.title, c.component_type_slug, r.version, v.url as vulnerability_url
+        SELECT c.slug, c.title, c.component_type_slug, r.version, v.url as vulnerability_url,
+               c.is_malware, c.malware_summary, c.malware_url,
+               a.first_detected_at AS malware_first_detected_at
         FROM website_components wc
         JOIN releases r ON wc.release_id = r.id
         JOIN components c ON r.component_id = c.id
         LEFT JOIN vulnerabilities v ON r.id = v.release_id
+        LEFT JOIN website_malware_alerts a
+          ON a.website_id = wc.website_id AND a.component_id = c.id
         WHERE wc.website_id = ? AND c.component_type_slug = ?
     `;
   const rows = await db.query(query, [websiteId, componentType]);
@@ -46,6 +50,14 @@ const getComponents = async (websiteId, componentType) => {
         component_type_slug: row.component_type_slug,
         version: row.version,
         vulnerabilities: [],
+        // Malware is reported on its own terms. has_vulnerabilities below
+        // stays honest — it means recorded vulnerabilities and nothing else.
+        is_malware: !!row.is_malware,
+        malware_summary: row.malware_summary || null,
+        malware_url: row.malware_url || null,
+        // Null until the site has synced since the component was flagged:
+        // detections are stamped by the ingest path, not by reads.
+        malware_first_detected_at: row.malware_first_detected_at || null,
       };
     }
     if (row.vulnerability_url) {

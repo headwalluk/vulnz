@@ -1,4 +1,20 @@
 const db = require('../db');
+const { stripAll } = require('../lib/sanitizer');
+
+/**
+ * Normalise a website title on the way in.
+ *
+ * Titles arrive from WordPress (`get_bloginfo('name')`) already HTML-encoded
+ * — "Headwall Demo &amp; Dev" — and were previously stored verbatim, so the
+ * entity travelled all the way out to API consumers and into report emails.
+ * Decoding at the write path means the database holds plain text and each
+ * presentation layer encodes as it sees fit, which is how component titles
+ * have worked since 20251221130000-decode-html-entities-in-components.js.
+ *
+ * stripAll() also removes any HTML tags, which matters because the weekly
+ * report renders the title unescaped (`{{{websiteTitle}}}`).
+ */
+const cleanTitle = (title) => (typeof title === 'string' ? stripAll(title).trim() : title);
 
 const createTable = async () => {
   const query = `
@@ -98,7 +114,7 @@ const create = async (website) => {
   const result = await db.query('INSERT INTO websites (user_id, domain, title, is_dev, meta, ecosystem_id, platform_metadata) VALUES (?, ?, ?, ?, ?, ?, ?)', [
     user_id,
     domain,
-    title,
+    cleanTitle(title),
     is_dev,
     JSON.stringify(meta),
     ecosystem_id || null,
@@ -109,6 +125,10 @@ const create = async (website) => {
 };
 
 const update = async (domain, website) => {
+  if (typeof website.title === 'string') {
+    website.title = cleanTitle(website.title);
+  }
+
   const fields = Object.keys(website);
   const values = Object.values(website);
 

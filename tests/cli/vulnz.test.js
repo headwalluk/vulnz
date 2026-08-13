@@ -767,7 +767,7 @@ describe('CLI: component:malware:add', () => {
     const result = await runCli(['component:malware:add', PLUGIN_TYPE, 'easypost', '--summary', 'Backdoor file dropper']);
 
     expect(result.exitCode).toBe(0);
-    expect(mockComponent.flagAsMalware).toHaveBeenCalledWith(77, { summary: 'Backdoor file dropper' });
+    expect(mockComponent.flagAsMalware).toHaveBeenCalledWith(77, { summary: 'Backdoor file dropper', url: null });
     expect(result.stdout).toMatch(/Flagged as malware: wordpress-plugin\/easypost/);
     expect(result.stdout).toMatch(/all 3 known release\(s\)/);
     expect(result.stderr).toBe('');
@@ -793,7 +793,7 @@ describe('CLI: component:malware:add', () => {
 
     expect(result.exitCode).toBe(0);
     expect(mockWporg.probeWpOrgSlug).not.toHaveBeenCalled();
-    expect(mockComponent.flagAsMalware).toHaveBeenCalledWith(88, { summary: null });
+    expect(mockComponent.flagAsMalware).toHaveBeenCalledWith(88, { summary: null, url: null });
   });
 
   test('warns but proceeds when wordpress.org cannot be reached', async () => {
@@ -855,7 +855,7 @@ describe('CLI: component:malware:add', () => {
     expect(result.exitCode).toBe(0);
     expect(mockComponent.findOrCreate).toHaveBeenCalledWith('easypost', PLUGIN_TYPE, 'easypost');
     expect(result.stdout).toMatch(/Created component: easypost/);
-    expect(mockComponent.flagAsMalware).toHaveBeenCalledWith(123, { summary: null });
+    expect(mockComponent.flagAsMalware).toHaveBeenCalledWith(123, { summary: null, url: null });
   });
 
   test('re-flagging an already-flagged component updates it and says so', async () => {
@@ -867,7 +867,7 @@ describe('CLI: component:malware:add', () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toMatch(/already flagged/);
-    expect(mockComponent.flagAsMalware).toHaveBeenCalledWith(77, { summary: 'Updated wording' });
+    expect(mockComponent.flagAsMalware).toHaveBeenCalledWith(77, { summary: 'Updated wording', url: null });
   });
 });
 
