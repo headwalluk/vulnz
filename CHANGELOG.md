@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.34.0 - 2026-08-12
+
+### Features
+
+- **Known malware flagging (M14)**: a component can now be marked as known malware, covering **every version** of it — past, present, and any version ingested in future. Fake plugins dropped by an attacker are ingested by the normal fleet path and, appearing in neither wordpress.org nor Wordfence, read back completely clean; there was previously no way to state that something is malicious at all. See [`dev-notes/15-known-malware.md`](dev-notes/15-known-malware.md) for the design.
+  - **`is_malware` and `malware_summary` on the component read paths**: `GET /api/components/search`, `GET /api/components/{type}/{slug}`, `GET /api/components/{id}`, and `GET /api/components/{type}/{slug}/{version}`. Search was the priority — vulnz.net's browser search is where a fake plugin reading clean is most visible.
+  - **The verdict is on the component, not the release**: a dropper's version string is whatever its author typed, so enumerating known-bad versions is unwinnable. Because the component lookup route auto-creates components keyed on `(slug, component_type_slug)`, a fake plugin reappearing with a brand-new version number lands on the same row and inherits the flag with no further action.
+  - **Writes are CLI-only by design**: no API route sets these columns, and no API key of any role can set or clear a verdict. The component lookup route already creates components as a side effect of reading them and the vulnerability POST route is open to any authenticated key, so a fleet key must not be able to make a claim that is actioned across every site at once.
+  - **New CLI commands**: `component:malware:add <type> <slug> [--summary <text>] [--force]`, `component:malware:remove <type> <slug>`, `component:malware:list [--json]`. `add` creates the component if the slug has never been ingested, so a slug seen in the wild can be flagged pre-emptively.
+  - **Slug-squatting guard**: fake plugins commonly reuse a legitimate plugin's slug, and flagging one of those would report a real plugin as malware across the fleet. `component:malware:add` does a live wordpress.org lookup first and refuses to flag a published slug unless `--force` is passed. The check is live rather than a read of `wporg_available`, which is `NULL` for the overwhelming majority of components. An unreachable wordpress.org warns and proceeds — a network blip must not block an incident response.
+
+### Changed
+
+- **A flagged component reports `has_vulnerabilities: true` on every one of its releases**, with no vulnerability rows behind them. This is deliberate, temporary debt: the fleet and vulnz-woo already branch on `has_vulnerabilities`, so the malware verdict is acted on the moment a component is flagged, with no client-side change. New clients should branch on `is_malware`, which distinguishes a known vulnerability from malicious software. Confined to one helper (`malwareTaintsReleases()`) and tracked in [`dev-notes/13-snag-list.md`](dev-notes/13-snag-list.md).
+- **The documented search response in [`docs/api-usage.md`](docs/api-usage.md) now matches what the endpoint actually returns** — it had drifted (it showed `name`, `type` and `latest_version` fields that do not exist, and omitted `releases`). Also notes that `id` serializes as a string, since the column is a `BIGINT`.
+
+### Security
+
+- **All 7 outstanding npm audit advisories resolved** (5 high, 2 moderate) via transitive dependency bumps only — no direct dependency or `package.json` changes. The two that mattered in practice were `ip-address` (reached via `express-rate-limit`, where IP misclassification could allow rate-limit evasion by a crafted IPv6 client) and `postcss` (reached via `sanitize-html`, the only one on a user-input path). The remainder — `brace-expansion`, `fast-uri`, `js-yaml`, `nanoid`, `undici` — are reached only through `swagger-jsdoc` parsing our own OpenAPI comments at startup, or through dev/install-time tooling, and were not attacker-reachable.
+
+### Database
+
+- New `malware_sources` lookup table (`manual`, `feed`).
+- New `components` columns: `is_malware`, `malware_summary`, `malware_source_slug`, `malware_flagged_at`, plus an index on `(component_type_slug, is_malware)`.
+
+### Upgrading
+
+Nothing to configure. The migration runs on startup (or via `vulnz db:migrate`), every existing component defaults to `is_malware = 0`, and the new fields are additive — existing clients are unaffected until a component is actually flagged. To flag one:
+
+```bash
+vulnz component:malware:add wordpress-plugin easypost --summary "Backdoor file dropper"
+```
+
+---
+
 ## 1.33.0 - 2026-07-24
 
 ### Features

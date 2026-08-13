@@ -403,6 +403,71 @@ A dash (`-`) indicates no known vulnerabilities for that release.
 
 ---
 
+## Known Malware Commands
+
+Mark a component as known malware. The verdict applies to **every version** of that component — past, present, and any version ingested in future — because malware is a property of the artefact, not of a release.
+
+These are CLI-only by design. There is no API write path for the malware flag: `GET /api/components/:type/:slug` auto-creates components and the vulnerability POST route is open to any authenticated key, so a fleet key must not be able to set (or clear) a verdict that is actioned across every site at once. Reads are on the API as normal — see the [API usage guide](api-usage.md#known-malware).
+
+### `component:malware:add <type> <slug> [--summary <text>] [--force]`
+
+Flag a component as known malware, creating it first if the slug has never been ingested.
+
+```bash
+node bin/vulnz.js component:malware:add wordpress-plugin easypost --summary "Backdoor file dropper"
+```
+
+Output:
+
+```
+Flagged as malware: wordpress-plugin/easypost (id=36183)
+Summary: Backdoor file dropper
+Applies to all 2 known release(s), and any ingested later.
+```
+
+**The wordpress.org safety check.** Fake plugins commonly squat on a legitimate plugin's slug, and flagging one of those would report a real plugin as malware across the whole fleet. For `wordpress-plugin` components the command therefore does a live wordpress.org lookup first and refuses to flag a slug that is published there:
+
+```
+Error: "contact-form-7" is published on wordpress.org as "Contact Form 7".
+       https://wordpress.org/plugins/contact-form-7/
+       Flagging it would report a legitimate plugin as malware across the fleet.
+       If the wordpress.org listing is itself malicious, re-run with --force.
+```
+
+The check is live rather than a read of the stored `wporg_available` column, which is `NULL` for the overwhelming majority of components and so cannot answer the question. If wordpress.org cannot be reached the command warns and proceeds — a network blip should not block an incident response. `--force` skips the check entirely, and is also how you flag a genuinely malicious plugin that is still listed on wordpress.org.
+
+Non-plugin types (`wordpress-theme`, `npm-package`, …) are not checked: the plugin-info endpoint does not cover them.
+
+Re-running against an already-flagged component updates the summary and the timestamp.
+
+### `component:malware:remove <type> <slug>`
+
+Clear a verdict — for a slug flagged in error.
+
+```bash
+node bin/vulnz.js component:malware:remove wordpress-plugin easypost
+```
+
+### `component:malware:list [--json]`
+
+List every flagged component, most recently flagged first.
+
+```bash
+node bin/vulnz.js component:malware:list
+```
+
+Output:
+
+```
+SLUG      TYPE              SUMMARY                RELEASES  FLAGGED
+--------------------------------------------------------------------
+easypost  wordpress-plugin  Backdoor file dropper         2  2026-08-12 19:17:36
+
+1 component(s) flagged.
+```
+
+---
+
 ## WordPress Fast Update Trigger Commands
 
 Manage the watchlist and version syncs behind the fleet fast-update manifest (`GET /api/wordpress/latest-versions`). See the [Fast Update Triggers guide](fast-update-triggers.md) for how the feature works, the response format, and fleet-side integration — this section is the command reference.

@@ -80,19 +80,69 @@ fetch('http://localhost:3000/api/components/search?query=woocommerce&limit=10')
 {
   "components": [
     {
-      "id": 123,
+      "id": "123",
       "slug": "woocommerce",
-      "name": "WooCommerce",
-      "type": "wordpress-plugin",
-      "latest_version": "8.5.0",
-      "has_vulnerabilities": false
+      "component_type_slug": "wordpress-plugin",
+      "component_type_title": "WordPress Plugin",
+      "ecosystem_slug": "wordpress",
+      "ecosystem_name": "WordPress",
+      "title": "WooCommerce",
+      "url": "https://wordpress.org/plugins/woocommerce/",
+      "is_malware": false,
+      "malware_summary": null,
+      "releases": [
+        {
+          "version": "8.5.0",
+          "vulnerabilities": [],
+          "has_vulnerabilities": false
+        }
+      ]
     }
   ],
-  "total": 1,
-  "page": 1,
-  "limit": 10
+  "total": 1
 }
 ```
+
+Notes for clients:
+
+- `id` is serialized as a **string** (the column is a `BIGINT`), so compare it as one.
+- `total` is the count across all pages; the response does not echo `page` or `limit`.
+- `releases` is sorted newest version first, and is empty for a component with no known releases.
+- `is_malware` is the component-level malware verdict — see [Known malware](#known-malware) below.
+
+### Known Malware
+
+A component flagged as known malware carries `is_malware: true` and a one-line `malware_summary`. The verdict covers **every version** of that component, including versions ingested after it was flagged, so it appears on the component itself rather than on individual releases.
+
+```bash
+curl "https://api.vulnz.net/api/components/search?query=easypost&type=wordpress-plugin"
+```
+
+```json
+{
+  "components": [
+    {
+      "id": "36183",
+      "slug": "easypost",
+      "component_type_slug": "wordpress-plugin",
+      "title": "easypost",
+      "is_malware": true,
+      "malware_summary": "Backdoor file dropper",
+      "releases": [
+        { "version": "2.4.1", "vulnerabilities": [], "has_vulnerabilities": true },
+        { "version": "1.0.0", "vulnerabilities": [], "has_vulnerabilities": true }
+      ]
+    }
+  ],
+  "total": 1
+}
+```
+
+`is_malware` is also returned by `GET /api/components/{type}/{slug}`, `GET /api/components/{id}`, and `GET /api/components/{type}/{slug}/{version}`.
+
+While a component is flagged, **every one of its releases also reports `has_vulnerabilities: true`**, even though no vulnerability URLs are recorded against them. That is deliberate: existing clients branch on `has_vulnerabilities` and so act on a malware verdict with no change required. New clients should branch on `is_malware`, which distinguishes "this has a known vulnerability" from "this is malicious software" — the coupling is intended to be temporary.
+
+The flag is set by an administrator via the CLI (`vulnz component:malware:add`). There is no API write path for it, and no API key of any role can set or clear it.
 
 ### Adding a Website
 

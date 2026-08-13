@@ -65,6 +65,7 @@ Each item: a short heading, when/where it was noticed, why it matters, and a pro
 
 - The `releases` block listed `created_at` / `updated_at` columns that **do not exist** on the real table, and omitted `release_date`, which does. (Corrected in M13.)
 - M12's `sync_priorities` lookup table is **absent entirely**, as are the M12 `components` columns `sync_priority_slug`, `latest_version`, `latest_version_at`, and `wporg_available`.
+- The `components` block was almost entirely fictional: it showed a `type_id` FK to `component_types(id)`, a `name` column, six `wporg_*` columns, and `created_at` / `updated_at` — **none of which exist**. The real table keys on `component_type_slug` and stores that metadata as `title`, `description`, `added`, `last_updated`, `requires_php`, `tested`. (Corrected in M14 against a live `SHOW CREATE TABLE`, along with the missing M12 columns above; `sync_priorities` is still undocumented as a table in its own right.)
 
 **Why it matters:** A schema reference that is confidently wrong is worse than no reference — it is exactly the document someone consults instead of running `DESCRIBE`, and the `releases` inaccuracy predates M12, so it has been misleading for a while. The M12 gap also means the doc gives no account of how the fast-update lane is modelled.
 
@@ -112,3 +113,26 @@ Each item: a short heading, when/where it was noticed, why it matters, and a pro
 5. Check for anything on the dev/prod hosts that calls the script by its current path — cron entries, `/etc/scripting/` helpers, deploy scripts, shell aliases. This is the only part that can break something outside the repo, so grep the hosts before renaming.
 
 **Related:** noticed while running `./bin/vulnz.js llm:classify-pending` on prod during the M13 rollout.
+
+---
+
+### Decouple `is_malware` from `has_vulnerabilities`
+
+**Noticed:** 2026-08-12 (M14, v1.34.0 — accepted as debt at design time, not discovered later)
+
+**What it is:** While a component has `is_malware = 1`, every one of its releases is reported with `has_vulnerabilities: true` across the search, component, and release endpoints — even though no `vulnerabilities` rows exist for them. The coercion is funnelled through one helper, `malwareTaintsReleases()` in `src/models/component.js`, called from there and from `buildComponentResponse()` in `src/routes/components.js`.
+
+**Why it matters:**
+
+- **It conflates two different statements.** "This version has a known vulnerability" and "this software is malicious" are not the same claim, and a consumer that can only see `has_vulnerabilities` cannot tell a CVE in WooCommerce from a backdoor dropper masquerading as a plugin. They warrant very different responses.
+- **It was the right call for the quick win.** The fleet and vulnz-woo already branch on `has_vulnerabilities`, so routing the verdict through it meant both acted on a flagged component the moment M14 shipped, with no client-side change and no window where the database knew something the fleet did not. That was the explicit trade.
+- **It gets stickier the longer it stays.** Once something starts *relying* on malware showing up as a vulnerability, removing it becomes a breaking change rather than a cleanup.
+
+**Proposed action (once consumers read `is_malware` directly):**
+
+1. Teach the report emails to treat malware as its own category — a strong emergency alert, not a row in the vulnerability table. This is the main consumer and the one that makes the distinction visible to customers.
+2. Update the fleet (`/opt/scripts`, separate repo) and `vulnz-woo` to branch on `is_malware` rather than inferring it from `has_vulnerabilities`.
+3. Delete `malwareTaintsReleases()` and its two call sites, so `has_vulnerabilities` means exactly what it says again.
+4. Update `docs/api-usage.md` (the "Known malware" section documents the coupling as temporary) and the M14 note.
+
+**Related:** [`15-known-malware.md`](15-known-malware.md) §4.

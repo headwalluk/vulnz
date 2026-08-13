@@ -173,27 +173,46 @@ WordPress plugins and themes tracked in the system.
 ```sql
 CREATE TABLE components (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  type_id BIGINT UNSIGNED NOT NULL,
   slug VARCHAR(255) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  wporg_name VARCHAR(255) NULL,
-  wporg_author VARCHAR(255) NULL,
-  wporg_requires VARCHAR(50) NULL,
-  wporg_tested VARCHAR(50) NULL,
-  wporg_requires_php VARCHAR(50) NULL,
-  wporg_short_description TEXT NULL,
-  synced_from_wporg_at TIMESTAMP NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (type_id) REFERENCES component_types(id) ON DELETE CASCADE,
-  UNIQUE KEY type_slug (type_id, slug)
+  component_type_slug VARCHAR(255) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  description VARCHAR(4096) NULL,
+  synced_from_wporg TINYINT(1) DEFAULT 0,
+  sync_priority_slug VARCHAR(50) NOT NULL DEFAULT 'low',
+  latest_version VARCHAR(255) NULL,
+  latest_version_at DATETIME NULL,
+  wporg_available TINYINT(1) NULL,
+  is_malware TINYINT(1) NOT NULL DEFAULT 0,
+  malware_summary VARCHAR(255) NULL,
+  malware_source_slug VARCHAR(50) NULL,
+  malware_flagged_at DATETIME NULL,
+  url VARCHAR(255) NULL,
+  added DATE NULL,
+  last_updated DATETIME NULL,
+  requires_php VARCHAR(10) NULL,
+  tested VARCHAR(10) NULL,
+  synced_from_wporg_at DATETIME NULL,
+  UNIQUE KEY slug (slug, component_type_slug),
+  KEY idx_wporg_sync (component_type_slug, synced_from_wporg, synced_from_wporg_at),
+  KEY idx_components_priority (component_type_slug, sync_priority_slug),
+  KEY idx_components_malware (component_type_slug, is_malware),
+  FULLTEXT KEY components_slug_IDX (slug, title),
+  FOREIGN KEY (component_type_slug) REFERENCES component_types(slug),
+  FOREIGN KEY (sync_priority_slug) REFERENCES sync_priorities(slug),
+  FOREIGN KEY (malware_source_slug) REFERENCES malware_sources(slug)
 );
 ```
 
 **Key Fields:**
 
-- `wporg_*`: Metadata synced from wordpress.org
-- `synced_from_wporg_at`: Last sync timestamp
+- `component_type_slug`: components are keyed by type **slug**, not a type id, and `(slug, component_type_slug)` is the natural key the ingest path upserts on.
+- `added` / `last_updated` / `requires_php` / `tested` / `synced_from_wporg_at`: metadata synced from wordpress.org.
+- `sync_priority_slug`: which sync lane the component is in — `high` is the hourly watchlist sweep, `low` the background rotation (M12).
+- `latest_version` / `latest_version_at`: current release per wordpress.org, cached here so the fleet manifest is a direct indexed read rather than a `MAX()` over `releases`.
+- `wporg_available`: `NULL` unknown / `1` seen on wordpress.org / `0` absent (404). Distinct from `synced_from_wporg`, which only says whether a sync was attempted.
+- `is_malware` / `malware_summary` / `malware_source_slug` / `malware_flagged_at`: the known-malware verdict (M14). Component-level rather than per-release, because malware is a property of the artefact — every version is bad, including versions ingested after the flag was set. Set via the CLI only; no API route writes these columns. See [`15-known-malware.md`](15-known-malware.md).
+
+> **Note:** this table's definition has been verified against the live schema as of v1.34.0. Other tables in this document may still have drifted — see the snag list.
 
 ### releases
 

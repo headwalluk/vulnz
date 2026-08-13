@@ -76,7 +76,7 @@ The CLI lives at `bin/vulnz.js`. It is the primary admin interface for vulnz-api
 - Exit with code `1` on error, `0` on success
 - Print clear, human-readable error messages (not raw stack traces)
 
-Key command groups: `user:*`, `key:*`, `site:*`, `queue:*`, `setting:*`, `feed:status`, `component:find`, `release:list`. See `docs/cli.md` for the full list.
+Key command groups: `user:*`, `key:*`, `site:*`, `queue:*`, `setting:*`, `feed:status`, `component:find`, `component:malware:*`, `release:list`. See `docs/cli.md` for the full list.
 
 Customer-facing admin features (password management, subscription status, etc.) live in the `vulnz-woo` WordPress plugin rather than vulnz-api — add them there, not here.
 

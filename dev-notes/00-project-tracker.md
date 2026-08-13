@@ -17,6 +17,27 @@ Completed milestones M1–M6 have been archived to [`archive/00-project-tracker-
 
 ---
 
+## M14 — Known Malware Flagging ✅
+
+**Status:** built and verified on dev — v1.34.0 (2026-08-12). Not yet on prod.
+
+Fake plugins dropped by an attacker were ingested by the normal fleet path and read back completely clean: they appear in neither wordpress.org nor Wordfence, so nothing ever contradicted the default. Adds a component-level `is_malware` verdict that covers every version, present and future. Design and as-built notes in [`15-known-malware.md`](15-known-malware.md).
+
+- [x] **M14.1** — `malware_sources` lookup table + `components.is_malware` / `malware_summary` / `malware_source_slug` / `malware_flagged_at` (migration + `tests/setup.js`; applied to dev MariaDB)
+- [x] **M14.2** — Model layer: `flagAsMalware` / `clearMalwareFlag` / `findMalware` / `findByTypeAndSlug`, plus `malwareTaintsReleases()` as the single seam for the `has_vulnerabilities` coupling
+- [x] **M14.3** — `is_malware` + `malware_summary` on all four read paths; **search first**, since vulnz.net's browser search is where a fake plugin reading clean is most visible
+- [x] **M14.4** — `probeWpOrgSlug()`: read-only, non-mutating wordpress.org lookup, so the CLI can refuse to flag a slug squatting on a real plugin
+- [x] **M14.5** — 3 CLI commands (`component:malware:add` / `:remove` / `:list`); writes are CLI-only by design — no API route sets these columns
+- [x] **M14.6** — 37 new tests (334 passing), API usage guide, CLI reference, design note, snag-list entry for the `has_vulnerabilities` coupling
+- [x] **M14.7** — Verified live on dev: `easypost` flagged, guard correctly refused `contact-form-7`, search returns `is_malware: true`, a never-before-seen version auto-created on lookup inherits the flag
+- [ ] **Deferred:** malware alerts in the report emails (the fleet reads its data out of the reports, so this is what closes the loop); `malware: [...]` array on the fleet manifest for proactive sweeps; dropping the `has_vulnerabilities` coupling
+
+**Next action:** deploy v1.34.0 to prod, then flag the fake plugin slugs found on the fleet. The report-email alert is the next piece of work.
+
+**Note on numbering:** M14 was previously pencilled in for premium plugin version sources (paused 2026-07-29, never written into this tracker). That work needs a new number.
+
+---
+
 ## M13 — Urgent Update Classification ✅
 
 **Status:** complete — v1.33.0 (2026-07-24), **live on prod and enabled** (first run: 26/26 classified, 4 urgent, all verified correct — see [`14-urgent-updates.md`](14-urgent-updates.md) §7)
