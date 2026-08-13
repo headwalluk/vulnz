@@ -19,7 +19,7 @@ Completed milestones M1–M6 have been archived to [`archive/00-project-tracker-
 
 ## M15 — Malware Detection on Websites ✅
 
-**Status:** built and verified on dev — v1.35.0 (2026-08-13). Not yet on prod.
+**Status:** complete — v1.35.0 (2026-08-13), **live on prod** (immediate alert verified there against a synthesised website update carrying `easypost`)
 
 M14 made it possible to say a component is malware. M15 answers the operational question that follows: which sites are carrying it? Two independent routes to that answer — an immediate email when a sync reports one, and an authenticated endpoint to poll if the email is missed. Notes in [`15-known-malware.md`](15-known-malware.md#8-m15--detection-on-websites-v1350).
 
@@ -31,7 +31,7 @@ M14 made it possible to say a component is malware. M15 answers the operational 
 - [x] **M15.6** — `component_changes` added to the SQLite test schema, making the website update path testable end to end for the first time
 - [ ] **Deferred:** per-site contact routing for the alert (needs contact data that does not exist yet); malware as its own category in the report emails
 
-**Next action:** deploy v1.35.0 to prod and set `MALWARE_ALERT_ENABLED` / `MALWARE_ALERT_EMAIL`. Then the report emails — the piece that reaches customers rather than just the operator.
+**Next action:** M15 is done and live. Next is the **report emails** — the piece that reaches customers rather than just the operator, and the precondition for dropping the `has_vulnerabilities` coupling.
 
 ---
 
