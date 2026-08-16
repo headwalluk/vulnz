@@ -161,7 +161,16 @@ SMTP_FROM=vulnz@example.com
 
 ### Test Email
 
-After configuring SMTP, test email sending from the Dashboard → Weekly Reports → "Send test email now" button.
+There is no dashboard button for this — the web UI was removed in v1.31.0. Send a real summary report to yourself with the API instead:
+
+```bash
+curl -X POST "http://localhost:3000/api/reports/summary-email" \
+  -H "X-API-Key: your-api-key" \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+```
+
+With an empty body the report goes to the key holder's own account. An administrator may pass `{"user_id": 3}` to send another user's report. A `Report sent` response means SMTP accepted it.
 
 ### Configure WordPress.org Sync (Optional)
 
@@ -217,14 +226,13 @@ Verify all migrations ran successfully:
 mysql -u vulnz -p vulnz -e "SELECT * FROM migrations ORDER BY created_at;"
 ```
 
-### Access the UI
+### Verify the Service
 
-Navigate to `http://localhost:3000` and verify:
+VULNZ is headless — there is no UI to log in to. Navigate to `http://localhost:3000` and verify:
 
-- Search page loads
-- Can register/login
-- Dashboard is accessible
+- The status landing page responds (it content-negotiates, so `Accept: application/json` returns JSON)
 - API documentation at `/doc` is available
+- The OpenAPI spec at `/openapi.json` parses
 
 ### Test API
 

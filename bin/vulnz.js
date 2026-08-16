@@ -27,7 +27,8 @@ const notificationSite = require('../src/models/notificationSite');
 const notificationQueue = require('../src/models/notificationQueue');
 const { processQueue } = require('../src/lib/notificationProcessor');
 const { syncWordPressCoreVersion, getWordPressVersionInfo } = require('../src/lib/wpcore');
-const { syncHighPriorityPlugins, fetchPluginChangelog, probeWpOrgSlug } = require('../src/lib/wporg');
+const { syncHighPriorityPlugins, fetchPluginChangelog, probeWpOrgSlug, reclassifyUnknown, WPORG_STATUS_CLOSED } = require('../src/lib/wporg');
+const { formatDateOnly } = require('../src/lib/dates');
 const { sanitizeComponentSlug, stripAll, isUrl } = require('../src/lib/sanitizer');
 const { classifyRelease, classifyPendingReleases, countPendingReleases, findStoredRelease, saveVerdict } = require('../src/lib/urgency');
 const { llmConfig } = require('../src/lib/llm/client');
@@ -677,6 +678,18 @@ program
           // Don't block an incident response on a wordpress.org blip.
           console.log(`Warning: could not reach wordpress.org to check "${slug}" (${probe.error || `status ${probe.status}`}). Proceeding.`);
         }
+
+        // A withdrawn plugin is not the false-positive case the guard exists
+        // to catch — it is not published, so flagging it cannot tell the
+        // fleet a live listing is malicious. Report it anyway: why the
+        // directory pulled it is evidence about the decision being made, and
+        // "closed for a security issue" is corroboration worth seeing before
+        // committing a fleet-wide verdict.
+        if (probe.wporgStatus === WPORG_STATUS_CLOSED) {
+          console.log(`Note: "${slug}" was published on wordpress.org and has been withdrawn.`);
+          console.log(`      Reason: ${probe.closureReason || 'unknown'}${probe.closedAt ? ` (closed ${probe.closedAt})` : ''}`);
+          console.log('      Proceeding — a withdrawn plugin can still be flagged.');
+        }
       }
 
       const existing = await component.findByTypeAndSlug(type, slug);
@@ -1089,6 +1102,130 @@ program
     try {
       const summary = await syncHighPriorityPlugins();
       console.log(`High-priority sync: ${summary.synced} synced, ${summary.unavailable} unavailable, ${summary.transient} transient, ${summary.errors} error(s).`);
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// wporg:reclassify [--limit N]
+// ---------------------------------------------------------------------------
+program
+  .command('wporg:reclassify')
+  .description('Resolve components whose wordpress.org status is still unknown (closed vs never listed)')
+  .option('--limit <n>', 'How many components to check in this run', '50')
+  .action(async (opts) => {
+    try {
+      const limit = parseInt(opts.limit, 10);
+      if (Number.isNaN(limit) || limit < 1) {
+        process.stderr.write(`Error: --limit must be a positive integer, got "${opts.limit}".\n`);
+        await db.end();
+        process.exit(1);
+        return;
+      }
+
+      const [{ remaining }] = await db.query("SELECT COUNT(*) AS remaining FROM components WHERE component_type_slug = 'wordpress-plugin' AND wporg_status_slug = 'unknown'");
+
+      const summary = await reclassifyUnknown({ limit });
+
+      console.log(
+        `Reclassified ${summary.checked} component(s): ${summary.available} available, ${summary.closed} closed, ${summary.absent} never listed, ${summary.transient} unresolved, ${summary.errors} error(s).`
+      );
+      console.log(`Remaining unknown after this run: ${Math.max(0, parseInt(remaining, 10) - summary.checked)}`);
+
+      if (summary.securityClosures.length > 0) {
+        console.log('');
+        console.log(`${summary.securityClosures.length} plugin(s) closed by wordpress.org for a security issue:`);
+        for (const closure of summary.securityClosures) {
+          console.log(`  ${closure.slug}${closure.closedAt ? ` (closed ${closure.closedAt})` : ''}`);
+        }
+        console.log('');
+        console.log('Check which sites are running these: vulnz wporg:closed --security-only');
+      }
+
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// wporg:closed [--security-only] [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('wporg:closed')
+  .description('List components withdrawn from wordpress.org, and how many sites still run them')
+  .option('--security-only', 'Only closures wordpress.org attributes to a security issue')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const params = [];
+      let securityClause = '';
+      if (opts.securityOnly) {
+        securityClause = 'AND r.is_security_concern = 1';
+      }
+
+      const rows = await db.query(
+        `SELECT c.slug, c.title, c.wporg_closed_at, c.wporg_closure_reason_slug AS reason,
+                r.title AS reason_title, r.is_security_concern,
+                COUNT(DISTINCT wc.website_id) AS install_count
+         FROM components c
+         LEFT JOIN wporg_closure_reasons r ON c.wporg_closure_reason_slug = r.slug
+         LEFT JOIN releases rel ON rel.component_id = c.id
+         LEFT JOIN website_components wc ON wc.release_id = rel.id
+         WHERE c.component_type_slug = 'wordpress-plugin'
+           AND c.wporg_status_slug = 'closed'
+           ${securityClause}
+         GROUP BY c.id, c.slug, c.title, c.wporg_closed_at, c.wporg_closure_reason_slug, r.title, r.is_security_concern
+         ORDER BY install_count DESC, c.wporg_closed_at DESC`,
+        params
+      );
+
+      if (opts.json) {
+        console.log(
+          JSON.stringify(
+            rows.map((row) => ({
+              slug: row.slug,
+              title: row.title,
+              closed_at: formatDateOnly(row.wporg_closed_at),
+              reason: row.reason,
+              is_security_concern: row.is_security_concern === null ? null : !!row.is_security_concern,
+              install_count: parseInt(row.install_count, 10),
+            })),
+            null,
+            2
+          )
+        );
+        await db.end();
+        process.exit(0);
+        return;
+      }
+
+      if (rows.length === 0) {
+        console.log('No closed components recorded. Run `vulnz wporg:reclassify` if statuses have not been resolved yet.');
+        await db.end();
+        process.exit(0);
+        return;
+      }
+
+      console.log(`${rows.length} component(s) withdrawn from wordpress.org:`);
+      console.log('');
+      for (const row of rows) {
+        const installs = parseInt(row.install_count, 10);
+        const security = row.is_security_concern === 1 ? ' [SECURITY]' : '';
+        console.log(`  ${row.slug}${security}`);
+        const closedAt = formatDateOnly(row.wporg_closed_at);
+        console.log(`    Reason: ${row.reason_title || row.reason || 'unknown'}${closedAt ? ` — closed ${closedAt}` : ''}`);
+        console.log(`    Sites running it: ${installs}`);
+      }
+
       await db.end();
       process.exit(0);
     } catch (err) {

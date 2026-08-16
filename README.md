@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Database](https://img.shields.io/badge/database-MySQL%2FMariaDB-blue)](https://mariadb.org/)
 [![Security](https://img.shields.io/badge/security-bcrypt%20%7C%20helmet-success)](docs/README.md)
-[![Tests](https://img.shields.io/badge/tests-273%20passing-brightgreen)](tests/README.md)
+[![Tests](https://img.shields.io/badge/tests-406%20passing-brightgreen)](tests/README.md)
 
 Self-hosted vulnerability database for WordPress plugins, themes, and npm packages. Track vulnerabilities, monitor security events, and manage web applications across your infrastructure.
 
@@ -15,6 +15,7 @@ Self-hosted vulnerability database for WordPress plugins, themes, and npm packag
 VULNZ is a security monitoring platform designed for web agencies and hosting providers managing multiple applications. It helps you:
 
 - **Track vulnerabilities** in WordPress plugins, themes, and npm packages
+- **Flag known malware** and spot plugins **withdrawn from wordpress.org** — often pulled for an unpatched vulnerability, and frequently carrying no CVE at all
 - **Monitor security events** like failed logins and attack attempts
 - **Track software versions** (WordPress core, PHP, Node.js, database)
 - **Trigger fast updates** across a host fleet via a latest-versions manifest that flags which releases are urgent security fixes, so critical WordPress core/plugin patches land within the hour instead of overnight

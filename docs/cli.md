@@ -1,6 +1,6 @@
 # CLI Administration Tool
 
-VULNZ includes a CLI tool (`bin/vulnz.js`) for all administration tasks. New functionality is added here rather than the web UI.
+VULNZ includes a CLI tool (`bin/vulnz.js`) for all administration tasks. It is the only administration surface — the web UI was removed in v1.31.0 — so new management functionality is added here.
 
 ## Running the CLI
 
@@ -439,7 +439,15 @@ Error: "contact-form-7" is published on wordpress.org as "Contact Form 7".
        If the wordpress.org listing is itself malicious, re-run with --force.
 ```
 
-The check is live rather than a read of the stored `wporg_available` column, which is `NULL` for the overwhelming majority of components and so cannot answer the question. If wordpress.org cannot be reached the command warns and proceeds — a network blip should not block an incident response. `--force` skips the check entirely, and is also how you flag a genuinely malicious plugin that is still listed on wordpress.org.
+The check is live rather than a read of the stored status columns, which are `unknown` for the overwhelming majority of components and so cannot answer the question. If wordpress.org cannot be reached the command warns and proceeds — a network blip should not block an incident response. `--force` skips the check entirely, and is also how you flag a genuinely malicious plugin that is still listed on wordpress.org.
+
+A plugin the directory has **withdrawn** does not block the flag — it is not published, so flagging it cannot tell the fleet that a live listing is malicious. It is reported anyway, because why the directory pulled it is evidence about the decision being made:
+
+```
+Note: "similarity" was published on wordpress.org and has been withdrawn.
+      Reason: security-issue (closed 2024-05-17)
+      Proceeding — a withdrawn plugin can still be flagged.
+```
 
 Non-plugin types (`wordpress-theme`, `npm-package`, …) are not checked: the plugin-info endpoint does not cover them.
 
@@ -591,6 +599,63 @@ High-priority sync: 6 synced, 0 unavailable, 0 transient, 0 error(s).
 
 ---
 
+### `wporg:reclassify [--limit <n>]`
+
+Resolve components whose wordpress.org status is still `unknown`, deciding for each whether the directory has **never listed** it or has **withdrawn** it.
+
+wordpress.org answers HTTP 404 for both, and only the response body separates them. Before M17.7 the sync branched on the status code alone, so every 404 was recorded identically — which is why existing components start as `unknown` rather than being guessed at. This command works through that backlog deliberately; the background rotation would get there eventually, but at `WPORG_UPDATE_BATCH_SIZE` per run that takes weeks.
+
+```bash
+node bin/vulnz.js wporg:reclassify --limit 100
+```
+
+Output:
+
+```
+Reclassified 12 component(s): 5 available, 6 closed, 1 never listed, 0 unresolved, 0 error(s).
+Remaining unknown after this run: 9837
+
+5 plugin(s) closed by wordpress.org for a security issue:
+  hdw-player-video-player-video-gallery (closed 2024-03-07)
+  tidekey (closed 2025-03-18)
+  similarity (closed 2024-05-17)
+  cgm-event-calendar (closed 2025-03-24)
+  float-to-top-button (closed 2022-08-15)
+
+Check which sites are running these: vulnz wporg:closed --security-only
+```
+
+Defaults to `--limit 50`. Components already synced are worked through before never-synced ones, and there is a courtesy delay between requests — this walks a long backlog against a shared public API. Safe to re-run; each run picks up where the last left off.
+
+---
+
+### `wporg:closed [--security-only] [--json]`
+
+List components wordpress.org has withdrawn, with how many monitored sites still run each one.
+
+A plugin is often pulled from the directory _because_ of an unpatched vulnerability, so this is a security report and not just an inventory. `--security-only` narrows it to closures wordpress.org itself attributes to a security issue.
+
+```bash
+node bin/vulnz.js wporg:closed --security-only
+```
+
+Output:
+
+```
+37 component(s) withdrawn from wordpress.org:
+
+  subitem-al-slider [SECURITY]
+    Reason: Security Issue — closed 2026-02-05
+    Sites running it: 0
+  simplyconvert [SECURITY]
+    Reason: Security Issue — closed 2025-12-09
+    Sites running it: 0
+```
+
+Sorted by install count first, so whatever is actually on the fleet appears at the top. Reports only what has already been resolved — run `wporg:reclassify` first if statuses are still `unknown`.
+
+---
+
 ### `wporg:sync-core [--json]`
 
 Refresh the WordPress core version from wordpress.org now. Updates the `wordpress.current_version` and `wordpress.safe_versions` settings, which the sync owns — do not set them by hand.
@@ -660,7 +725,7 @@ The changelog is read from the stored release if VULNZ already has one. Otherwis
 Classify watchlist releases that have no verdict yet — the same work the hourly cron does, run on demand. Useful straight after enabling `LLM_ENABLED`, to populate the manifest without waiting for the next scheduled pass.
 
 ```bash
-node bin/vulnz.js wporg:sync-high        # capture current changelogs first
+node bin/vulnz.js wporg:sync-high # capture current changelogs first
 node bin/vulnz.js llm:classify-pending
 ```
 

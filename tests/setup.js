@@ -304,6 +304,41 @@ async function initializeSchema(db) {
   await db.run(`INSERT OR IGNORE INTO malware_sources (slug, title) VALUES ('manual', 'Flagged by hand via the CLI')`);
   await db.run(`INSERT OR IGNORE INTO malware_sources (slug, title) VALUES ('feed', 'Flagged by an ingest feed')`);
 
+  // Create wporg_statuses / wporg_closure_reasons lookup tables (M17.7)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS wporg_statuses (
+      slug TEXT NOT NULL PRIMARY KEY,
+      title TEXT NOT NULL
+    )
+  `);
+  for (const [statusSlug, statusTitle] of [
+    ['unknown', 'Not yet determined'],
+    ['available', 'Published on wordpress.org'],
+    ['closed', 'Was published on wordpress.org, since withdrawn'],
+    ['absent', 'Never published on wordpress.org'],
+  ]) {
+    await db.run('INSERT OR IGNORE INTO wporg_statuses (slug, title) VALUES (?, ?)', [statusSlug, statusTitle]);
+  }
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS wporg_closure_reasons (
+      slug TEXT NOT NULL PRIMARY KEY,
+      title TEXT NOT NULL,
+      is_security_concern INTEGER
+    )
+  `);
+  for (const [reasonSlug, reasonTitle, isSecurityConcern] of [
+    ['security-issue', 'Security Issue', 1],
+    ['guideline-violation', 'Guideline Violation', 0],
+    ['licensing-trademark-violation', 'Licensing or Trademark Violation', 0],
+    ['author-request', 'Author Request', 0],
+    ['merged-into-core', 'Merged Into WordPress Core', 0],
+    ['unused', 'Unused', 0],
+    ['unknown', 'Unknown', null],
+  ]) {
+    await db.run('INSERT OR IGNORE INTO wporg_closure_reasons (slug, title, is_security_concern) VALUES (?, ?, ?)', [reasonSlug, reasonTitle, isSecurityConcern]);
+  }
+
   // Create components table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS components (
@@ -323,6 +358,9 @@ async function initializeSchema(db) {
       latest_version TEXT,
       latest_version_at DATETIME,
       wporg_available INTEGER,
+      wporg_status_slug TEXT NOT NULL DEFAULT 'unknown',
+      wporg_closure_reason_slug TEXT,
+      wporg_closed_at DATE,
       is_malware INTEGER NOT NULL DEFAULT 0,
       malware_summary TEXT,
       malware_url TEXT,
@@ -331,7 +369,9 @@ async function initializeSchema(db) {
       UNIQUE(slug, component_type_slug),
       FOREIGN KEY (component_type_slug) REFERENCES component_types(slug),
       FOREIGN KEY (sync_priority_slug) REFERENCES sync_priorities(slug),
-      FOREIGN KEY (malware_source_slug) REFERENCES malware_sources(slug)
+      FOREIGN KEY (malware_source_slug) REFERENCES malware_sources(slug),
+      FOREIGN KEY (wporg_status_slug) REFERENCES wporg_statuses(slug),
+      FOREIGN KEY (wporg_closure_reason_slug) REFERENCES wporg_closure_reasons(slug)
     )
   `);
 

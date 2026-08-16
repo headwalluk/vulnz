@@ -1,7 +1,7 @@
 # VULNZ API — Project Tracker
 
 **Lead:** Paul Faulkner <paul@headwall-hosting.com>
-**Last updated:** 2026-08-13 (end of the malware session — v1.34.0 → v1.37.0)
+**Last updated:** 2026-08-16 (M17 agent query access — v1.38.0)
 
 ## Current Status
 
@@ -19,7 +19,9 @@ Two fake plugins found on the hosting fleet are flagged on prod and dev: `easypo
 
 **In flight elsewhere (2026-08-13):** browser JS for the `vulnz.net/search/` page and WordPress-side work, both in other repos. They consume `is_malware` / `malware_summary` / `malware_url` from the search endpoint. Anything the API needs to hand them that it does not yet may land as small follow-ups.
 
-**Priority order:** M16 (customer alerts) → M11 (MariaDB test DB) → M7 (env cleanup) → M8 (legacy columns).
+**Also in flight: M17 — agent query access.** v1.38.0 shipped the read side (component filter, ranked sort, audit logging on the website routes); v1.39.0 added wordpress.org closure tracking, which came out of M17 but is a security feature in its own right. The access model is deliberately unfinished — see M17 below.
+
+**Priority order:** M16 (customer alerts) → M17.4/M17.6 (agent access model) → M11 (MariaDB test DB) → M7 (env cleanup) → M8 (legacy columns). M17.7 (closed wordpress.org plugins) shipped in v1.39.0; its fleet-level follow-up became M17.8 and is agent-driven rather than an API feature.
 
 Tech debt and small rough edges live in [`13-snag-list.md`](13-snag-list.md), not here.
 
@@ -75,6 +77,53 @@ Goal: a known-malware detection on a customer's site is reported as an emergency
 - Administrators get a report covering **all** websites; everyone else only their own. The same `isAdministrator ? null : userId` pattern runs through every query in `sendSummaryEmail()`.
 - The M15 alert (`src/lib/malwareAlert.js`, `src/emails/malware-alert.hbs`) is the thing being extended, not a separate reference: its detection, dedup and failure handling all stay, and what changes is who receives it and how the customer-facing copy reads. `checkWebsiteForMalware()` already has the website row in hand, so the owner lookup is a single `user.findUserById(website.user_id)` — it is already doing exactly that call for the owner's name.
 - Full background on the malware feature: [`15-known-malware.md`](15-known-malware.md).
+
+---
+
+## M17 — Agent Query Access
+
+**Status:** read surface shipped in v1.38.0; access model still open
+
+Paul wants to point an AI agent at the API and ask it questions in natural language — "which sites run `foobar` 1.2.3", "which sites are worst affected", "rewrite this component's description". The agent authenticates with an ordinary API key, so this milestone is about what that key can see and do, not about the agent itself.
+
+**This is not the MCP server.** [`11-mcp-server-requirements.md`](11-mcp-server-requirements.md) describes a packaged, distributable MCP server for external agents, and depends on the three-table vulnerability refactor that has not happened. M17 is the thin near-term slice: one operator, one key, the REST API as it stands. Where the two overlap it is noted below, because M17's endpoints are the ones the MCP server's authenticated tools would eventually wrap.
+
+### The access question, and why it is not settled
+
+Cross-account visibility already works: `GET /api/websites` drops the owner filter for administrators (`src/routes/websites.js`), and `canAccessWebsite` lets an administrator through for any domain. So an administrator API key answers the read questions today, with no code change.
+
+The problem is that administrator is the only role above `user` — `src/models/role.js` defines exactly two — and API keys carry no scopes of their own (`api_keys` is key plus `user_id`). So the same key that lets an agent count vulnerabilities also lets it delete users, delete any website, and delete components. There is no read-only tier to hand it.
+
+**Decision (2026-08-16, Paul):** proceed with a plain administrator account for now, but add the audit trail first, so that everything the agent does is recoverable after the fact. The narrower role is deferred, not rejected.
+
+### Tasks
+
+- [x] **M17.1** — Audit logging on the website routes. `src/routes/websites.js` was the only authenticated router with no `logApiCall` at all, so an agent's reads and writes against customer sites left no trace. All ten routes now log, including refusals — a rejected cross-account read is exactly the event worth having
+- [x] **M17.2** — Component filter on `GET /api/websites` (`component_slug`, `component_type`, `component_version`). This is `find_cross_site_component` from the MCP doc §2, minus the MCP wrapper
+- [x] **M17.3** — Rank by `vulnerability_count` / `malware_count` in SQL. Both counts were derived in JavaScript after pagination, so `GET /api/websites` could annotate a page but not order one — "the ten most vulnerable sites" silently returned the ten newest
+- [ ] **M17.4** — Decide the longer-term access model. Options, roughly in order of effort: a `read_only` flag on `api_keys` checked by a middleware that rejects non-GET; a third role between `user` and `administrator`; per-key scopes. The first is cheap and covers the actual risk (an agent deleting something), the last is the only one that survives a second agent with different needs
+- [x] **M17.5** — Manual component metadata for components that cannot be synced. **No code needed — verified working 2026-08-16.** `PUT /api/components/:id` accepts `title`/`description`/`url` behind `hasRole('administrator')`, and a hand-written value on an off-wporg component is _not_ at risk from the sync: `syncPluginComponent()` returns at the 404 branch via `markSynced(id, false)` and never reaches the title/description/url writes. Confirmed three ways — the code path, the data (all 1,595 `wporg_available = 0` plugin components have empty `description` **and** empty `url`, so the sync has demonstrably never written to them), and a live `PUT` against dev. The overwrite risk applies only to components wordpress.org actually serves, which by definition are not the ones being curated by hand. **Note this crosses a documented non-goal:** MCP doc §7 lists write access from agents as out of scope for the first pass. That was written about the public MCP surface rather than the operator's own key, but it should be an explicit decision rather than a drift
+- [x] **M17.7** — **DONE in v1.39.0.** `wporg_available = 0` conflated two very different states, and the more interesting one was being thrown away. wordpress.org answers `HTTP 404` for both, but with different bodies: `{"error":"Plugin not found."}` for a slug it has never heard of, and `{"error":"closed", "name": …, "description": …, …}` for a plugin that **was** in the directory and has since been pulled. `syncPluginComponent()` branched on the status code alone, so both collapsed to `wporg_available = 0` and the closed body was discarded unread. A sample of 40 on dev came back 29 `security-issue`, 5 other closures and 6 genuine not-founds — so the great majority of those 1,595 were never premium plugins at all. After the first reclassify runs on dev: 101 closed, of which **69 are `security-issue`**.
+  - **A closed plugin is a security signal we already have and do not record.** Plugins are commonly pulled from the directory _because_ of an unpatched vulnerability or a guideline breach, and a site running one is running something the directory withdrew. This is exactly the `maintenance_status: closed` field the MCP doc §3.2 lists as required and currently unavailable — the data is already arriving on every sync
+  - **The closed body carries the real `name`**, so a component still titled with its slug can be given its genuine title automatically. (An earlier note here also claimed the `description` was worth backfilling — it is not; see below.)
+  - **Shipped:** `wporg_statuses` and `wporg_closure_reasons` lookup tables, `components.wporg_status_slug` / `wporg_closure_reason_slug` / `wporg_closed_at`, the status on the component read paths, `vulnz wporg:reclassify` and `vulnz wporg:closed`, and a closure note on `component:malware:add`. `wporg_available` is kept and still written — `src/lib/watchlist.js` reads it — but is superseded
+  - **The closure `description` is deliberately not stored.** It is the directory's closure notice ("This plugin has been closed as of ..."), not a description of the plugin, so writing it would fill `components.description` with boilerplate — and overwrite curated copy on exactly the off-directory components M17.5 exists to let Paul curate. Only the real `name` is adopted, and only when the title is still just the slug
+  - **Fleet-level reporting is not being built as an API feature.** `vulnz wporg:closed` counts affected sites, but there is no route for "which of my websites run a plugin wordpress.org pulled for a security issue" and the weekly report says nothing about it. **Decision (2026-08-16, Paul):** that gap is filled by the AI agent rather than by a new endpoint and a new report block — the agent pulls JSON extractions from the API and cross-references sources outside VULNZ to produce a more holistic report than the API could assemble on its own. See M17.8
+- [ ] **M17.8** — **Data extraction for the agent, not reports from the API.** Paul's direction as of 2026-08-16: rather than the API growing a fleet-risk endpoint and a matching email template, the agent pulls clean JSON out of the API and joins it against sources VULNZ does not hold. This reframes what the API owes the agent — **complete, composable, machine-readable extractions**, not finished answers:
+  - Prefer widening existing endpoints with filters over adding purpose-built report routes. `GET /api/websites?component_slug=&sort=` (M17.2/M17.3) is the pattern; a `wporg_status` filter on the same endpoint would answer the closed-plugin question without a new route
+  - Every field the agent reasons over must be in the JSON, not implied by prose. `wporg_closure_reason` is in; `is_security_concern` is currently only in the lookup table and the CLI, so the agent has to hardcode `security-issue` to know a closure matters — expose it
+  - Response shapes must stay stable and self-describing. An agent cannot notice a silently renamed field the way a human reading a diff can
+  - Watch the token cost: `GET /api/websites` returns every plugin and theme per site, so a fleet-wide pull is large. A `fields=` or summary mode may be worth more than any new endpoint
+- [ ] **M17.6** — Cap `limit` on `GET /api/websites`. There is no maximum, and the route runs three queries per returned website (owner lookup, plugins, themes), so an agent asking for `limit=10000` issues ~30,000 queries against prod. Not a new bug, but an agent is far more likely to trigger it than a human. The N+1 itself is the better fix if it is cheap
+
+### Context for picking this up cold
+
+- **Dev cannot demonstrate any of this.** As of 2026-08-16 the dev database has 212 websites and a full component catalogue (12,976 components, 27,619 releases) but **zero rows in `website_components` and zero in `vulnerabilities`**. Every site is unlinked and nothing is vulnerable, so the component filter returns nothing and every ranking is a flat zero. The SQL was verified against MariaDB directly for syntax and plan; correctness of the results can only be judged on prod, or after seeding dev
+- Both counts cover WordPress plugins and themes only, matching `getWebsiteComponents()` in the route. `COUNTED_COMPONENT_TYPES` in `src/models/website.js` is the single place that decides this — widening it to npm would need the route's own JS counts widened in the same commit, or the sort order stops matching the numbers displayed next to it
+- The count subqueries are correlated and run for every matching website before the `LIMIT`, because the sort depends on them. Indexing carries it: `website_components` is keyed on `(website_id, release_id)` and `vulnerabilities` on `(release_id, url)`
+- Tests are in `tests/api/websites-agent-queries.test.js`, against the real models rather than mocks — the whole change is SQL, so a mocked model would test nothing
+- The v1.38.0 endpoints were smoke-tested against dev on 2026-08-16 with the agent's own key: filter, both sorts, the 400 on an unknown sort, and the audit rows all behave. Because dev has no linked components the results are all zero, so this proves the queries run against MariaDB, not that they return the right sites
+- `api_call_logs.route` is `VARCHAR(255)` and now receives the full query string. `sql_mode` on dev is `NO_ENGINE_SUBSTITUTION` — no `STRICT_TRANS_TABLES` — so a longer URL truncates silently rather than erroring. Not urgent, but an agent builds longer query strings than a human does
 
 ---
 

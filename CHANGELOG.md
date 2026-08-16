@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.39.0 - 2026-08-16
+
+### Features
+
+- **A plugin withdrawn from wordpress.org is now recorded as such, and is a security signal (M17.7).** The directory answers HTTP 404 both for a slug it has never listed and for a plugin it has **pulled**, and only the response body separates them — `{"error":"Plugin not found."}` against `{"error":"closed", "closed_date":…, "reason":…}`. The sync branched on the status code alone, so both collapsed into `wporg_available = 0` and the closure body was discarded unread. Plugins are frequently pulled _because_ of an unpatched vulnerability, so this was a first-class signal being thrown away on every sync. Sampling 40 affected components on dev returned **29 closed for `security-issue`**, 5 closed for other reasons, and only 6 genuine never-listed — the discarded case was the common one, not an edge case.
+- **New `wporg_statuses` and `wporg_closure_reasons` lookup tables**, and `components.wporg_status_slug` / `wporg_closure_reason_slug` / `wporg_closed_at`. Status is one of `unknown`, `available`, `closed`, `absent`. `wporg_closure_reasons.is_security_concern` lets a consumer act on the security distinction without hardcoding wordpress.org's reason slugs; it is **nullable**, and `NULL` means nobody has classified that reason yet rather than that it is harmless. A reason the sync has never seen is inserted automatically with a `NULL` flag and a warning, so it is recorded verbatim instead of lost — and never silently asserted to be safe.
+- **`wporg_status`, `wporg_closure_reason` and `wporg_closed_at` on the component read paths.** Reported separately from `is_malware`, for the same reason those signals are separate: "wordpress.org withdrew this" and "we believe this is malicious" are different statements, and a caller should be able to act on either without inferring it from the other.
+- **`vulnz wporg:reclassify [--limit n]`** — resolves components still marked `unknown`, and reports any security closures it finds. Existing rows cannot be resolved by migration (the reason was never recorded), so they start as `unknown` rather than being guessed at; the background rotation would reach them eventually, but at `WPORG_UPDATE_BATCH_SIZE` per run that is weeks away.
+- **`vulnz wporg:closed [--security-only] [--json]`** — every withdrawn component and how many monitored sites still run it, install count first so whatever is actually on the fleet is at the top.
+- **`component:malware:add` now reports a withdrawn plugin** rather than staying silent. It does not block the flag — an unpublished plugin cannot be the fleet-wide false positive the guard exists to prevent — but "closed for a security issue" is corroboration worth seeing before committing a verdict.
+
+### Bug Fixes
+
+- **A withdrawn plugin's real name is adopted when the component is still titled with its slug**, so `portable-phpmyadmin` reads back as "Portable phpMyAdmin". Never over a title someone has curated, and the closure body's `description` is ignored entirely — it is the directory's closure notice ("This plugin has been closed as of …"), not a description of the plugin, so storing it would replace curated copy with boilerplate on exactly the components most likely to have been curated by hand.
+- **Date-only columns no longer serialise as full timestamps.** `wporg_closed_at` reached the API as `2024-05-17T00:00:00.000Z` and the CLI as `Thu Feb 05 2026 00:00:00 GMT+0000 (Coordinated Universal Time)`, both asserting a time of day and a timezone a `DATE` column does not have. New `src/lib/dates.js` renders them as `YYYY-MM-DD`.
+- **The Swagger schema for `is_malware` still documented the `has_vulnerabilities` coupling removed in v1.36.0.** Corrected — the two have been independent since that release.
+
+### Upgrading
+
+The migration is additive and runs on startup. `wporg_available` is unchanged and still maintained, so nothing reading it breaks; it is superseded by `wporg_status_slug` and should not be used in new code.
+
+Every existing component starts at `wporg_status_slug = 'unknown'` except those confirmed present, which become `available`. A previously stored `0` cannot be resolved without asking wordpress.org again, so **run `vulnz wporg:reclassify` after deploying** to populate the closure data — otherwise it fills in only as the background rotation happens to reach each component.
+
+---
+
 ## 1.38.0 - 2026-08-16
 
 ### Features
