@@ -22,7 +22,21 @@ async function seedData() {
   }
 }
 
+/**
+ * Every registered component type, ordered by slug for a stable listing.
+ *
+ * The seed above is WordPress-only, but the table is the authority — npm and
+ * anything else added later arrive by migration. Callers validating a
+ * caller-supplied type must read this rather than hardcode a list, or a new
+ * ecosystem silently becomes unfilterable.
+ */
+async function findAll() {
+  const rows = await db.query('SELECT slug, title FROM component_types ORDER BY slug');
+  return Array.isArray(rows) ? rows : [];
+}
+
 module.exports = {
   createTable,
   seedData,
+  findAll,
 };

@@ -84,6 +84,17 @@ function normalizeEnv() {
   }
   process.env.LIST_PAGE_SIZE = String(lps);
 
+  // API_MAX_PAGE_SIZE normalization: integer >= 1, default 200.
+  // Upper bound on ?limit= for list endpoints. Not a database concern —
+  // response payload is what grows, and an agent pulling the whole fleet
+  // costs far more in tokens than in query time.
+  const maxPage = parseIntEnv('API_MAX_PAGE_SIZE', { min: 1, default: 200 });
+  const rawMaxPage = process.env.API_MAX_PAGE_SIZE;
+  if (rawMaxPage != null && String(maxPage) !== String(rawMaxPage)) {
+    console.warn('Invalid API_MAX_PAGE_SIZE; defaulting to 200 (min 1).');
+  }
+  process.env.API_MAX_PAGE_SIZE = String(maxPage);
+
   // LOG_LEVEL normalization: enum 'debug'|'info'|'warn'|'error', default 'info'
   const allowedLevels = ['debug', 'info', 'warn', 'error'];
   const rawLevel = (process.env.LOG_LEVEL || '').toLowerCase();

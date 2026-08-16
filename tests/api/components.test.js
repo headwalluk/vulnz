@@ -259,6 +259,121 @@ describe('Components API', () => {
     });
   });
 
+  describe('GET /api/components — wordpress.org filters (M17.7)', () => {
+    let closedId;
+
+    beforeAll(async () => {
+      const closed = await db.query(
+        `INSERT INTO components (title, slug, component_type_slug, wporg_status_slug, wporg_closure_reason_slug, wporg_closed_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        ['Withdrawn Thing', 'withdrawn-thing', 'wordpress-plugin', 'closed', 'security-issue', '2026-05-04']
+      );
+      closedId = closed.insertId;
+
+      await db.query(
+        `INSERT INTO components (title, slug, component_type_slug, wporg_status_slug, wporg_closure_reason_slug)
+         VALUES (?, ?, ?, ?, ?)`,
+        ['Author Pulled It', 'author-pulled', 'wordpress-plugin', 'closed', 'author-request']
+      );
+      await db.query(
+        `INSERT INTO components (title, slug, component_type_slug, wporg_status_slug, wporg_closure_reason_slug)
+         VALUES (?, ?, ?, ?, ?)`,
+        ['Reason Not Classified', 'unclassified-closure', 'wordpress-plugin', 'closed', 'unknown']
+      );
+      await db.query('INSERT INTO components (title, slug, component_type_slug, wporg_status_slug) VALUES (?, ?, ?, ?)', [
+        'Premium Thing',
+        'premium-thing',
+        'wordpress-plugin',
+        'absent',
+      ]);
+    });
+
+    /**
+     * The point of the filter: enumerate withdrawn components without
+     * already knowing their slugs. Before this, the only route to the
+     * closure data was GET /api/components/{type}/{slug}, which requires
+     * the answer as input.
+     */
+    test('enumerates withdrawn components without needing their slugs', async () => {
+      const response = await request(app).get('/api/components?wporg_status=closed&limit=50').set('X-API-Key', regularApiKey);
+
+      expect(response.status).toBe(200);
+      const slugs = response.body.components.map((component) => component.slug);
+      expect(slugs).toEqual(expect.arrayContaining(['withdrawn-thing', 'author-pulled', 'unclassified-closure']));
+      expect(slugs).not.toContain('premium-thing');
+    });
+
+    test('separates a withdrawal from a component that was never listed', async () => {
+      const response = await request(app).get('/api/components?wporg_status=absent&limit=50').set('X-API-Key', regularApiKey);
+
+      const slugs = response.body.components.map((component) => component.slug);
+      expect(slugs).toContain('premium-thing');
+      expect(slugs).not.toContain('withdrawn-thing');
+    });
+
+    test('filters by closure reason', async () => {
+      const response = await request(app).get('/api/components?wporg_status=closed&wporg_closure_reason=security-issue&limit=50').set('X-API-Key', regularApiKey);
+
+      const slugs = response.body.components.map((component) => component.slug);
+      expect(slugs).toContain('withdrawn-thing');
+      expect(slugs).not.toContain('author-pulled');
+    });
+
+    test('reports the security classification, with null for an unclassified reason', async () => {
+      const response = await request(app).get('/api/components?wporg_status=closed&limit=50').set('X-API-Key', regularApiKey);
+
+      const byslug = Object.fromEntries(response.body.components.map((component) => [component.slug, component]));
+      expect(byslug['withdrawn-thing'].wporg_closure_is_security_concern).toBe(true);
+      expect(byslug['author-pulled'].wporg_closure_is_security_concern).toBe(false);
+      // Not false — nobody has classified this reason. A consumer must be
+      // able to tell "assessed as harmless" from "not assessed".
+      expect(byslug['unclassified-closure'].wporg_closure_is_security_concern).toBeNull();
+    });
+
+    test('reports wporg_status under the same name the single-component route uses', async () => {
+      const list = await request(app).get('/api/components?wporg_status=closed&limit=50').set('X-API-Key', regularApiKey);
+      const single = await request(app).get(`/api/components/${closedId}`).set('X-API-Key', regularApiKey);
+
+      const fromList = list.body.components.find((component) => component.slug === 'withdrawn-thing');
+      expect(fromList.wporg_status).toBe('closed');
+      expect(single.body.wporg_status).toBe('closed');
+      // The list route used to return the raw column instead.
+      expect(fromList).not.toHaveProperty('wporg_status_slug');
+      expect(fromList.wporg_closed_at).toBe('2026-05-04');
+    });
+
+    test('rejects an unknown wporg_status', async () => {
+      const response = await request(app).get('/api/components?wporg_status=withdrawn').set('X-API-Key', regularApiKey);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Unknown wporg_status');
+    });
+
+    test('rejects an unknown component_type', async () => {
+      const response = await request(app).get('/api/components?component_type=wordpress-plugins').set('X-API-Key', regularApiKey);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Unknown component_type');
+    });
+
+    test('rejects invalid pagination', async () => {
+      const zeroLimit = await request(app).get('/api/components?limit=0').set('X-API-Key', regularApiKey);
+      expect(zeroLimit.status).toBe(400);
+
+      const hugeLimit = await request(app).get('/api/components?limit=99999').set('X-API-Key', regularApiKey);
+      expect(hugeLimit.status).toBe(400);
+      expect(hugeLimit.body.error).toBe('Limit too large');
+    });
+
+    test('total reflects the filter, not the whole catalogue', async () => {
+      const filtered = await request(app).get('/api/components?wporg_status=closed&limit=50').set('X-API-Key', regularApiKey);
+      const unfiltered = await request(app).get('/api/components?limit=50').set('X-API-Key', regularApiKey);
+
+      expect(filtered.body.total).toBe(3);
+      expect(unfiltered.body.total).toBeGreaterThan(filtered.body.total);
+    });
+  });
+
   describe('POST /api/components', () => {
     test('should create a new component as admin', async () => {
       const response = await request(app).post('/api/components').set('X-API-Key', adminApiKey).send({

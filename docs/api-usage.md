@@ -713,8 +713,12 @@ curl "http://localhost:3000/api/websites?page=2&limit=20" \
 
 **Parameters**:
 
-- `page`: Page number (1-indexed)
-- `limit`: Items per page (default: 20, max: 100)
+- `page`: Page number (1-indexed). Must be a positive integer.
+- `limit`: Items per page. Must be a positive integer, and no greater than `API_MAX_PAGE_SIZE` (default **200**). Defaults to **10** on `/api/websites` and to `LIST_PAGE_SIZE` on `/api/components`.
+
+An out-of-range or non-numeric value returns `400` with `error` and `message`, rather than being clamped or falling back to the default. A response that quietly used a different page size than the one requested is indistinguishable from a correct one.
+
+> **Corrected in v1.39.2.** This section previously said "default: 20, max: 100". Both were wrong — the default was 10 and there was no maximum at all.
 
 **Response**:
 

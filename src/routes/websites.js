@@ -5,6 +5,8 @@ const User = require('../models/user');
 const Ecosystem = require('../models/ecosystem');
 const { apiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
+const { resolvePagination } = require('../lib/pagination');
+const ComponentType = require('../models/componentType');
 const Component = require('../models/component');
 const Release = require('../models/release');
 const WebsiteComponent = require('../models/websiteComponent');
@@ -15,6 +17,10 @@ const ComponentChange = require('../models/componentChange');
 const WebsiteMalware = require('../models/websiteMalware');
 const { checkWebsiteForMalware } = require('../lib/malwareAlert');
 const { lookupIp } = require('../lib/geoip');
+
+// Preserved from the original inline `|| 10`; callers that send no limit
+// must keep getting the page size they always got.
+const DEFAULT_WEBSITE_PAGE_SIZE = 10;
 
 const getWebsiteComponents = async (website) => {
   const wordpressPlugins = await WebsiteComponent.getPlugins(website.id);
@@ -97,7 +103,11 @@ const tidyWebsite = (website) => {
  *         name: limit
  *         schema:
  *           type: integer
- *         description: The number of websites to retrieve per page.
+ *           default: 10
+ *         description: >
+ *           Websites per page. Capped by API_MAX_PAGE_SIZE (default 200); a
+ *           larger value is rejected with 400 rather than silently clamped.
+ *           Must be a positive integer.
  *       - in: query
  *         name: q
  *         schema:
@@ -120,17 +130,36 @@ const tidyWebsite = (website) => {
  *           lookup for "who is running this plugin". Combine with
  *           component_version to pin it to one release.
  *       - in: query
+ *         name: component_wporg_status
+ *         schema:
+ *           type: string
+ *           enum: [unknown, available, closed, absent]
+ *         description: >
+ *           Only return websites carrying a component with this
+ *           wordpress.org status. `closed` answers "which of my sites run
+ *           anything the directory withdrew" in a single call — a security
+ *           question, since plugins are frequently pulled because of an
+ *           unpatched vulnerability. Usable on its own or alongside
+ *           component_slug.
+ *       - in: query
  *         name: component_type
  *         schema:
  *           type: string
  *           example: wordpress-plugin
- *         description: Narrows component_slug to a single component type. Ignored without component_slug.
+ *         description: >
+ *           Narrows component_slug or component_wporg_status to a single
+ *           component type. Requires one of them, and must be a slug present
+ *           in component_types — an unknown value is rejected with 400 rather
+ *           than returning zero sites, which would read as "nothing affected".
  *       - in: query
  *         name: component_version
  *         schema:
  *           type: string
  *           example: 1.2.3
- *         description: Narrows component_slug to a single release. Ignored without component_slug.
+ *         description: >
+ *           Narrows component_slug to a single release. Requires
+ *           component_slug — a bare version number is meaningless across
+ *           components, so it is rejected with 400 rather than ignored.
  *       - in: query
  *         name: sort
  *         schema:
@@ -160,15 +189,21 @@ const tidyWebsite = (website) => {
  *                 limit:
  *                   type: integer
  *       400:
- *         description: Unknown sort order
+ *         description: >
+ *           Invalid pagination, an unknown sort order or component_type, or a
+ *           component filter modifier supplied without the parameter it
+ *           modifies. The body carries `error` and `message`.
  *       500:
  *         description: Server error
  */
 router.get('/', apiAuth, logApiCall, async (req, res) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
-    const offset = (page - 1) * limit;
+    const pagination = resolvePagination(req.query, DEFAULT_WEBSITE_PAGE_SIZE);
+    if (pagination.error) {
+      return res.status(400).json(pagination.error);
+    }
+    const { page, limit, offset } = pagination;
+
     const search = req.query.q || null;
     const onlyVulnerable = ['true', '1'].includes(req.query.only_vulnerable);
 
@@ -183,10 +218,56 @@ router.get('/', apiAuth, logApiCall, async (req, res) => {
       });
     }
 
+    const componentSlug = req.query.component_slug || null;
+    const componentType = req.query.component_type || null;
+    const componentVersion = req.query.component_version || null;
+    const componentWporgStatus = req.query.component_wporg_status || null;
+
+    // A modifier with nothing to modify used to be dropped on the floor, so
+    // `?component_version=8.5.0` returned the entire fleet and read as
+    // "every site runs 8.5.0" — the precise false-positive shape this
+    // endpoint is meant to avoid, and inconsistent with the sort check above.
+    if (componentVersion && !componentSlug) {
+      return res.status(400).json({
+        error: 'component_version requires component_slug',
+        message: 'A version is only meaningful for a named component. Supply component_slug, or drop component_version.',
+      });
+    }
+
+    if (componentType && !componentSlug && !componentWporgStatus) {
+      return res.status(400).json({
+        error: 'component_type requires component_slug or component_wporg_status',
+        message: 'component_type narrows a component filter; it does not select one on its own.',
+      });
+    }
+
+    // An unknown type would return zero sites — "nothing affected", the
+    // dangerous direction for a security question. Made likelier by the
+    // response field being plural (wordpress-plugins) while the filter value
+    // is singular (wordpress-plugin).
+    if (componentType) {
+      const knownTypes = await ComponentType.findAll();
+      const typeSlugs = knownTypes.map((type) => type.slug);
+      if (!typeSlugs.includes(componentType)) {
+        return res.status(400).json({
+          error: 'Unknown component_type',
+          message: `component_type must be one of: ${typeSlugs.join(', ')}`,
+        });
+      }
+    }
+
+    if (componentWporgStatus && !Website.WPORG_STATUSES.includes(componentWporgStatus)) {
+      return res.status(400).json({
+        error: 'Unknown component_wporg_status',
+        message: `component_wporg_status must be one of: ${Website.WPORG_STATUSES.join(', ')}`,
+      });
+    }
+
     const options = {
-      componentSlug: req.query.component_slug || null,
-      componentType: req.query.component_type || null,
-      componentVersion: req.query.component_version || null,
+      componentSlug,
+      componentType,
+      componentVersion,
+      componentWporgStatus,
       sort,
     };
 
