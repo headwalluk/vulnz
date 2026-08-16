@@ -834,6 +834,18 @@ module.exports = router;
  *             wordpress.org and can grow, so treat an unrecognised value as
  *             valid rather than an error.
  *           example: security-issue
+ *         wporg_closure_is_security_concern:
+ *           type: boolean
+ *           nullable: true
+ *           readOnly: true
+ *           description: >
+ *             Whether the closure reason is a security concern. Tri-state:
+ *             true, false, or **null meaning the reason has not been
+ *             classified** — which is not the same as harmless. Prefer this
+ *             to string-matching wporg_closure_reason, which misses both the
+ *             unclassified reasons and any new one wordpress.org introduces.
+ *             Null also when wporg_status is not `closed`.
+ *           example: true
  *         wporg_closed_at:
  *           type: string
  *           format: date
@@ -851,5 +863,6 @@ module.exports = router;
  *         malware_summary: null
  *         wporg_status: "available"
  *         wporg_closure_reason: null
+ *         wporg_closure_is_security_concern: null
  *         wporg_closed_at: null
  */
