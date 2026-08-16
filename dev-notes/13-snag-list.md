@@ -8,6 +8,14 @@ Each item: a short heading, when/where it was noticed, why it matters, and a pro
 
 ## Open
 
+### `docs/configuration.md` documents only a fraction of the environment
+
+Roughly **40 of the variables in `.env.example` do not appear in `docs/configuration.md` at all** — checked 2026-08-16 by diffing the two. Among them: every `WPORG_*` sync setting, every `PASSWORD_MIN_*` rule, all the `*_RETENTION_DAYS` values, `CRON_ENABLE`, `LOG_LEVEL`, `GEOIP_DATABASE_PATH`, `MAX_API_KEYS_PER_USER` and `VULNZ_NOTIFY_SECRET`.
+
+`.env.example` carries a one-line comment for most of them, so the information is not lost — but the document that presents itself as the configuration reference silently covers a subset, which is worse than obviously covering none. Anyone tuning the wordpress.org sync or the password policy from the docs will conclude the settings do not exist.
+
+Not urgent, but it grows with every feature: `API_MAX_PAGE_SIZE` and `LIST_PAGE_SIZE` were added in v1.39.2 only because that release happened to touch pagination. A generated table from `.env.example`, or a test asserting parity, would stop the drift recurring.
+
 ### Deprecate `data/reference.json` startup overwrite
 
 **Noticed:** 2026-07-23 (during M12, v1.32.0)
