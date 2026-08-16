@@ -6,6 +6,12 @@ const { logApiCall } = require('../middleware/logApiCall');
 const { isUrl, sanitizeVersion, sanitizeSearchQuery, sanitizeComponentSlug } = require('../lib/sanitizer');
 const { unauthenticatedSearchLimiter } = require('../middleware/rateLimit');
 const { formatDateOnly } = require('../lib/dates');
+const { resolvePagination } = require('../lib/pagination');
+const { parseIntEnv } = require('../lib/env');
+const ComponentType = require('../models/componentType');
+// WPORG_STATUSES mirrors the wporg_statuses lookup; it lives on the website
+// model because that is where the matching website filter is validated.
+const Website = require('../models/website');
 // Named componentModel rather than component: several handlers below declare
 // a local `component` for the row they are working on.
 const componentModel = require('../models/component');
@@ -16,6 +22,25 @@ function sanitiseComponentSlugMiddleware(req, res, next) {
   }
   next();
 }
+
+/**
+ * Every component read path selects through this, so a component has the
+ * same shape wherever it is returned.
+ *
+ * The join exists for `is_security_concern`, which lives on the closure
+ * lookup rather than on the component. Without it a consumer has to hardcode
+ * `security-issue` to know a closure matters, which silently misses every
+ * other security reason wordpress.org may add — and misses the unclassified
+ * ones entirely.
+ */
+const COMPONENT_SELECT = `
+  SELECT c.*, wcr.is_security_concern AS wporg_closure_is_security_concern
+  FROM components c
+  LEFT JOIN wporg_closure_reasons wcr ON c.wporg_closure_reason_slug = wcr.slug
+`;
+
+/** Tri-state: true, false, or null for "nobody has classified this reason". */
+const closureSecurityConcern = (raw) => (raw === null || raw === undefined ? null : !!raw);
 
 /**
  * Shape a component row and its releases for the API.
@@ -29,8 +54,13 @@ function sanitiseComponentSlugMiddleware(req, res, next) {
  * @param {object[]} releases release rows, each with has_vulnerabilities
  */
 function buildComponentResponse(componentRow, releases) {
+  // Dropped from the spread because they are re-exposed below under their
+  // public names. Leaving both meant the same value arrived twice under two
+  // spellings, and a consumer had no way to know which was canonical.
+  const { wporg_status_slug, wporg_closure_reason_slug, ...rest } = componentRow;
+
   return {
-    ...componentRow,
+    ...rest,
     id: parseInt(componentRow.id, 10),
     synced_from_wporg: !!componentRow.synced_from_wporg,
     is_malware: !!componentRow.is_malware,
@@ -40,8 +70,11 @@ function buildComponentResponse(componentRow, releases) {
     // malware signals are separate: "wordpress.org withdrew this" is a
     // different statement from "we believe this is malicious", and a caller
     // should be able to act on either without inferring it from the other.
-    wporg_status: componentRow.wporg_status_slug || null,
-    wporg_closure_reason: componentRow.wporg_closure_reason_slug || null,
+    wporg_status: wporg_status_slug || null,
+    wporg_closure_reason: wporg_closure_reason_slug || null,
+    // null means the reason exists but nobody has classified it — not that
+    // the closure is harmless. Consumers must treat null as "unassessed".
+    wporg_closure_is_security_concern: closureSecurityConcern(componentRow.wporg_closure_is_security_concern),
     // A closure date has no time of day. Left as the driver's Date object it
     // would serialise to a full ISO timestamp and assert one.
     wporg_closed_at: formatDateOnly(componentRow.wporg_closed_at),
@@ -183,18 +216,57 @@ router.get('/search', optionalApiAuth, unauthenticatedSearchLimiter, logApiCall,
  * /api/components:
  *   get:
  *     summary: Retrieve a list of components
+ *     description: >
+ *       Paginated catalogue listing, filterable by wordpress.org status.
+ *       The catalogue runs to tens of thousands of rows, so the filters are
+ *       what make it usable — in particular `wporg_status=closed`, which
+ *       enumerates every component the directory has withdrawn without
+ *       needing to know its slug in advance.
  *     tags: [Components]
  *     parameters:
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
- *         description: The page number to retrieve.
+ *           default: 1
+ *         description: The page number to retrieve. Must be a positive integer.
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
- *         description: The number of components to retrieve per page.
+ *         description: >
+ *           Components per page, defaulting to LIST_PAGE_SIZE. Capped by
+ *           API_MAX_PAGE_SIZE (default 200); a larger value is rejected with
+ *           400 rather than silently clamped.
+ *       - in: query
+ *         name: wporg_status
+ *         schema:
+ *           type: string
+ *           enum: [unknown, available, closed, absent]
+ *         description: >
+ *           Filter by wordpress.org directory status. `closed` means the
+ *           component was published and has since been withdrawn — often
+ *           because of an unpatched vulnerability, and frequently with no CVE
+ *           anywhere, so it appears in no other part of this API.
+ *       - in: query
+ *         name: wporg_closure_reason
+ *         schema:
+ *           type: string
+ *           example: security-issue
+ *         description: >
+ *           Filter by wordpress.org's own closure reason slug. Pair with
+ *           wporg_status=closed. Note that filtering on `security-issue`
+ *           alone will miss closures whose reason has not been classified —
+ *           read wporg_closure_is_security_concern on the results, where null
+ *           means unassessed rather than harmless.
+ *       - in: query
+ *         name: component_type
+ *         schema:
+ *           type: string
+ *           example: wordpress-plugin
+ *         description: >
+ *           Filter by component type slug. An unknown value is rejected with
+ *           400 rather than returning an empty list.
  *     responses:
  *       200:
  *         description: A paginated list of components.
@@ -215,6 +287,8 @@ router.get('/search', optionalApiAuth, unauthenticatedSearchLimiter, logApiCall,
  *                   type: integer
  *                 totalPages:
  *                   type: integer
+ *       400:
+ *         description: Invalid pagination, or an unknown wporg_status or component_type. The body carries `error` and `message`.
  *       401:
  *         description: Unauthorized
  *       500:
@@ -222,17 +296,63 @@ router.get('/search', optionalApiAuth, unauthenticatedSearchLimiter, logApiCall,
  */
 router.get('/', apiAuth, logApiCall, async (req, res) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || parseInt(process.env.LIST_PAGE_SIZE, 10);
-    const offset = (page - 1) * limit;
+    const pagination = resolvePagination(req.query, parseIntEnv('LIST_PAGE_SIZE', { min: 1, default: 10 }));
+    if (pagination.error) {
+      return res.status(400).json(pagination.error);
+    }
+    const { page, limit, offset } = pagination;
 
-    const components = await db.query('SELECT * FROM components LIMIT ? OFFSET ?', [limit, offset]);
-    const [{ total }] = await db.query('SELECT COUNT(*) as total FROM components');
+    const filters = [];
+    const params = [];
+
+    // The catalogue is ~36,000 rows, so an unfiltered walk is not a viable
+    // way to find anything. Enumerating withdrawn plugins is the case that
+    // matters: the closure data is only actionable if you can ask which
+    // components carry it without already knowing their slugs.
+    const wporgStatus = req.query.wporg_status || null;
+    if (wporgStatus) {
+      if (!Website.WPORG_STATUSES.includes(wporgStatus)) {
+        return res.status(400).json({
+          error: 'Unknown wporg_status',
+          message: `wporg_status must be one of: ${Website.WPORG_STATUSES.join(', ')}`,
+        });
+      }
+      filters.push('c.wporg_status_slug = ?');
+      params.push(wporgStatus);
+    }
+
+    const closureReason = req.query.wporg_closure_reason || null;
+    if (closureReason) {
+      filters.push('c.wporg_closure_reason_slug = ?');
+      params.push(closureReason);
+    }
+
+    const componentType = req.query.component_type || null;
+    if (componentType) {
+      const knownTypes = await ComponentType.findAll();
+      const typeSlugs = knownTypes.map((type) => type.slug);
+      if (!typeSlugs.includes(componentType)) {
+        return res.status(400).json({
+          error: 'Unknown component_type',
+          message: `component_type must be one of: ${typeSlugs.join(', ')}`,
+        });
+      }
+      filters.push('c.component_type_slug = ?');
+      params.push(componentType);
+    }
+
+    const where = filters.length > 0 ? ` WHERE ${filters.join(' AND ')}` : '';
+
+    const components = await db.query(`${COMPONENT_SELECT}${where} ORDER BY c.id LIMIT ? OFFSET ?`, [...params, limit, offset]);
+    const [{ total }] = await db.query(`SELECT COUNT(*) as total FROM components c${where}`, params);
 
     const totalPages = Math.ceil(Number(total) / limit);
 
     res.json({
-      components: components.map((c) => ({ ...c, id: parseInt(c.id, 10) })),
+      // Shaped identically to the single-component routes. This previously
+      // returned raw rows, so the same field arrived as wporg_status_slug
+      // here and wporg_status there.
+      components: components.map((component) => buildComponentResponse(component, [])),
       total: parseInt(total, 10),
       page,
       limit,
@@ -346,10 +466,10 @@ router.post('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, 
       return res.status(404).send('Component type not found');
     }
 
-    let component = await db.query('SELECT * FROM components WHERE component_type_slug = ? AND slug = ?', [componentTypeSlug, componentSlug]);
+    let component = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
     if (component.length === 0) {
       await db.query('INSERT INTO components (slug, component_type_slug, title, description) VALUES (?, ?, ?, ?)', [componentSlug, componentTypeSlug, componentSlug, '']);
-      component = await db.query('SELECT * FROM components WHERE component_type_slug = ? AND slug = ?', [componentTypeSlug, componentSlug]);
+      component = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
     }
 
     let release = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [component[0].id, version]);
@@ -433,10 +553,10 @@ router.get('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, s
       return res.status(404).send('Component type not found');
     }
 
-    let component = await db.query('SELECT * FROM components WHERE component_type_slug = ? AND slug = ?', [componentTypeSlug, componentSlug]);
+    let component = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
     if (component.length === 0) {
       await db.query('INSERT INTO components (slug, component_type_slug, title, description) VALUES (?, ?, ?, ?)', [componentSlug, componentTypeSlug, componentSlug, '']);
-      component = await db.query('SELECT * FROM components WHERE component_type_slug = ? AND slug = ?', [componentTypeSlug, componentSlug]);
+      component = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
     }
     let release = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [component[0].id, version]);
     if (release.length === 0) {
@@ -498,10 +618,10 @@ router.get('/:componentTypeSlug/:componentSlug', apiAuth, logApiCall, sanitiseCo
       return res.status(404).send('Component type not found');
     }
 
-    let component = await db.query('SELECT * FROM components WHERE component_type_slug = ? AND slug = ?', [componentTypeSlug, componentSlug]);
+    let component = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
     if (component.length === 0) {
       await db.query('INSERT INTO components (slug, component_type_slug, title, description) VALUES (?, ?, ?, ?)', [componentSlug, componentTypeSlug, componentSlug, '']);
-      component = await db.query('SELECT * FROM components WHERE component_type_slug = ? AND slug = ?', [componentTypeSlug, componentSlug]);
+      component = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
     }
     const releases = await db.query(
       `
@@ -523,7 +643,7 @@ router.get('/:componentTypeSlug/:componentSlug', apiAuth, logApiCall, sanitiseCo
 router.get('/:id', apiAuth, logApiCall, async (req, res) => {
   try {
     const { id } = req.params;
-    const component = await db.query('SELECT * FROM components WHERE id = ?', [id]);
+    const component = await db.query(`${COMPONENT_SELECT} WHERE c.id = ?`, [id]);
     if (component.length === 0) {
       return res.status(404).send('Component not found');
     }

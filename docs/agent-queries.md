@@ -77,15 +77,26 @@ Returns one entry per affected site with a `malware_components[]` array. An empt
 
 ### Which sites run a plugin wordpress.org has withdrawn?
 
-There is no single call for this yet. Two steps:
+One call:
 
 ```http
-# 1. Check a component's directory status
-GET /api/components/wordpress-plugin/<slug>
-# → wporg_status, wporg_closure_reason, wporg_closed_at
+GET /api/websites?component_wporg_status=closed
+```
 
-# 2. If wporg_status is "closed", find the sites
-GET /api/websites?component_slug=<slug>
+Every site carrying any withdrawn component, without needing to know a single slug in advance. Composes with the rest — `&only_vulnerable=true`, `&sort=vulnerabilities`, `&component_type=wordpress-plugin`.
+
+To enumerate the withdrawn components themselves, rather than the sites:
+
+```http
+GET /api/components?wporg_status=closed&limit=200
+GET /api/components?wporg_status=closed&wporg_closure_reason=security-issue
+```
+
+Each result carries `wporg_closure_reason` and `wporg_closure_is_security_concern`. And for one named component:
+
+```http
+GET /api/components/wordpress-plugin/<slug>
+# → wporg_status, wporg_closure_reason, wporg_closure_is_security_concern, wporg_closed_at
 ```
 
 `wporg_status` is one of:
@@ -98,6 +109,8 @@ GET /api/websites?component_slug=<slug>
 | `unknown`   | Not resolved yet                                    |
 
 **Why this matters.** A plugin is often pulled from the directory _because_ of an unpatched vulnerability. Such a plugin frequently has no CVE and no Wordfence record, so it appears nowhere else in this API — `has_vulnerabilities` will be `false` and the site will look clean. `wporg_closure_reason` carries wordpress.org's own reason: `security-issue`, `guideline-violation`, `author-request`, `licensing-trademark-violation`, and others.
+
+`wporg_closure_is_security_concern` is the classification of that reason, and it is **tri-state**: `true`, `false`, or `null` for a reason nobody has assessed. Filter on this rather than string-matching `security-issue`, which misses both the unclassified reasons and any new one wordpress.org introduces.
 
 There is no fix to recommend for these. The plugin cannot be updated — it must be removed and replaced.
 
@@ -143,7 +156,9 @@ It means nobody has asked wordpress.org yet. Treat it as absence of data, never 
 
 ### An unclassified closure reason is not a safe closure
 
-`wporg_closure_reason` may be a reason VULNZ has not classified. In the lookup table `is_security_concern` is nullable, and `NULL` means _nobody has decided_, not _harmless_. wordpress.org owns this vocabulary and adds to it, so treat an unfamiliar reason as valid and unassessed rather than as an error or an all-clear.
+`wporg_closure_is_security_concern` is tri-state: `true`, `false`, `null`. `null` means _nobody has decided_, not _harmless_. wordpress.org owns this vocabulary and adds to it, so treat an unfamiliar reason as valid and unassessed rather than as an error or an all-clear.
+
+Filtering `?wporg_closure_reason=security-issue` gives you only the confirmed ones. To catch everything that might matter, take all closures and treat `false` as the only cleared state.
 
 The largest install count on the fleet at the time of writing was a plugin closed in 2011 with `reason: unknown` on 29 sites. It would be invisible to a filter that only looked for `security-issue`.
 
@@ -156,6 +171,23 @@ It is the number of installed plugins and themes with at least one recorded vuln
 Each site is roughly 5.9 KB of JSON, because the response embeds every plugin and theme. A whole-fleet pull of ~300 sites is around 1.8 MB — on the order of 450k tokens to answer a question that may need three fields.
 
 Server-side cost is not the issue (`limit=50` returns in ~330 ms). Token cost is. Prefer a filter that narrows server-side over pulling the fleet and filtering locally. There is no `fields=` selector yet.
+
+`limit` is capped at `API_MAX_PAGE_SIZE` (default 200) and a larger value is a `400`, not a silent clamp. Page rather than trying to pull everything at once — and prefer not needing to.
+
+### Filter parameters are validated, not best-effort
+
+A modifier without the parameter it modifies is a `400`, not a silently wider result set:
+
+```
+?component_version=8.5.0                    -> 400  (needs component_slug)
+?component_type=wordpress-plugin            -> 400  (needs an anchor)
+?component_slug=x&component_type=wordpress-plugins -> 400  (no such type)
+?wporg_status=withdrawn                     -> 400  (not a status)
+```
+
+`?component_version=8.5.0` alone used to return the whole fleet, which reads as "every site runs 8.5.0". Watch the singular/plural trap in particular: the response field is `wordpress-plugins`, the filter value is `wordpress-plugin`.
+
+Read `error` and `message` on a 400 — `message` names the valid values.
 
 ### `q` searches the domain only
 

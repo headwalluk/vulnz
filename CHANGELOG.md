@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.39.2 - 2026-08-16
+
+Everything here came from an AI agent's review of [`docs/agent-queries.md`](docs/agent-queries.md) — the first consumer to actually read the M17 surface end to end. Most of it is the same defect repeated: an input the API accepted and quietly ignored.
+
+### Features
+
+- **Withdrawn plugins are now enumerable (M17.7 follow-up).** `GET /api/components?wporg_status=closed` lists every component wordpress.org has withdrawn, without needing to know a slug in advance. Also `wporg_closure_reason` and `component_type` filters. The closure data shipped in v1.39.0 but was only reachable via `GET /api/components/{type}/{slug}` — which requires the answer as input — and the catalogue is ~36,000 rows, so "which components are withdrawn?" was effectively unanswerable.
+- **`GET /api/websites?component_wporg_status=closed`** answers "which of my sites run anything the directory withdrew" in a single call. Composes with `only_vulnerable`, `sort` and `component_type`. Without it, the question needed one request per closed slug.
+- **`wporg_closure_is_security_concern`** on every component read path. Tri-state: `true`, `false`, or `null` where nobody has classified that closure reason. Previously this classification existed only in the lookup table and the CLI, so an API consumer had to hardcode `security-issue` — silently missing both unclassified reasons and any new reason wordpress.org introduces.
+- **`componentType.findAll()`**, so caller-supplied component types are validated against the table rather than a hardcoded list.
+
+### Bug Fixes
+
+- **`component_version` and `component_type` were silently ignored without `component_slug`.** `GET /api/websites?component_version=8.5.0` returned the entire fleet, which reads as "every site runs 8.5.0" — the exact false-positive shape the endpoint is otherwise careful about, and inconsistent with the deliberate `400` on an unknown `sort`. Both now `400`.
+- **`component_type` was unvalidated.** A typo returned `200` with zero sites — "nothing affected", the dangerous direction for a security query, and made likelier by the response field being plural (`wordpress-plugins`) while the filter value is singular (`wordpress-plugin`). Unknown types now `400` and the message lists the valid ones.
+- **`limit` had no upper bound and no validation.** `limit=0` and `limit=abc` silently became the default; `page=-1` reached SQL as a negative `OFFSET`. Both list endpoints now validate, and reject a `limit` above `API_MAX_PAGE_SIZE` rather than clamping — a response that quietly used a different page size than requested is indistinguishable from a correct one. Verified against 30 days of production traffic before setting the bound: no client sends a limit above 50.
+- **`GET /api/components` returned raw database columns** while the single-component routes returned friendly names, so the same value arrived as `wporg_status_slug` in one place and `wporg_status` in another. Both now shape through `buildComponentResponse`, and the redundant `*_slug` spellings are gone from the response.
+- **`src/routes/components.js` read `process.env.LIST_PAGE_SIZE` directly**, against the project's own rule, with no default of its own — safe only because `normalizeEnv()` happens to run first. Now uses `parseIntEnv`.
+- **`docs/api-usage.md` documented pagination as "default: 20, max: 100".** Both wrong: the default was 10 and there was no maximum.
+
+### Configuration
+
+- **`API_MAX_PAGE_SIZE`** (default `200`) — upper bound on `?limit=` for list endpoints.
+
+### Upgrading
+
+The pagination bound is the only behaviour change that can break a caller, and only one sending `limit` above 200, `limit=0`, or a non-positive `page` — none of which appear in 30 days of production logs. Everything else previously returned a wrong answer rather than an error.
+
+---
+
 ## 1.39.1 - 2026-08-16
 
 ### Documentation

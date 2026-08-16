@@ -62,6 +62,14 @@ const MALWARE_COUNT_SQL = `(
     AND c.component_type_slug IN (${COUNTED_TYPE_PLACEHOLDERS})
 )`;
 
+/**
+ * Mirrors the wporg_statuses lookup table. Duplicated as a constant so a
+ * caller-supplied filter value can be validated without a round trip on
+ * every request; the FK on components.wporg_status_slug is the real
+ * authority, and a status added there must be added here too.
+ */
+const WPORG_STATUSES = ['unknown', 'available', 'closed', 'absent'];
+
 const SORT_NEWEST = 'newest';
 const SORT_VULNERABILITIES = 'vulnerabilities';
 const SORT_MALWARE = 'malware';
@@ -83,16 +91,29 @@ const SORT_CLAUSES = {
 const SORTS = Object.keys(SORT_CLAUSES);
 
 /**
- * Restrict a website query to sites carrying a given component.
+ * Restrict a website query to sites carrying a particular kind of component.
+ *
+ * Two things can anchor the filter:
+ *
+ *   - `componentSlug` — a named component ("who runs foobar").
+ *   - `componentWporgStatus` — a directory status ("who runs anything
+ *     wordpress.org withdrew"). Without this, answering that question means
+ *     enumerating every closed slug and issuing one request per slug, which
+ *     is the whole point of the closure data being unusable.
+ *
+ * `componentType` narrows either anchor. `componentVersion` narrows only a
+ * slug, because a bare version number means nothing across components.
+ * The route rejects the combinations this cannot express rather than
+ * ignoring the surplus parameter.
  *
  * Aliased away from the `wc`/`r`/`v` used by the onlyVulnerable join so the
- * two filters compose — "sites running foobar 1.2.3 that also have a known
+ * filters compose — "sites running a withdrawn plugin that also have a known
  * vulnerability" is a single query.
  *
  * @returns {{join: string, where: string[], params: Array}}
  */
-const componentFilter = ({ componentSlug, componentType, componentVersion }) => {
-  if (!componentSlug) {
+const componentFilter = ({ componentSlug, componentType, componentVersion, componentWporgStatus }) => {
+  if (!componentSlug && !componentWporgStatus) {
     return { join: '', where: [], params: [] };
   }
 
@@ -101,8 +122,18 @@ const componentFilter = ({ componentSlug, componentType, componentVersion }) => 
     JOIN releases fr ON fwc.release_id = fr.id
     JOIN components fc ON fr.component_id = fc.id
   `;
-  const where = ['fc.slug = ?'];
-  const params = [componentSlug];
+  const where = [];
+  const params = [];
+
+  if (componentSlug) {
+    where.push('fc.slug = ?');
+    params.push(componentSlug);
+  }
+
+  if (componentWporgStatus) {
+    where.push('fc.wporg_status_slug = ?');
+    params.push(componentWporgStatus);
+  }
 
   if (componentType) {
     where.push('fc.component_type_slug = ?');
@@ -437,6 +468,7 @@ module.exports = {
   getVersionDistribution,
   PLATFORM_KEY_TO_VERSION,
   SORTS,
+  WPORG_STATUSES,
   SORT_NEWEST,
   SORT_VULNERABILITIES,
   SORT_MALWARE,

@@ -47,8 +47,11 @@ describe('Websites agent query surface', () => {
    * Create a component with one release, optionally vulnerable or flagged as
    * malware. Returns the release id so it can be installed on a site.
    */
-  async function createComponent(slug, { type = PLUGIN_TYPE, version = '1.0.0', vulnerable = false, isMalware = false } = {}) {
-    const componentResult = await db.query('INSERT INTO components (slug, component_type_slug, title, is_malware) VALUES (?, ?, ?, ?)', [slug, type, slug, isMalware ? 1 : 0]);
+  async function createComponent(slug, { type = PLUGIN_TYPE, version = '1.0.0', vulnerable = false, isMalware = false, wporgStatus = 'unknown', closureReason = null } = {}) {
+    const componentResult = await db.query(
+      'INSERT INTO components (slug, component_type_slug, title, is_malware, wporg_status_slug, wporg_closure_reason_slug) VALUES (?, ?, ?, ?, ?, ?)',
+      [slug, type, slug, isMalware ? 1 : 0, wporgStatus, closureReason]
+    );
     const componentId = componentResult.insertId;
 
     const releaseResult = await db.query('INSERT INTO releases (component_id, version) VALUES (?, ?)', [componentId, version]);
@@ -108,6 +111,12 @@ describe('Websites agent query surface', () => {
     releases.vulnTheme = (await createComponent('vuln-theme', { type: THEME_TYPE, vulnerable: true })).releaseId;
     releases.badware = (await createComponent('badware', { isMalware: true })).releaseId;
 
+    // Withdrawn from the directory for a security issue, and a premium
+    // plugin that was never listed. Both 404 on wordpress.org; only the
+    // response body separates them, and only one is a security signal.
+    releases.withdrawn = (await createComponent('withdrawn-plugin', { wporgStatus: 'closed', closureReason: 'security-issue' })).releaseId;
+    releases.premium = (await createComponent('premium-plugin', { wporgStatus: 'absent' })).releaseId;
+
     // worst: three vulnerable components, one of them a theme
     await install(sites.worst.id, releases.vulnOne);
     await install(sites.worst.id, releases.vulnTwo);
@@ -123,6 +132,12 @@ describe('Websites agent query surface', () => {
     // customer: foobar 1.0.0 plus one vulnerability, owned by the non-admin
     await install(sites.customer.id, releases.foobarOne);
     await install(sites.customer.id, releases.vulnOne);
+
+    // The withdrawn plugin sits on one vulnerable site and one otherwise
+    // clean one, so the closure filter can be told apart from only_vulnerable.
+    await install(sites.worst.id, releases.withdrawn);
+    await install(sites.clean.id, releases.withdrawn);
+    await install(sites.upgrading.id, releases.premium);
 
     // upgrading: both foobar releases recorded at once, plus the theme of
     // the same slug — the duplication the GROUP BY has to collapse
@@ -198,6 +213,101 @@ describe('Websites agent query surface', () => {
       // Of the three foobar sites only the customer's also carries a
       // vulnerability.
       expect(domainsOf(response)).toEqual(['customer.example.com']);
+    });
+  });
+
+  describe('filter validation', () => {
+    // Each of these previously returned 200. A modifier with nothing to
+    // modify was dropped on the floor, so `?component_version=1.0.0` came
+    // back as the entire fleet and read as "every site runs 1.0.0" — the
+    // exact false-positive shape the rest of this endpoint guards against.
+    test('rejects component_version without component_slug', async () => {
+      const response = await request(app).get('/api/websites?component_version=1.0.0').set('X-API-Key', adminApiKey);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('component_version');
+    });
+
+    test('rejects component_type without an anchor to narrow', async () => {
+      const response = await request(app).get(`/api/websites?component_type=${PLUGIN_TYPE}`).set('X-API-Key', adminApiKey);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('component_type');
+    });
+
+    test('rejects an unknown component_type rather than reporting nothing affected', async () => {
+      const response = await request(app).get('/api/websites?component_slug=foobar&component_type=wordpress-plugins').set('X-API-Key', adminApiKey);
+
+      // The plural is the likely typo: the response field is
+      // `wordpress-plugins`, the filter value is `wordpress-plugin`.
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Unknown component_type');
+      expect(response.body.message).toContain(PLUGIN_TYPE);
+    });
+
+    test('rejects an unknown component_wporg_status', async () => {
+      const response = await request(app).get('/api/websites?component_wporg_status=withdrawn').set('X-API-Key', adminApiKey);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Unknown component_wporg_status');
+    });
+
+    test('allows component_type alongside component_wporg_status', async () => {
+      const response = await request(app).get(`/api/websites?component_wporg_status=closed&component_type=${PLUGIN_TYPE}`).set('X-API-Key', adminApiKey);
+
+      expect(response.status).toBe(200);
+    });
+
+    test('rejects a non-positive limit rather than serving the default', async () => {
+      const response = await request(app).get('/api/websites?limit=0').set('X-API-Key', adminApiKey);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Invalid limit');
+    });
+
+    test('rejects a negative page rather than passing a negative offset to SQL', async () => {
+      const response = await request(app).get('/api/websites?page=-1').set('X-API-Key', adminApiKey);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Invalid page');
+    });
+
+    test('rejects a limit above the cap', async () => {
+      const response = await request(app).get('/api/websites?limit=100000').set('X-API-Key', adminApiKey);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Limit too large');
+    });
+  });
+
+  describe('withdrawn-plugin filter', () => {
+    test('returns the sites carrying a withdrawn component, without needing its slug', async () => {
+      const response = await request(app).get('/api/websites?component_wporg_status=closed&limit=50').set('X-API-Key', adminApiKey);
+
+      expect(response.status).toBe(200);
+      expect(domainsOf(response).sort()).toEqual(['clean.example.com', 'worst.example.com']);
+      expect(response.body.total).toBe(2);
+    });
+
+    test('does not report sites whose components are merely absent from the directory', async () => {
+      const response = await request(app).get('/api/websites?component_wporg_status=absent&limit=50').set('X-API-Key', adminApiKey);
+
+      // `absent` is a premium or in-house plugin, not a withdrawal. Conflating
+      // the two is the bug M17.7 exists to fix.
+      expect(domainsOf(response)).toEqual(['upgrading.example.com']);
+    });
+
+    test('scopes a non-administrator to their own sites', async () => {
+      const response = await request(app).get('/api/websites?component_wporg_status=closed&limit=50').set('X-API-Key', customerApiKey);
+
+      expect(response.status).toBe(200);
+      expect(domainsOf(response)).toEqual([]);
+    });
+
+    test('composes with only_vulnerable', async () => {
+      const response = await request(app).get('/api/websites?component_wporg_status=closed&only_vulnerable=true&limit=50').set('X-API-Key', adminApiKey);
+
+      expect(domainsOf(response)).toEqual(['worst.example.com']);
     });
   });
 
