@@ -16,6 +16,107 @@ const { stripAll } = require('../lib/sanitizer');
  */
 const cleanTitle = (title) => (typeof title === 'string' ? stripAll(title).trim() : title);
 
+const PLUGIN_TYPE = 'wordpress-plugin';
+const THEME_TYPE = 'wordpress-theme';
+
+/**
+ * The component types the per-website counts are derived from.
+ *
+ * Deliberately the same two types `getWebsiteComponents()` lists in the
+ * websites route: a count that also included npm packages would sort sites
+ * into an order the returned component lists could not explain.
+ */
+const COUNTED_COMPONENT_TYPES = [PLUGIN_TYPE, THEME_TYPE];
+const COUNTED_TYPE_PLACEHOLDERS = COUNTED_COMPONENT_TYPES.map(() => '?').join(', ');
+
+/**
+ * Counts computed in SQL rather than in the route.
+ *
+ * The route also derives vulnerability_count and malware_count in JavaScript
+ * from the component lists it fetches, and those remain the values returned.
+ * These exist because that derivation happens *after* pagination, so it can
+ * annotate a page but cannot order one — "the ten most vulnerable sites"
+ * needs the whole set ranked in the database.
+ *
+ * Both count distinct components, not releases, to match the route: a
+ * component with three separate vulnerability rows is one vulnerable
+ * component, not three.
+ */
+const VULNERABILITY_COUNT_SQL = `(
+  SELECT COUNT(DISTINCT c.id)
+  FROM website_components wc
+  JOIN releases r ON wc.release_id = r.id
+  JOIN components c ON r.component_id = c.id
+  JOIN vulnerabilities v ON v.release_id = r.id
+  WHERE wc.website_id = w.id
+    AND c.component_type_slug IN (${COUNTED_TYPE_PLACEHOLDERS})
+)`;
+
+const MALWARE_COUNT_SQL = `(
+  SELECT COUNT(DISTINCT c.id)
+  FROM website_components wc
+  JOIN releases r ON wc.release_id = r.id
+  JOIN components c ON r.component_id = c.id
+  WHERE wc.website_id = w.id
+    AND c.is_malware = 1
+    AND c.component_type_slug IN (${COUNTED_TYPE_PLACEHOLDERS})
+)`;
+
+const SORT_NEWEST = 'newest';
+const SORT_VULNERABILITIES = 'vulnerabilities';
+const SORT_MALWARE = 'malware';
+
+/**
+ * Whitelisted sort orders. The value is interpolated into the query, so it
+ * must never come from the caller directly — findAll() looks the caller's
+ * choice up in here and falls back to newest.
+ *
+ * Every order ends in `w.id DESC` so that sites tied on a count come back in
+ * a stable order across pages rather than shuffling between requests.
+ */
+const SORT_CLAUSES = {
+  [SORT_NEWEST]: 'w.id DESC',
+  [SORT_VULNERABILITIES]: 'vulnerability_count DESC, malware_count DESC, w.id DESC',
+  [SORT_MALWARE]: 'malware_count DESC, vulnerability_count DESC, w.id DESC',
+};
+
+const SORTS = Object.keys(SORT_CLAUSES);
+
+/**
+ * Restrict a website query to sites carrying a given component.
+ *
+ * Aliased away from the `wc`/`r`/`v` used by the onlyVulnerable join so the
+ * two filters compose — "sites running foobar 1.2.3 that also have a known
+ * vulnerability" is a single query.
+ *
+ * @returns {{join: string, where: string[], params: Array}}
+ */
+const componentFilter = ({ componentSlug, componentType, componentVersion }) => {
+  if (!componentSlug) {
+    return { join: '', where: [], params: [] };
+  }
+
+  const join = `
+    JOIN website_components fwc ON w.id = fwc.website_id
+    JOIN releases fr ON fwc.release_id = fr.id
+    JOIN components fc ON fr.component_id = fc.id
+  `;
+  const where = ['fc.slug = ?'];
+  const params = [componentSlug];
+
+  if (componentType) {
+    where.push('fc.component_type_slug = ?');
+    params.push(componentType);
+  }
+
+  if (componentVersion) {
+    where.push('fr.version = ?');
+    params.push(componentVersion);
+  }
+
+  return { join, where, params };
+};
+
 const createTable = async () => {
   const query = `
     CREATE TABLE IF NOT EXISTS websites (
@@ -36,9 +137,26 @@ const createTable = async () => {
   await db.query(query);
 };
 
-const findAll = async (userId, limit, offset, search, onlyVulnerable) => {
-  let query = 'SELECT w.* FROM websites w';
-  const params = [];
+/**
+ * @param {number|null} userId  Owner to scope to; null returns every website.
+ * @param {number} limit
+ * @param {number} offset
+ * @param {string|null} search  Matched against the domain.
+ * @param {boolean} onlyVulnerable
+ * @param {object} [options]
+ * @param {string} [options.componentSlug]     Only sites carrying this component.
+ * @param {string} [options.componentType]     Narrows componentSlug to one component type.
+ * @param {string} [options.componentVersion]  Narrows componentSlug to one release.
+ * @param {string} [options.sort]              One of SORTS; unknown values fall back to newest.
+ */
+const findAll = async (userId, limit, offset, search, onlyVulnerable, options = {}) => {
+  const params = [...COUNTED_COMPONENT_TYPES, ...COUNTED_COMPONENT_TYPES];
+  let query = `
+    SELECT w.*,
+      ${VULNERABILITY_COUNT_SQL} AS vulnerability_count,
+      ${MALWARE_COUNT_SQL} AS malware_count
+    FROM websites w
+  `;
   const whereClauses = [];
 
   if (onlyVulnerable) {
@@ -48,6 +166,11 @@ const findAll = async (userId, limit, offset, search, onlyVulnerable) => {
       JOIN vulnerabilities v ON r.id = v.release_id
     `;
   }
+
+  const filter = componentFilter(options);
+  query += filter.join;
+  whereClauses.push(...filter.where);
+  params.push(...filter.params);
 
   if (userId) {
     whereClauses.push('w.user_id = ?');
@@ -63,17 +186,19 @@ const findAll = async (userId, limit, offset, search, onlyVulnerable) => {
     query += ` WHERE ${whereClauses.join(' AND ')}`;
   }
 
-  if (onlyVulnerable) {
+  // Either join can multiply a website across rows — one per matching
+  // release — so collapse back to one row per site.
+  if (onlyVulnerable || filter.join) {
     query += ' GROUP BY w.id';
   }
 
-  query += ' ORDER BY w.id DESC LIMIT ? OFFSET ?';
+  query += ` ORDER BY ${SORT_CLAUSES[options.sort] || SORT_CLAUSES[SORT_NEWEST]} LIMIT ? OFFSET ?`;
   params.push(limit, offset);
   const rows = await db.query(query, params);
   return Array.isArray(rows) ? rows : [];
 };
 
-const countAll = async (userId, search, onlyVulnerable) => {
+const countAll = async (userId, search, onlyVulnerable, options = {}) => {
   let query = 'SELECT COUNT(DISTINCT w.id) as count FROM websites w';
   const params = [];
   const whereClauses = [];
@@ -85,6 +210,11 @@ const countAll = async (userId, search, onlyVulnerable) => {
       JOIN vulnerabilities v ON r.id = v.release_id
     `;
   }
+
+  const filter = componentFilter(options);
+  query += filter.join;
+  whereClauses.push(...filter.where);
+  params.push(...filter.params);
 
   if (userId) {
     whereClauses.push('w.user_id = ?');
@@ -306,4 +436,8 @@ module.exports = {
   findOutdatedPhp,
   getVersionDistribution,
   PLATFORM_KEY_TO_VERSION,
+  SORTS,
+  SORT_NEWEST,
+  SORT_VULNERABILITIES,
+  SORT_MALWARE,
 };
