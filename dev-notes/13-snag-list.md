@@ -10,11 +10,25 @@ Each item: a short heading, when/where it was noticed, why it matters, and a pro
 
 ### `docs/configuration.md` documents only a fraction of the environment
 
-Roughly **40 of the variables in `.env.example` do not appear in `docs/configuration.md` at all** — checked 2026-08-16 by diffing the two. Among them: every `WPORG_*` sync setting, every `PASSWORD_MIN_*` rule, all the `*_RETENTION_DAYS` values, `CRON_ENABLE`, `LOG_LEVEL`, `GEOIP_DATABASE_PATH`, `MAX_API_KEYS_PER_USER` and `VULNZ_NOTIFY_SECRET`.
+**39 of the variables in `.env.example` do not appear in `docs/configuration.md` at all** — verified 2026-08-16 by diffing the two files.
 
-`.env.example` carries a one-line comment for most of them, so the information is not lost — but the document that presents itself as the configuration reference silently covers a subset, which is worse than obviously covering none. Anyone tuning the wordpress.org sync or the password policy from the docs will conclude the settings do not exist.
+`.env.example` carries a comment for most of them, so the information is not lost. The problem is that the document presenting itself as _the_ configuration reference silently covers a subset, which is worse than obviously covering none: anyone tuning the wordpress.org sync or the password policy from the docs will conclude those settings do not exist.
 
-Not urgent, but it grows with every feature: `API_MAX_PAGE_SIZE` and `LIST_PAGE_SIZE` were added in v1.39.2 only because that release happened to touch pagination. A generated table from `.env.example`, or a test asserting parity, would stop the drift recurring.
+It also grows with every feature. `API_MAX_PAGE_SIZE` and `LIST_PAGE_SIZE` were only documented in v1.39.2 because that release happened to touch pagination — nothing would have caught them otherwise.
+
+**The work, grouped so it can be picked up a section at a time:**
+
+- [ ] **wordpress.org sync** — `WPORG_API_BASE_URL`, `WPORG_HIGH_PRIORITY_DELAY_MS`, `WPORG_PLUGIN_INFO_ENDPOINT`, `WPORG_RESYNC_DAYS`, `WPORG_THEME_INFO_ENDPOINT`, `WPORG_TIMEOUT_MS`, `WPORG_UPDATE_BATCH_SIZE`, `WPORG_USER_AGENT`, `WPORG_WATCHLIST_SCAN_LIMIT`, `WPORG_WATCHLIST_SIZE`
+- [ ] **Password policy** — `PASSWORD_MIN_ALPHA`, `PASSWORD_MIN_LENGTH`, `PASSWORD_MIN_LOWERCASE`, `PASSWORD_MIN_NUMERIC`, `PASSWORD_MIN_SYMBOLS`, `PASSWORD_MIN_UPPERCASE`
+- [ ] **Data retention** — `API_LOG_RETENTION_DAYS`, `COMPONENT_CHANGES_RETENTION_DAYS`, `FILE_SECURITY_ISSUES_RETENTION_DAYS`, `SECURITY_EVENTS_RETENTION_DAYS`
+- [ ] **Version thresholds** — `MARIADB_MINIMUM_VERSION`, `MYSQL_MINIMUM_VERSION`, `PHP_MINIMUM_VERSION`, `PHP_RECOMMENDED_VERSION`, `PLUGIN_NEWLY_PUBLISHED_THRESHOLD_MONTHS`, `PLUGIN_UNMAINTAINED_THRESHOLD_MONTHS`, `WORDPRESS_STABLE_VERSION`
+- [ ] **Weekly reporting** — `REPORTING_BATCH_SIZE`, `REPORTING_HOUR`
+- [ ] **Housekeeping** — `WEBSITE_AUTO_DELETE_DAYS`, `WEBSITE_AUTO_DELETE_ENABLED`
+- [ ] **Everything else** — `CRON_ENABLE`, `EXAMPLE_WP_COMPONENT_SLUG`, `EXAMPLE_WP_COMPONENT_VERSION`, `GEOIP_DATABASE_PATH`, `LOG_LEVEL`, `MAX_API_KEYS_PER_USER`, `REFERENCE_UPDATE_LOCATION`, `VULNZ_NOTIFY_SECRET`
+
+Follow the existing house format in that file — a `plaintext` block with the variable, then bullets for **Default**, any **Minimum**/**Maximum**, and **Purpose**. Descriptions can be lifted from `.env.example`, but check each against `src/lib/env.js`, which is where the real defaults and bounds live and where a few differ from the comment.
+
+**Worth doing once rather than repeatedly:** a test asserting that every `^[A-Z_]+=` in `.env.example` appears somewhere in `docs/configuration.md` would fail the build the next time a variable is added without documentation, and costs about ten lines. That is probably more valuable than the catch-up itself.
 
 ### Deprecate `data/reference.json` startup overwrite
 
