@@ -6,6 +6,8 @@ Using the VULNZ REST API for automation and integration.
 
 ## Overview
 
+> Asking fleet-wide questions from an AI agent? Start with [Fleet Queries for an AI Agent](agent-queries.md) — task-oriented recipes plus the pitfalls. This page is the endpoint reference.
+
 VULNZ provides a comprehensive REST API for:
 
 - Managing websites and components
