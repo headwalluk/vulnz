@@ -280,7 +280,42 @@ curl "https://api.vulnz.net/api/components/wordpress-plugin/portable-phpmyadmin"
 
 That vocabulary belongs to wordpress.org and can grow at any time. Treat an unrecognised reason as valid rather than as an error — VULNZ records new reasons verbatim instead of discarding them.
 
-`wporg_closed_at` is a plain `YYYY-MM-DD` date with no time component. A `null` on any of these three fields means the component is not closed (or has not been resolved yet).
+`wporg_closure_is_security_concern` is the classification of that reason, and it is **tri-state**:
+
+| Value   | Meaning                                                          |
+| ------- | ---------------------------------------------------------------- |
+| `true`  | wordpress.org withdrew it over a security issue                  |
+| `false` | Withdrawn for another reason, assessed as not a security concern |
+| `null`  | The reason exists but nobody has classified it                   |
+
+`null` is **not** an all-clear. Prefer this field to string-matching `wporg_closure_reason`, which misses both unclassified reasons and any new reason wordpress.org introduces.
+
+`wporg_closed_at` is a plain `YYYY-MM-DD` date with no time component. A `null` on any of these fields means the component is not closed (or has not been resolved yet).
+
+#### Enumerating withdrawn components
+
+The catalogue runs to tens of thousands of rows, so `GET /api/components` is filterable:
+
+```bash
+# Every withdrawn component
+curl "https://api.vulnz.net/api/components?wporg_status=closed&limit=200" \
+  -H "X-Api-Key: ${VULNZ_API_KEY}"
+
+# Only those wordpress.org attributes to a security issue
+curl "https://api.vulnz.net/api/components?wporg_status=closed&wporg_closure_reason=security-issue" \
+  -H "X-Api-Key: ${VULNZ_API_KEY}"
+```
+
+`wporg_status` accepts `available`, `closed`, `absent` or `unknown`; `component_type` filters by type. An unknown value for either is a `400` rather than an empty list.
+
+#### Which of your sites are affected
+
+```bash
+curl "https://api.vulnz.net/api/websites?component_wporg_status=closed" \
+  -H "X-Api-Key: ${VULNZ_API_KEY}"
+```
+
+Every site carrying any withdrawn component, in one call — no need to know a slug first. Composes with `only_vulnerable`, `sort` and `component_type`, and respects ownership like every other website query.
 
 ### Adding a Website
 
@@ -780,6 +815,13 @@ curl "http://localhost:3000/api/websites?sort=vulnerabilities&limit=10" \
 
 An unrecognised `sort` returns `400` rather than quietly falling back to the default — a caller asking for the worst-affected sites and receiving the newest ones has no way to detect the substitution.
 
+**Which sites run something wordpress.org withdrew** — `component_wporg_status` filters on the directory status of the components a site carries, and works without `component_slug`:
+
+```bash
+curl "http://localhost:3000/api/websites?component_wporg_status=closed" \
+  -H "X-API-Key: your-api-key"
+```
+
 All of these compose, and all respect ownership: an administrator sees every website, everyone else sees only their own.
 
 ```bash
@@ -788,6 +830,16 @@ All of these compose, and all respect ownership: an administrator sees every web
 curl "http://localhost:3000/api/websites?component_slug=foobar&only_vulnerable=true&sort=vulnerabilities" \
   -H "X-API-Key: your-api-key"
 ```
+
+**The filter parameters are validated.** A modifier without the parameter it modifies is a `400`, not a quietly wider result:
+
+- `component_version` requires `component_slug` — a bare version number is meaningless across components
+- `component_type` requires `component_slug` or `component_wporg_status`, and must be a real type slug
+- an unknown `component_type` or `component_wporg_status` is rejected rather than returning zero sites
+
+Returning zero sites for a typo would read as "nothing affected", which is the wrong direction to fail in for a security query.
+
+> **Changed in v1.39.2.** These previously returned `200`. `?component_version=8.5.0` on its own returned the entire fleet, which reads as "every site runs 8.5.0".
 
 ---
 

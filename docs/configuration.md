@@ -82,6 +82,23 @@ UNAUTH_SEARCH_LIMIT_PER_SECOND=1
   - **Disable**: Set to `0`
   - **Purpose**: Prevent abuse of public search API
 
+### Pagination
+
+```plaintext
+LIST_PAGE_SIZE=10
+API_MAX_PAGE_SIZE=200
+```
+
+- **LIST_PAGE_SIZE**: Default page size for `GET /api/components` when the caller sends no `limit`
+  - **Default**: `10`
+  - **Minimum**: `1`
+  - Note `GET /api/websites` has its own default of `10` and does not read this
+- **API_MAX_PAGE_SIZE**: Upper bound on `?limit=` for list endpoints
+  - **Default**: `200`
+  - **Minimum**: `1`
+  - **Purpose**: Bound response size. A request above this is rejected with `400`, not silently clamped — a response that quietly used a different page size than the one asked for is indistinguishable from a correct one
+  - Raising it mainly costs payload, not query time: each website in `GET /api/websites` carries its full plugin and theme lists, around 5.9 KB
+
 ### CORS Configuration
 
 ```plaintext
