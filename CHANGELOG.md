@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.39.1 - 2026-08-16
+
+### Documentation
+
+- **New guide: [Fleet Queries for an AI Agent](docs/agent-queries.md).** Task-oriented recipes for whole-fleet questions — which sites run a component, which are worst affected, which run something wordpress.org withdrew — plus a **Traps** section for the cases where a literal reading of a correct response gives the wrong answer, and a "what this API cannot tell you" section so a consumer does not infer data that is not there. `api-usage.md` remains the endpoint reference.
+
+### Bug Fixes
+
+- **The OpenAPI description for `GET /api/websites?q=` was wrong.** It advertised "domain or title"; the query has only ever matched the domain (`w.domain LIKE ?`). Verified against production — a search for a string present in a site's title but not its domain returns nothing. The description now states the real behaviour, including that the match is case-insensitive. No behaviour change; **redeploy for the corrected spec to reach `/openapi.json` consumers.**
+
+---
+
 ## 1.39.0 - 2026-08-16
 
 ### Features

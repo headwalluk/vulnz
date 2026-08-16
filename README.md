@@ -62,6 +62,7 @@ Then use the generated API key with `X-API-Key: <key>` to authenticate against t
 - [Database Setup](docs/database-setup.md) - Schema, migrations, and backups
 - [API Documentation](docs/api-usage.md) - REST API reference and examples
 - [CLI Reference](docs/cli.md) - Administration commands
+- [Fleet Queries for an AI Agent](docs/agent-queries.md) - Task-oriented recipes for whole-fleet questions, and the traps that make a correct response read wrongly
 - [Fast Update Triggers](docs/fast-update-triggers.md) - Fleet latest-versions manifest, urgent-update classification, and watchlist administration
 - [Testing Guide](tests/README.md) - Running and writing tests
 

@@ -102,7 +102,10 @@ const tidyWebsite = (website) => {
  *         name: q
  *         schema:
  *           type: string
- *         description: A search query to filter websites by domain or title.
+ *         description: >
+ *           Case-insensitive substring match against the domain. It does not
+ *           search titles, owners or component names (this description
+ *           incorrectly said "domain or title" before v1.39.1).
  *       - in: query
  *         name: only_vulnerable
  *         schema:
