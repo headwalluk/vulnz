@@ -37,12 +37,21 @@ Most API endpoints require authentication via API key.
 
 ### Creating an API Key
 
-1. Log in to VULNZ web interface
-2. Navigate to Dashboard
-3. Scroll to "API Keys" section
-4. Click "Create New API Key"
-5. Enter a description (e.g., "Production Server Integration")
-6. Copy the generated key (shown only once)
+API keys are issued from the CLI. There is no web interface — it was removed in v1.31.0.
+
+```bash
+# Create the account the key will belong to, if it does not exist yet
+node bin/vulnz.js user:add integration@example.com 'SecurePass123!'
+
+# Issue a key for it
+node bin/vulnz.js key:generate integration@example.com
+```
+
+The key is printed once, at generation. Copy it then — it cannot be retrieved later, only revoked (`key:revoke`) and replaced.
+
+A key carries the roles of the user it belongs to and nothing more, so scope it by choosing the right account: an ordinary `user` sees only their own websites, while an `administrator` sees every website in the database and can also create, block and delete users. Pass `--admin` to `user:add` only when the integration genuinely needs that reach.
+
+See the [CLI Reference](cli.md#api-key-management-commands) for the full set of key commands.
 
 ### Using API Keys
 
@@ -235,6 +244,41 @@ Both default to off, so the feature ships inert.
 If the send fails, the alert is retried on the site's next sync rather than being silently dropped, and a mail failure never fails the host's update. Detections are recorded whether or not alerting is enabled, so `GET /api/websites/malware` is accurate either way.
 
 The recipient is a single operator address for now. Routing alerts to each website's own point of contact needs per-site contact data that does not exist yet.
+
+### Plugins Withdrawn from wordpress.org
+
+Every component read path reports what wordpress.org currently says about the slug. This is a **separate signal from `is_malware`**: "the directory withdrew this" and "we believe this is malicious" are different statements, and a caller should be able to act on either without inferring it from the other.
+
+```bash
+curl "https://api.vulnz.net/api/components/wordpress-plugin/portable-phpmyadmin" \
+  -H "X-Api-Key: ${VULNZ_API_KEY}"
+```
+
+```json
+{
+  "slug": "portable-phpmyadmin",
+  "title": "Portable phpMyAdmin",
+  "is_malware": false,
+  "wporg_status": "closed",
+  "wporg_closure_reason": "security-issue",
+  "wporg_closed_at": "2017-11-20"
+}
+```
+
+`wporg_status` is one of:
+
+| Value       | Meaning                                                                 |
+| ----------- | ----------------------------------------------------------------------- |
+| `available` | Published on wordpress.org right now                                    |
+| `closed`    | Was published and has since been **withdrawn** by the directory         |
+| `absent`    | The directory has never listed this slug — premium, in-house, or a fake |
+| `unknown`   | Not resolved yet                                                        |
+
+**Why `closed` matters.** wordpress.org answers HTTP 404 for both a slug it has never listed and one it has pulled, so the two look identical unless the response body is read. Plugins are frequently withdrawn _because_ of an unpatched vulnerability, and a site still running one is running something the directory removed — often with no CVE and no Wordfence record, so it appears nowhere else in this API. Check `wporg_closure_reason` for wordpress.org's own reason: `security-issue`, `author-request`, `guideline-violation`, `licensing-trademark-violation`, and others.
+
+That vocabulary belongs to wordpress.org and can grow at any time. Treat an unrecognised reason as valid rather than as an error — VULNZ records new reasons verbatim instead of discarding them.
+
+`wporg_closed_at` is a plain `YYYY-MM-DD` date with no time component. A `null` on any of these three fields means the component is not closed (or has not been resolved yet).
 
 ### Adding a Website
 
@@ -705,6 +749,37 @@ curl "http://localhost:3000/api/websites?q=example" \
 
 # Only vulnerable websites
 curl "http://localhost:3000/api/websites?only_vulnerable=true" \
+  -H "X-API-Key: your-api-key"
+```
+
+**Which sites run a given component** — the blast-radius question. `component_slug` on its own matches every version; add `component_version` to pin one release, or `component_type` where a plugin and a theme share a slug.
+
+```bash
+# Every site running this plugin, any version
+curl "http://localhost:3000/api/websites?component_slug=foobar" \
+  -H "X-API-Key: your-api-key"
+
+# Only sites on one specific release
+curl "http://localhost:3000/api/websites?component_slug=foobar&component_version=1.2.3&component_type=wordpress-plugin" \
+  -H "X-API-Key: your-api-key"
+```
+
+**Worst-affected first.** `sort` accepts `newest` (default), `vulnerabilities`, or `malware`. Ranking happens in the database over the whole matching set, so page 1 really is the worst affected — not merely the first page annotated with counts. Ties break on the other count, then on recency, so paging is stable.
+
+```bash
+# The ten most vulnerable sites
+curl "http://localhost:3000/api/websites?sort=vulnerabilities&limit=10" \
+  -H "X-API-Key: your-api-key"
+```
+
+An unrecognised `sort` returns `400` rather than quietly falling back to the default — a caller asking for the worst-affected sites and receiving the newest ones has no way to detect the substitution.
+
+All of these compose, and all respect ownership: an administrator sees every website, everyone else sees only their own.
+
+```bash
+# Sites running a specific plugin that also have a known vulnerability,
+# worst first
+curl "http://localhost:3000/api/websites?component_slug=foobar&only_vulnerable=true&sort=vulnerabilities" \
   -H "X-API-Key: your-api-key"
 ```
 

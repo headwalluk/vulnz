@@ -182,6 +182,9 @@ CREATE TABLE components (
   latest_version VARCHAR(255) NULL,
   latest_version_at DATETIME NULL,
   wporg_available TINYINT(1) NULL,
+  wporg_status_slug VARCHAR(50) NOT NULL DEFAULT 'unknown',
+  wporg_closure_reason_slug VARCHAR(50) NULL,
+  wporg_closed_at DATE NULL,
   is_malware TINYINT(1) NOT NULL DEFAULT 0,
   malware_summary VARCHAR(255) NULL,
   malware_url VARCHAR(255) NULL,
@@ -197,10 +200,13 @@ CREATE TABLE components (
   KEY idx_wporg_sync (component_type_slug, synced_from_wporg, synced_from_wporg_at),
   KEY idx_components_priority (component_type_slug, sync_priority_slug),
   KEY idx_components_malware (component_type_slug, is_malware),
+  KEY idx_components_wporg_status (component_type_slug, wporg_status_slug),
   FULLTEXT KEY components_slug_IDX (slug, title),
   FOREIGN KEY (component_type_slug) REFERENCES component_types(slug),
   FOREIGN KEY (sync_priority_slug) REFERENCES sync_priorities(slug),
-  FOREIGN KEY (malware_source_slug) REFERENCES malware_sources(slug)
+  FOREIGN KEY (malware_source_slug) REFERENCES malware_sources(slug),
+  FOREIGN KEY (wporg_status_slug) REFERENCES wporg_statuses(slug),
+  FOREIGN KEY (wporg_closure_reason_slug) REFERENCES wporg_closure_reasons(slug)
 );
 ```
 
@@ -210,10 +216,11 @@ CREATE TABLE components (
 - `added` / `last_updated` / `requires_php` / `tested` / `synced_from_wporg_at`: metadata synced from wordpress.org.
 - `sync_priority_slug`: which sync lane the component is in — `high` is the hourly watchlist sweep, `low` the background rotation (M12).
 - `latest_version` / `latest_version_at`: current release per wordpress.org, cached here so the fleet manifest is a direct indexed read rather than a `MAX()` over `releases`.
-- `wporg_available`: `NULL` unknown / `1` seen on wordpress.org / `0` absent (404). Distinct from `synced_from_wporg`, which only says whether a sync was attempted.
+- `wporg_available`: `NULL` unknown / `1` seen on wordpress.org / `0` absent (404). Distinct from `synced_from_wporg`, which only says whether a sync was attempted. **Superseded by `wporg_status_slug`** (M17.7) and kept only because `src/lib/watchlist.js` still reads it; it cannot express the closed/never-listed distinction. Prefer `wporg_status_slug` in new code.
+- `wporg_status_slug` / `wporg_closure_reason_slug` / `wporg_closed_at`: what wordpress.org says about the slug (M17.7). The directory answers HTTP 404 both for a plugin it has never listed and for one it has **withdrawn**, and only the response body separates them — so `absent` and `closed` are recorded distinctly. `closed` is a security signal: plugins are frequently pulled _because_ of an unpatched vulnerability, and `wporg_closure_reason_slug` carries wordpress.org's own reason (`security-issue`, `author-request`, …). A component whose status has not been resolved is `unknown`; `vulnz wporg:reclassify` works through those deliberately.
 - `is_malware` / `malware_summary` / `malware_url` / `malware_source_slug` / `malware_flagged_at`: the known-malware verdict (M14). Component-level rather than per-release, because malware is a property of the artefact — every version is bad, including versions ingested after the flag was set. Set via the CLI only; no API route writes these columns. `malware_url` is an optional link to a write-up, left NULL rather than derived from the slug so that a customer-facing alert never carries a 404. See [`15-known-malware.md`](15-known-malware.md).
 
-> **Note:** this table's definition has been verified against the live schema as of v1.34.0. Other tables in this document may still have drifted — see the snag list.
+> **Note:** this table's definition has been verified against the live schema as of v1.39.0. Other tables in this document may still have drifted — see the snag list.
 
 ### releases
 
@@ -260,6 +267,48 @@ CREATE TABLE urgency_sources (
 | `keyword_override` | Forced urgent by an unambiguous changelog keyword the model had not flagged |
 | `manual`           | Set by hand via the CLI                                                     |
 | `none`             | No signal available — changelog absent or classifier disabled               |
+
+### wporg_statuses
+
+Lookup table for what wordpress.org says about a component's slug (M17.7).
+
+```sql
+CREATE TABLE wporg_statuses (
+  slug VARCHAR(50) NOT NULL PRIMARY KEY,
+  title VARCHAR(100) NOT NULL
+);
+```
+
+| slug        | Meaning                                                                    |
+| ----------- | -------------------------------------------------------------------------- |
+| `unknown`   | Not yet determined — never synced, or synced before statuses were recorded |
+| `available` | Published on wordpress.org right now                                       |
+| `closed`    | Was published and has since been withdrawn by the directory                |
+| `absent`    | The directory has never listed this slug — premium, in-house, or a fake    |
+
+### wporg_closure_reasons
+
+Lookup table for wordpress.org's own reason vocabulary when it withdraws a plugin (M17.7).
+
+```sql
+CREATE TABLE wporg_closure_reasons (
+  slug VARCHAR(50) NOT NULL PRIMARY KEY,
+  title VARCHAR(100) NOT NULL,
+  is_security_concern TINYINT(1) NULL
+);
+```
+
+| slug                            | Title                            | `is_security_concern` |
+| ------------------------------- | -------------------------------- | --------------------- |
+| `security-issue`                | Security Issue                   | `1`                   |
+| `guideline-violation`           | Guideline Violation              | `0`                   |
+| `licensing-trademark-violation` | Licensing or Trademark Violation | `0`                   |
+| `author-request`                | Author Request                   | `0`                   |
+| `merged-into-core`              | Merged Into WordPress Core       | `0`                   |
+| `unused`                        | Unused                           | `0`                   |
+| `unknown`                       | Unknown                          | `NULL`                |
+
+`is_security_concern` is **nullable on purpose**: `NULL` means nobody has classified this reason yet, which is different from having decided it is harmless. wordpress.org owns this vocabulary and can extend it at any time, so a reason the sync has never seen is inserted automatically with a `NULL` flag and a warning — recorded verbatim rather than lost, and never silently asserted to be safe.
 
 ### vulnerabilities
 

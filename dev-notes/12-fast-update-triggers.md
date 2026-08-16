@@ -22,7 +22,7 @@ The answer is exposed as a small, cacheable GET route. Each fleet host pulls it 
 
 **Priority lane** (`sync_priority` = `high`|`low`, §4.2). Slug-keyed lookup table `sync_priorities` + `components.sync_priority_slug` (FK). High lane re-syncs the watchlist hourly; the low lane keeps the existing background rotation, minus the high rows.
 
-**Version capture** (§4.1 fixed). The wporg sync now stores `data.version` in `components.latest_version` (+ `latest_version_at`) and upserts a release row. `components.wporg_available` (NULL/1/0) distinguishes "on wordpress.org" from "404" — the old sync collapsed both, hiding blind spots.
+**Version capture** (§4.1 fixed). The wporg sync now stores `data.version` in `components.latest_version` (+ `latest_version_at`) and upserts a release row. `components.wporg_available` (NULL/1/0) distinguishes "on wordpress.org" from "404" — the old sync collapsed both, hiding blind spots. **Superseded in v1.39.0** by `components.wporg_status_slug`, which splits that `0` again into `closed` (withdrawn by the directory) and `absent` (never listed) — see M17.7. `wporg_available` is still written, because `src/lib/watchlist.js` reads it, but new code should use the status.
 
 **Watchlist** (`src/lib/watchlist.js`). `static (app setting wporg.watchlist_static) ∪ top-N watchable by production install count (all tenants, is_dev = 0)`. Rank → skip unwatchable → keep going until N watchable found (Paul's rule). Premium/missing slugs → `blind_spots` (persisted to `wporg.watchlist_blind_spots`), never silent, and kept out of the wporg lane. `WPORG_WATCHLIST_SIZE` default 20.
 

@@ -27,18 +27,20 @@ VULNZ is a self-hosted vulnerability database for WordPress plugins, themes, and
 ## Architecture
 
 ```
-┌──────────────────┐     ┌──────────────────┐
-│   WP/Woo Sites   │��───▶│                  │
-│   (notifications) │     │   VULNZ Server   │
-├──────────────────┤     │   (Node.js)      │
-│   Web Browser    │────▶│                  │
-│   CLI Tool       │     └────────┬─────────┘
-│   WordPress      │              │
-│   vulnz-sensor   │              ▼
-└──────────────────┘     ┌──────────────────┐
-                         │  MySQL/MariaDB   │
-                         └──────────────────┘
+┌───────────────────┐     ┌──────────────────┐
+│  WP/Woo Sites     │────▶│                  │
+│  (notifications)  │     │   VULNZ Server   │
+├───────────────────┤     │   (Node.js)      │
+│  vulnz-woo        │────▶│   API + CLI      │
+│  vulnz-ingest     │     └────────┬─────────┘
+│  vulnz-sensor     │              │
+│  CLI tool         │              ▼
+│  AI agents        │     ┌──────────────────┐
+└───────────────────┘     │  MySQL/MariaDB   │
+                          └──────────────────┘
 ```
+
+There is no built-in web UI — it was removed in v1.31.0. Administration is the `vulnz` CLI; the customer-facing admin UI lives in the separate `vulnz-woo` WordPress plugin.
 
 ---
 

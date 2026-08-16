@@ -5,6 +5,7 @@ const { hasRole, apiAuth, optionalApiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 const { isUrl, sanitizeVersion, sanitizeSearchQuery, sanitizeComponentSlug } = require('../lib/sanitizer');
 const { unauthenticatedSearchLimiter } = require('../middleware/rateLimit');
+const { formatDateOnly } = require('../lib/dates');
 // Named componentModel rather than component: several handlers below declare
 // a local `component` for the row they are working on.
 const componentModel = require('../models/component');
@@ -35,6 +36,15 @@ function buildComponentResponse(componentRow, releases) {
     is_malware: !!componentRow.is_malware,
     malware_summary: componentRow.malware_summary || null,
     malware_url: componentRow.malware_url || null,
+    // Reported separately from is_malware, and for the same reason the two
+    // malware signals are separate: "wordpress.org withdrew this" is a
+    // different statement from "we believe this is malicious", and a caller
+    // should be able to act on either without inferring it from the other.
+    wporg_status: componentRow.wporg_status_slug || null,
+    wporg_closure_reason: componentRow.wporg_closure_reason_slug || null,
+    // A closure date has no time of day. Left as the driver's Date object it
+    // would serialise to a full ISO timestamp and assert one.
+    wporg_closed_at: formatDateOnly(componentRow.wporg_closed_at),
     releases: releases.map((release) => ({
       ...release,
       id: parseInt(release.id, 10),
@@ -669,13 +679,48 @@ module.exports = router;
  *             True when this component is known malware — every version of it,
  *             present and future. Set by an administrator via the CLI
  *             (`vulnz component:malware:add`); there is no API write path.
- *             While it is true, every release of the component also reports
- *             has_vulnerabilities.
+ *             Independent of has_vulnerabilities, which means recorded
+ *             vulnerabilities and nothing else (the two were briefly coupled
+ *             in v1.34.0 and decoupled again in v1.36.0).
  *         malware_summary:
  *           type: string
  *           nullable: true
  *           readOnly: true
  *           description: One-line description of what the malware does. Null unless is_malware is true.
+ *         wporg_status:
+ *           type: string
+ *           enum: [unknown, available, closed, absent]
+ *           readOnly: true
+ *           description: >
+ *             What wordpress.org currently says about this slug. `available` is
+ *             published; `closed` means it was published and has since been
+ *             withdrawn; `absent` means the directory has never listed it (a
+ *             premium plugin, an in-house build, or a fake); `unknown` means it
+ *             has not been resolved yet.
+ *
+ *
+ *             `closed` is a security signal in its own right and separate from
+ *             is_malware — plugins are frequently withdrawn because of an
+ *             unpatched vulnerability, and a site still running one is running
+ *             something the directory pulled. Check wporg_closure_reason for why.
+ *         wporg_closure_reason:
+ *           type: string
+ *           nullable: true
+ *           readOnly: true
+ *           description: >
+ *             wordpress.org's own reason slug for the withdrawal, e.g.
+ *             `security-issue`, `author-request`, `guideline-violation`. Null
+ *             unless wporg_status is `closed`. The vocabulary belongs to
+ *             wordpress.org and can grow, so treat an unrecognised value as
+ *             valid rather than an error.
+ *           example: security-issue
+ *         wporg_closed_at:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *           readOnly: true
+ *           description: The date wordpress.org withdrew the plugin. Null unless wporg_status is `closed`.
+ *           example: "2024-05-17"
  *       example:
  *         id: 1
  *         slug: "example-plugin"
@@ -684,4 +729,7 @@ module.exports = router;
  *         description: "An example WordPress plugin."
  *         is_malware: false
  *         malware_summary: null
+ *         wporg_status: "available"
+ *         wporg_closure_reason: null
+ *         wporg_closed_at: null
  */

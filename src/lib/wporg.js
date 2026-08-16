@@ -78,14 +78,126 @@ function parseWpOrgDate(dateStr) {
   return dateStr;
 }
 
+const WPORG_STATUS_AVAILABLE = 'available';
+const WPORG_STATUS_CLOSED = 'closed';
+const WPORG_STATUS_ABSENT = 'absent';
+const WPORG_STATUS_UNKNOWN = 'unknown';
+
+const UNKNOWN_CLOSURE_REASON = 'unknown';
+
 /**
- * Mark a component as synced from wordpress.org, recording whether it was
- * actually found there. wporg_available distinguishes "seen (200)" from
- * "absent (404)" — previously both collapsed into synced_from_wporg = 1,
- * which hid premium/blind-spot plugins.
+ * Read the JSON body of a wordpress.org 404 and work out which kind it is.
+ *
+ * The directory returns 404 both for a slug it has never heard of and for a
+ * plugin it has withdrawn, and only the body tells them apart:
+ *
+ *   {"error":"Plugin not found."}
+ *   {"error":"closed", "closed":true, "closed_date":"2024-10-17",
+ *    "reason":"security-issue", "reason_text":"Security Issue", "name":"..."}
+ *
+ * A body that will not parse is treated as absent rather than throwing: the
+ * caller is in the middle of a batch sync and an unreadable body is not worth
+ * losing the rest of the run over.
+ *
+ * `description` is deliberately ignored. On a closed plugin it is the
+ * directory's closure notice ("This plugin has been closed as of ...") and
+ * not a description of the plugin, so writing it to components.description
+ * would fill the field with boilerplate — and overwrite anything curated by
+ * hand for exactly the components most likely to have been.
+ *
+ * @returns {Promise<{status: string, closureReason: string|null, closedAt: string|null, name: string|null}>}
  */
-async function markSynced(componentId, available) {
-  await db.query('UPDATE components SET synced_from_wporg = 1, synced_from_wporg_at = CURRENT_TIMESTAMP, wporg_available = ? WHERE id = ?', [available ? 1 : 0, componentId]);
+async function readNotFoundBody(response) {
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    return { status: WPORG_STATUS_ABSENT, closureReason: null, closedAt: null, name: null };
+  }
+
+  if (!data || typeof data !== 'object' || (data.error !== WPORG_STATUS_CLOSED && data.closed !== true)) {
+    return { status: WPORG_STATUS_ABSENT, closureReason: null, closedAt: null, name: null };
+  }
+
+  return {
+    status: WPORG_STATUS_CLOSED,
+    closureReason: typeof data.reason === 'string' && data.reason.trim() !== '' ? stripAll(data.reason).trim() : UNKNOWN_CLOSURE_REASON,
+    closedAt: parseWpOrgDate(data.closed_date),
+    name: typeof data.name === 'string' && data.name.trim() !== '' ? stripAll(data.name) : null,
+  };
+}
+
+/**
+ * Resolve a closure reason to a row in wporg_closure_reasons.
+ *
+ * An unrecognised reason is inserted rather than dropped or coerced to
+ * `unknown`: wordpress.org owns this vocabulary and can extend it whenever it
+ * likes, and losing the actual reason would be worse than carrying a row
+ * nobody has classified yet. `is_security_concern` stays NULL on those — the
+ * honest answer to "is this a security concern" when nobody has looked — and
+ * the warning is the prompt to classify it.
+ *
+ * @returns {Promise<string>} the reason slug to store
+ */
+async function resolveClosureReason(reason) {
+  if (!reason) {
+    return UNKNOWN_CLOSURE_REASON;
+  }
+
+  const known = await db.query('SELECT slug FROM wporg_closure_reasons WHERE slug = ?', [reason]);
+  if (Array.isArray(known) && known.length > 0) {
+    return reason;
+  }
+
+  console.warn(`wordpress.org returned an unrecognised closure reason "${reason}". Recording it with is_security_concern unset — classify it in wporg_closure_reasons.`);
+  await db.query('INSERT IGNORE INTO wporg_closure_reasons (slug, title, is_security_concern) VALUES (?, ?, NULL)', [reason, reason]);
+  return reason;
+}
+
+/**
+ * Mark a component as synced from wordpress.org, recording what was found.
+ *
+ * `wporg_available` is still written so that `src/lib/watchlist.js` keeps
+ * working unchanged; `wporg_status_slug` is the finer-grained replacement and
+ * separates a withdrawn plugin from one that was never listed.
+ *
+ * @param {number} componentId
+ * @param {string} status one of the WPORG_STATUS_* values
+ * @param {{closureReason?: string|null, closedAt?: string|null}} [closure]
+ */
+async function markSynced(componentId, status, closure = {}) {
+  const isAvailable = status === WPORG_STATUS_AVAILABLE;
+  const reasonSlug = status === WPORG_STATUS_CLOSED ? await resolveClosureReason(closure.closureReason) : null;
+  const closedAt = status === WPORG_STATUS_CLOSED ? closure.closedAt || null : null;
+
+  await db.query(
+    `UPDATE components
+     SET synced_from_wporg = 1,
+         synced_from_wporg_at = CURRENT_TIMESTAMP,
+         wporg_available = ?,
+         wporg_status_slug = ?,
+         wporg_closure_reason_slug = ?,
+         wporg_closed_at = ?
+     WHERE id = ?`,
+    [isAvailable ? 1 : 0, status, reasonSlug, closedAt, componentId]
+  );
+}
+
+/**
+ * Adopt the real plugin name from a closure record, but only when the
+ * component has no better title of its own.
+ *
+ * Components are auto-created with `title = slug`, so a withdrawn plugin
+ * usually reads back as `portable-phpmyadmin` rather than "Portable
+ * phpMyAdmin". The closure body carries the genuine name and is worth taking
+ * — but never over a title someone has curated, which for off-directory
+ * components is precisely the point of being able to curate them.
+ */
+async function adoptClosedName(component, name) {
+  if (!name || component.title !== component.slug) {
+    return;
+  }
+  await db.query('UPDATE components SET title = ? WHERE id = ?', [name, component.id]);
 }
 
 /**
@@ -125,10 +237,16 @@ async function recordLatestVersion(componentId, rawVersion, changelog = null) {
  * must not end up with the genuine plugin's title and description written
  * over it.
  *
+ * A withdrawn plugin reports `available: false` with `wporgStatus: 'closed'`.
+ * Both parts matter to the caller: it is not currently published, so flagging
+ * it is not the fleet-wide mistake the guard exists to prevent — but it was a
+ * real listing once, and *why* it was pulled is evidence about the flag being
+ * considered rather than a reason to block it.
+ *
  * @param {string} slug
- * @returns {Promise<{status:number, available:boolean|null, name:string|null}>}
- *   available is true (published), false (absent), or null (couldn't tell —
- *   a timeout, rate limit, or 5xx).
+ * @returns {Promise<{status:number, available:boolean|null, wporgStatus:string, name:string|null, closureReason:string|null, closedAt:string|null}>}
+ *   available is true (published), false (absent or closed), or null
+ *   (couldn't tell — a timeout, rate limit, or 5xx).
  */
 async function probeWpOrgSlug(slug, { fetchImpl } = {}) {
   const fetch = fetchImpl || (await import('node-fetch')).default;
@@ -141,11 +259,19 @@ async function probeWpOrgSlug(slug, { fetchImpl } = {}) {
   });
 
   if (response.status === 404) {
-    return { status: 404, available: false, name: null };
+    const closure = await readNotFoundBody(response);
+    return {
+      status: 404,
+      available: false,
+      wporgStatus: closure.status,
+      name: closure.name,
+      closureReason: closure.closureReason,
+      closedAt: closure.closedAt,
+    };
   }
 
   if (response.status !== 200) {
-    return { status: response.status, available: null, name: null };
+    return { status: response.status, available: null, wporgStatus: WPORG_STATUS_UNKNOWN, name: null, closureReason: null, closedAt: null };
   }
 
   const data = await response.json();
@@ -154,10 +280,17 @@ async function probeWpOrgSlug(slug, { fetchImpl } = {}) {
   // Treating that as "published" would block a genuine malware flag, so it
   // is read as absent.
   if (!data || data.error) {
-    return { status: 200, available: false, name: null };
+    return { status: 200, available: false, wporgStatus: WPORG_STATUS_ABSENT, name: null, closureReason: null, closedAt: null };
   }
 
-  return { status: 200, available: true, name: typeof data.name === 'string' ? stripAll(data.name) : null };
+  return {
+    status: 200,
+    available: true,
+    wporgStatus: WPORG_STATUS_AVAILABLE,
+    name: typeof data.name === 'string' ? stripAll(data.name) : null,
+    closureReason: null,
+    closedAt: null,
+  };
 }
 
 /**
@@ -179,18 +312,30 @@ async function syncPluginComponent(component, fetch, config) {
   const response = await fetch(url, options);
 
   if (response.status === 404) {
-    await markSynced(component.id, false);
-    return { slug: component.slug, status: 404, available: false, version: null };
+    const closure = await readNotFoundBody(response);
+    await markSynced(component.id, closure.status, closure);
+    if (closure.status === WPORG_STATUS_CLOSED) {
+      await adoptClosedName(component, closure.name);
+    }
+    return {
+      slug: component.slug,
+      status: 404,
+      available: false,
+      wporgStatus: closure.status,
+      closureReason: closure.closureReason,
+      closedAt: closure.closedAt,
+      version: null,
+    };
   }
 
   if (response.status !== 200) {
     // Transient error (rate limit, 5xx) — leave state untouched so the
     // component is retried on the next pass.
-    return { slug: component.slug, status: response.status, available: null, version: null };
+    return { slug: component.slug, status: response.status, available: null, wporgStatus: WPORG_STATUS_UNKNOWN, version: null };
   }
 
   const data = await response.json();
-  await markSynced(component.id, true);
+  await markSynced(component.id, WPORG_STATUS_AVAILABLE);
 
   if (data.name && typeof data.name === 'string') {
     await db.query('UPDATE components SET title = ? WHERE id = ?', [stripAll(data.name), component.id]);
@@ -229,7 +374,7 @@ async function syncPluginComponent(component, fetch, config) {
     }
   }
 
-  return { slug: component.slug, status: 200, available: true, version };
+  return { slug: component.slug, status: 200, available: true, wporgStatus: WPORG_STATUS_AVAILABLE, version };
 }
 
 /**
@@ -363,14 +508,89 @@ async function fetchPluginChangelog(slug, { fetchImpl } = {}) {
   return { ok: true, reason: null, version, changelog };
 }
 
+/**
+ * Resolve components whose wordpress.org status is still `unknown`.
+ *
+ * The M17.7 migration cannot tell a pre-existing `wporg_available = 0` apart
+ * from a closure — the reason was never recorded — so every one of them
+ * starts as `unknown`. The background rotation would eventually re-check them
+ * via the stale-invalidation cron, but at WPORG_UPDATE_BATCH_SIZE per run
+ * that is measured in weeks, and the whole point of the change is a security
+ * signal nobody wants to wait weeks for. This is the deliberate pass.
+ *
+ * Ordered oldest-synced first so repeated runs work through the backlog
+ * rather than re-checking the same head of the queue.
+ *
+ * @param {{limit?: number, fetchImpl?: Function}} [options]
+ * @returns {Promise<{checked:number, available:number, closed:number, absent:number, transient:number, errors:number, securityClosures:Array<{slug:string, reason:string, closedAt:string|null}>}>}
+ */
+async function reclassifyUnknown({ limit = 50, fetchImpl } = {}) {
+  const fetch = fetchImpl || (await import('node-fetch')).default;
+  const config = wporgConfig();
+  const summary = { checked: 0, available: 0, closed: 0, absent: 0, transient: 0, errors: 0, securityClosures: [] };
+
+  const components = await db.query(
+    `SELECT * FROM components
+     WHERE component_type_slug = 'wordpress-plugin'
+       AND wporg_status_slug = ?
+     ORDER BY synced_from_wporg_at IS NULL, synced_from_wporg_at ASC
+     LIMIT ?`,
+    [WPORG_STATUS_UNKNOWN, limit]
+  );
+
+  if (!Array.isArray(components) || components.length === 0) {
+    return summary;
+  }
+
+  const securityReasons = await db.query('SELECT slug FROM wporg_closure_reasons WHERE is_security_concern = 1');
+  const securitySlugs = new Set((securityReasons || []).map((row) => row.slug));
+
+  for (let index = 0; index < components.length; index++) {
+    const component = components[index];
+    try {
+      const result = await syncPluginComponent(component, fetch, config);
+      summary.checked++;
+
+      if (result.wporgStatus === WPORG_STATUS_AVAILABLE) {
+        summary.available++;
+      } else if (result.wporgStatus === WPORG_STATUS_CLOSED) {
+        summary.closed++;
+        if (securitySlugs.has(result.closureReason)) {
+          summary.securityClosures.push({ slug: component.slug, reason: result.closureReason, closedAt: result.closedAt });
+        }
+      } else if (result.wporgStatus === WPORG_STATUS_ABSENT) {
+        summary.absent++;
+      } else {
+        summary.transient++;
+      }
+    } catch (err) {
+      summary.errors++;
+      console.error(`Error reclassifying plugin ${component.slug}:`, err);
+    }
+
+    // Same courtesy delay the high-priority lane uses — this walks a long
+    // backlog against a shared public API.
+    if (index < components.length - 1 && config.highPriorityDelayMs > 0) {
+      await sleep(config.highPriorityDelayMs);
+    }
+  }
+
+  return summary;
+}
+
 module.exports = {
   wporgConfig,
   syncNextPlugin,
   syncHighPriorityPlugins,
   syncPluginComponent,
   probeWpOrgSlug,
+  reclassifyUnknown,
   recordLatestVersion,
   fetchPluginChangelog,
   parseWpOrgDate,
   parseWpOrgDateTime,
+  WPORG_STATUS_AVAILABLE,
+  WPORG_STATUS_CLOSED,
+  WPORG_STATUS_ABSENT,
+  WPORG_STATUS_UNKNOWN,
 };

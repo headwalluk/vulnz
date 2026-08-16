@@ -172,15 +172,55 @@ describe('wporg.probeWpOrgSlug', () => {
 
     const result = await wporg.probeWpOrgSlug('contact-form-7', { fetchImpl });
 
-    expect(result).toEqual({ status: 200, available: true, name: 'Contact Form 7' });
+    expect(result).toEqual({ status: 200, available: true, wporgStatus: 'available', name: 'Contact Form 7', closureReason: null, closedAt: null });
   });
 
   it('reports a 404 slug as absent', async () => {
-    const fetchImpl = async () => ({ status: 404 });
+    const fetchImpl = async () => ({ status: 404, json: async () => ({ error: 'Plugin not found.' }) });
 
     const result = await wporg.probeWpOrgSlug('easypost', { fetchImpl });
 
-    expect(result).toEqual({ status: 404, available: false, name: null });
+    expect(result).toEqual({ status: 404, available: false, wporgStatus: 'absent', name: null, closureReason: null, closedAt: null });
+  });
+
+  it('reports a withdrawn plugin as closed, with the reason and date', async () => {
+    const fetchImpl = async () => ({
+      status: 404,
+      json: async () => ({
+        error: 'closed',
+        closed: true,
+        closed_date: '2017-11-20',
+        reason: 'security-issue',
+        reason_text: 'Security Issue',
+        name: 'Portable phpMyAdmin',
+      }),
+    });
+
+    const result = await wporg.probeWpOrgSlug('portable-phpmyadmin', { fetchImpl });
+
+    // available stays false — it is not published, so flagging it is not the
+    // fleet-wide false positive the malware guard exists to prevent.
+    expect(result).toEqual({
+      status: 404,
+      available: false,
+      wporgStatus: 'closed',
+      name: 'Portable phpMyAdmin',
+      closureReason: 'security-issue',
+      closedAt: '2017-11-20',
+    });
+  });
+
+  it('treats a 404 with an unreadable body as absent rather than throwing', async () => {
+    const fetchImpl = async () => ({
+      status: 404,
+      json: async () => {
+        throw new Error('invalid json');
+      },
+    });
+
+    const result = await wporg.probeWpOrgSlug('easypost', { fetchImpl });
+
+    expect(result.wporgStatus).toBe('absent');
   });
 
   it('treats a 200 carrying an error body as absent, so a real flag is not blocked', async () => {
@@ -188,7 +228,7 @@ describe('wporg.probeWpOrgSlug', () => {
 
     const result = await wporg.probeWpOrgSlug('easypost', { fetchImpl });
 
-    expect(result).toEqual({ status: 200, available: false, name: null });
+    expect(result).toEqual({ status: 200, available: false, wporgStatus: 'absent', name: null, closureReason: null, closedAt: null });
   });
 
   it('reports availability as unknown on a transient error', async () => {
@@ -196,7 +236,7 @@ describe('wporg.probeWpOrgSlug', () => {
 
     const result = await wporg.probeWpOrgSlug('easypost', { fetchImpl });
 
-    expect(result).toEqual({ status: 503, available: null, name: null });
+    expect(result).toEqual({ status: 503, available: null, wporgStatus: 'unknown', name: null, closureReason: null, closedAt: null });
   });
 
   it('does not write to the database', async () => {
