@@ -4,6 +4,7 @@ const Website = require('../models/website');
 const User = require('../models/user');
 const Ecosystem = require('../models/ecosystem');
 const { apiAuth } = require('../middleware/auth');
+const { logApiCall } = require('../middleware/logApiCall');
 const Component = require('../models/component');
 const Release = require('../models/release');
 const WebsiteComponent = require('../models/websiteComponent');
@@ -107,6 +108,36 @@ const tidyWebsite = (website) => {
  *         schema:
  *           type: boolean
  *         description: If true, only websites with known vulnerabilities will be returned.
+ *       - in: query
+ *         name: component_slug
+ *         schema:
+ *           type: string
+ *         description: >
+ *           Only return websites carrying this component — the blast-radius
+ *           lookup for "who is running this plugin". Combine with
+ *           component_version to pin it to one release.
+ *       - in: query
+ *         name: component_type
+ *         schema:
+ *           type: string
+ *           example: wordpress-plugin
+ *         description: Narrows component_slug to a single component type. Ignored without component_slug.
+ *       - in: query
+ *         name: component_version
+ *         schema:
+ *           type: string
+ *           example: 1.2.3
+ *         description: Narrows component_slug to a single release. Ignored without component_slug.
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [newest, vulnerabilities, malware]
+ *           default: newest
+ *         description: >
+ *           Result order. `vulnerabilities` and `malware` rank the whole
+ *           matching set in the database, so page 1 really is the worst
+ *           affected. Ties fall back to newest first.
  *     responses:
  *       200:
  *         description: A list of websites.
@@ -125,10 +156,12 @@ const tidyWebsite = (website) => {
  *                   type: integer
  *                 limit:
  *                   type: integer
+ *       400:
+ *         description: Unknown sort order
  *       500:
  *         description: Server error
  */
-router.get('/', apiAuth, async (req, res) => {
+router.get('/', apiAuth, logApiCall, async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
@@ -136,11 +169,29 @@ router.get('/', apiAuth, async (req, res) => {
     const search = req.query.q || null;
     const onlyVulnerable = ['true', '1'].includes(req.query.only_vulnerable);
 
+    // Reject an unrecognised sort rather than quietly serving the default:
+    // a caller asking for the worst-affected sites and silently receiving
+    // the newest ones has no way to notice it got the wrong answer.
+    const sort = req.query.sort || Website.SORT_NEWEST;
+    if (!Website.SORTS.includes(sort)) {
+      return res.status(400).json({
+        error: 'Unknown sort order',
+        message: `sort must be one of: ${Website.SORTS.join(', ')}`,
+      });
+    }
+
+    const options = {
+      componentSlug: req.query.component_slug || null,
+      componentType: req.query.component_type || null,
+      componentVersion: req.query.component_version || null,
+      sort,
+    };
+
     const roles = await User.getRoles(req.user.id);
     const isAdmin = roles.includes('administrator');
 
-    const total = await Website.countAll(isAdmin ? null : req.user.id, search, onlyVulnerable);
-    const websites = await Website.findAll(isAdmin ? null : req.user.id, limit, offset, search, onlyVulnerable);
+    const total = await Website.countAll(isAdmin ? null : req.user.id, search, onlyVulnerable, options);
+    const websites = await Website.findAll(isAdmin ? null : req.user.id, limit, offset, search, onlyVulnerable, options);
 
     for (const website of websites) {
       const user = await User.findUserById(website.user_id);
@@ -237,7 +288,7 @@ router.get('/', apiAuth, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/malware', apiAuth, async (req, res) => {
+router.get('/malware', apiAuth, logApiCall, async (req, res) => {
   try {
     const roles = await User.getRoles(req.user.id);
     const isAdmin = roles.includes('administrator');
@@ -304,7 +355,7 @@ router.get('/malware', apiAuth, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/:domain', apiAuth, canAccessWebsite, async (req, res) => {
+router.get('/:domain', apiAuth, logApiCall, canAccessWebsite, async (req, res) => {
   try {
     const user = await User.findUserById(req.website.user_id);
     const { wordpressPlugins, wordpressThemes } = await getWebsiteComponents(req.website);
@@ -359,7 +410,7 @@ router.get('/:domain', apiAuth, canAccessWebsite, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.post('/', apiAuth, async (req, res) => {
+router.post('/', apiAuth, logApiCall, async (req, res) => {
   try {
     const { domain, title, user_id, is_dev, meta, ecosystem, platform } = req.body;
 
@@ -518,7 +569,7 @@ const processComponents = async (components, componentType) => {
  *       500:
  *         description: Server error
  */
-router.put('/:domain', apiAuth, canAccessWebsite, async (req, res) => {
+router.put('/:domain', apiAuth, logApiCall, canAccessWebsite, async (req, res) => {
   try {
     const { title, 'wordpress-plugins': wordpressPlugins, 'wordpress-themes': wordpressThemes, components, is_dev, meta, versions, user_id, ecosystem, platform } = req.body;
     const websiteData = {};
@@ -754,7 +805,7 @@ router.put('/:domain', apiAuth, canAccessWebsite, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.delete('/:domain', apiAuth, canAccessWebsite, async (req, res) => {
+router.delete('/:domain', apiAuth, logApiCall, canAccessWebsite, async (req, res) => {
   try {
     await Website.remove(req.params.domain);
     res.send('Website deleted');
@@ -826,7 +877,7 @@ router.delete('/:domain', apiAuth, canAccessWebsite, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.post('/:domain/security-events', apiAuth, canAccessWebsite, async (req, res) => {
+router.post('/:domain/security-events', apiAuth, logApiCall, canAccessWebsite, async (req, res) => {
   try {
     const { events } = req.body;
 
@@ -965,7 +1016,7 @@ router.post('/:domain/security-events', apiAuth, canAccessWebsite, async (req, r
  *       500:
  *         description: Server error
  */
-router.put('/:domain/versions', apiAuth, canAccessWebsite, async (req, res) => {
+router.put('/:domain/versions', apiAuth, logApiCall, canAccessWebsite, async (req, res) => {
   try {
     const { wordpress_version, php_version, db_server_type, db_server_version } = req.body;
 
@@ -1073,7 +1124,7 @@ router.put('/:domain/versions', apiAuth, canAccessWebsite, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.post('/:domain/security-scan', apiAuth, canAccessWebsite, async (req, res) => {
+router.post('/:domain/security-scan', apiAuth, logApiCall, canAccessWebsite, async (req, res) => {
   try {
     const { files } = req.body;
 

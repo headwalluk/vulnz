@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.38.0 - 2026-08-16
+
+### Features
+
+- **Blast-radius lookup on `GET /api/websites` (M17)**: `component_slug`, `component_type` and `component_version` return only the websites carrying a given component — "which sites are running `foobar` 1.2.3". Previously the only way to answer this was to fetch every site and inspect its component list client-side. The filters compose with `only_vulnerable` and with owner scoping: an administrator sees every affected site, everyone else sees only their own. `component_type` matters where a plugin and a theme share a slug; omit it to match both.
+- **`sort` on `GET /api/websites`**: `newest` (the default, and the previous behaviour), `vulnerabilities`, or `malware`. Ties break on the other count and then on recency, so paging is stable. An unrecognised value is a `400` rather than a silent fallback — a caller asking for the worst-affected sites and quietly receiving the newest ones has no way to notice.
+- **API call logging on the website routes**: every `/api/websites` route now writes to `api_call_logs` (caller, route, method, IP, status), as the component routes already did. Failed cross-account attempts are recorded too, with the status they were refused with.
+
+### Bug Fixes
+
+- **`vulnerability_count` could not order a result set.** Both per-site counts were derived in JavaScript from the component lists, _after_ the page had been selected, so they could annotate a page but never rank one. Asking for the ten most vulnerable sites returned the ten newest, annotated with their counts, and looked plausible. Ranking now happens in SQL over the whole matching set. The counts in the response are unchanged, and still cover WordPress plugins and themes only.
+
+### Upgrading
+
+No action required — all three query parameters are optional and the default order is what it was. The one behaviour change is that `GET /api/websites?sort=<anything else>` now returns `400`; nothing sent `sort` before, so no existing caller can hit it.
+
+---
+
 ## 1.37.0 - 2026-08-13
 
 ### Changed
