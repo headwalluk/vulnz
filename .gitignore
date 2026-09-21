@@ -9,3 +9,6 @@ npm-debug.log*
 dist/
 var/
 coverage/
+
+# Maintainer-local notes: never committed (the repo is public)
+dev-notes/
