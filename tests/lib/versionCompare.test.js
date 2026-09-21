@@ -45,7 +45,6 @@ describe('compareVersions', () => {
     ['5.0-RC1', '5.0-beta3', 1],
     ['1.0.0-rc.1', '1.0.0', -1],
     ['1.0-dev', '1.0-alpha', -1],
-    ['0.9.8b', '0.9.8', -1],
     ['1.2-pl1', '1.2', 1],
     ['5.0-RC1', '4.9', 1],
   ])('orders release stages as PHP version_compare() does: %s vs %s', (left, right, expected) => {
@@ -60,6 +59,20 @@ describe('compareVersions', () => {
   it('returns null when an unknown suffix meets an equal core', () => {
     expect(compareVersions('1.7.5-698baaf', '1.7.5')).toBeNull();
     expect(compareVersions('2026r3', '2026')).toBeNull();
+  });
+
+  it.each([
+    ['1.0.4', '1.0.4b'],
+    ['0.5', '0.5a'],
+    ['1.6.4.0', '1.6.4.b'],
+    ['2.1', '2.1p1'],
+  ])('treats a bare letter as unrecognised, not as PHP beta/alpha/patch: %s vs %s', (left, right) => {
+    expect(compareVersions(left, right)).toBeNull();
+  });
+
+  it('still orders a bare-letter version by its numeric core when the cores differ', () => {
+    expect(compareVersions('1.0.3', '1.0.4b')).toBe(-1);
+    expect(compareVersions('1.0.5', '1.0.4b')).toBe(1);
   });
 
   it('treats identical unknown suffixes as equal', () => {
@@ -111,6 +124,11 @@ describe('isVersionInRange', () => {
   it('matches any version, even an unparseable one, when both sides are unbounded', () => {
     const allVersions = { fromVersion: null, fromInclusive: true, toVersion: null, toInclusive: true };
     expect(isVersionInRange('trunk', allVersions)).toBe(true);
+  });
+
+  it('keeps a release undecidable against a bare-letter bound of the same core', () => {
+    expect(isVersionInRange('1.0', { fromVersion: null, fromInclusive: true, toVersion: '1.0b', toInclusive: true })).toBeNull();
+    expect(isVersionInRange('0.9', { fromVersion: null, fromInclusive: true, toVersion: '1.0b', toInclusive: true })).toBe(true);
   });
 
   it('returns null only when the undecidable comparison is at a bound', () => {
