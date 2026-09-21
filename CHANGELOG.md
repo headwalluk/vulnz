@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.40.1 - 2026-09-21
+
+### Bug Fixes
+
+- **Plugins reported without a version were dropped from a site's inventory.** In 1.40.0, a website sync skipped any component whose version was empty, missing or unusable. Because a sync replaces the site's component list, the plugin disappeared from that site, and a fake plugin with no version header could slip past malware detection. Every reported component is recorded again. An unusable version is stored as an empty string, as before 1.40.0, with a warning when a non-empty version had to be discarded.
+
+### Upgrading
+
+- No migrations. A site's inventory corrects itself on its next sync.
+
 ## 1.40.0 - 2026-09-21
 
 Vulnerabilities from Wordfence were attached to a single release, the upper bound of each advisory's range. For a "< 1.26.7" advisory that flagged 1.26.7, the release that _fixes_ the problem, and missed every release below it, so a site was caught only when it ran exactly the last vulnerable version. This release has the API take affected version ranges and match them to releases itself.
