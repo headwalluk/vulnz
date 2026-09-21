@@ -5,7 +5,7 @@
  */
 
 const db = require('../db');
-const { isVersionInRange } = require('./versionCompare');
+const { isReleaseAffected } = require('./versionCompare');
 
 const COMPONENT_CHUNK_SIZE = 200;
 const DELETE_BATCH_SIZE = 1000;
@@ -25,7 +25,7 @@ function rangeKey(componentId, url) {
  * @returns {'keep'|'delete'|'undecidable'} undecidable rows are kept
  */
 function classifyRow(version, ranges) {
-  const outcomes = ranges.map((range) => isVersionInRange(version, range));
+  const outcomes = ranges.map((range) => isReleaseAffected(version, range));
   let outcome = OUTCOME_DELETE;
   if (outcomes.includes(true)) {
     outcome = OUTCOME_KEEP;

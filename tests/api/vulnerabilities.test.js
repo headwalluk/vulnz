@@ -486,6 +486,24 @@ describe('Vulnerabilities API', () => {
       expect(await flaggedVersions(componentId, ADVISORY_URL)).toEqual(['1.4.2']);
     });
 
+    test('flags a pre-release whose final release is in range, but never a final release through its pre-releases', async () => {
+      const componentId = await seedComponent('range-pre-releases', ['2.0.0-beta1', '2.0.0', '3.0.0-beta.4', '3.0.0']);
+
+      await postItems([
+        {
+          componentTypeSlug: TYPE,
+          componentSlug: 'range-pre-releases',
+          urls: [ADVISORY_URL],
+          ranges: [
+            { from: '2.0.0', fromInclusive: true, to: '2.5', toInclusive: true },
+            { from: '3.0.0-beta.1', fromInclusive: true, to: '3.0.0-beta.4', toInclusive: true },
+          ],
+        },
+      ]);
+
+      expect(await flaggedVersions(componentId, ADVISORY_URL)).toEqual(['2.0.0', '2.0.0-beta1', '3.0.0-beta.4']);
+    });
+
     test('does not flag a version that cannot be placed at the bound', async () => {
       const componentId = await seedComponent('range-odd-versions', ['1.7.5-698baaf', '1.7.4-698baaf', 'trunk']);
 

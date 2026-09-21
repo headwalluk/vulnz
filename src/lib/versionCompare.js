@@ -240,6 +240,42 @@ function isVersionInRange(version, range) {
   return result;
 }
 
+/**
+ * The final-release version a recognised pre-release (dev, alpha, beta, rc) belongs to.
+ *
+ * @param {string} version
+ * @returns {string|null} e.g. "2.0.0" for "2.0.0-dev"; null for anything that is not a recognised pre-release
+ */
+function preReleaseFinalVersion(version) {
+  const parsed = parseVersion(version);
+  let finalVersion = null;
+  if (parsed && parsed.stageRank !== null && parsed.stageRank < STAGE_RANK_FINAL) {
+    finalVersion = parsed.core.join('.');
+  }
+  return finalVersion;
+}
+
+/**
+ * Whether a release is affected by a range. A pre-release is also affected when its final
+ * release is; a final release never inherits from its pre-releases.
+ *
+ * @param {string} version
+ * @param {object} range as for isVersionInRange()
+ * @returns {boolean|null} null when neither check can decide and neither says affected
+ */
+function isReleaseAffected(version, range) {
+  const direct = isVersionInRange(version, range);
+  const finalVersion = direct === true ? null : preReleaseFinalVersion(version);
+  const inherited = finalVersion === null ? false : isVersionInRange(finalVersion, range);
+  let result = false;
+  if (direct === true || inherited === true) {
+    result = true;
+  } else if (direct === null || inherited === null) {
+    result = null;
+  }
+  return result;
+}
+
 module.exports = {
   MAX_VERSION_LENGTH,
   normaliseReportedVersion,
@@ -248,4 +284,6 @@ module.exports = {
   compareVersions,
   versionSortCompare,
   isVersionInRange,
+  preReleaseFinalVersion,
+  isReleaseAffected,
 };
