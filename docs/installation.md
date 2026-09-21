@@ -6,7 +6,7 @@ Complete installation instructions for VULNZ.
 
 ## Requirements
 
-- **Node.js**: v22.0.0 or higher
+- **Node.js**: v22.12 or higher to run VULNZ; v24.9 or higher to run the test suite
 - **MySQL** or **MariaDB**: Any recent version
 - **npm**: Comes with Node.js
 - **BASH**: For utility scripts (backup, session secret generation)

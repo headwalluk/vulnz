@@ -50,7 +50,7 @@ Then use the generated API key with `X-API-Key: <key>` to authenticate against t
 
 ## Requirements
 
-- **Node.js**: v22.0.0 or higher
+- **Node.js**: v22.12 or higher to run VULNZ; v24.9 or higher to run the test suite
 - **Database**: MySQL 8.0+ or MariaDB 10.6+
 - **Optional**: MaxMind GeoLite2 database for GeoIP features
 

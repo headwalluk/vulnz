@@ -3,13 +3,16 @@
   "version": "1.39.2",
   "description": "Vulnerability database for WordPress plugins and themes",
   "main": "src/index.js",
+  "engines": {
+    "node": ">=22.12"
+  },
   "bin": {
     "vulnz": "./bin/vulnz.js"
   },
   "scripts": {
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
+    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "dev": "nodemon src/index.js",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -35,7 +38,6 @@
   "license": "MIT",
   "type": "commonjs",
   "overrides": {
-    "validator": "13.15.23",
     "glob": "^10.0.0"
   },
   "dependencies": {
@@ -50,17 +52,15 @@
     "mariadb": "^3.4.5",
     "maxmind": "^5.0.1",
     "node-cron": "^4.2.1",
-    "node-fetch": "^3.3.2",
-    "nodemailer": "^9.0.3",
+    "nodemailer": "^9.1.1",
     "passport": "^0.7.0",
     "passport-headerapikey": "^1.2.2",
-    "sanitize-html": "2.17.5",
+    "sanitize-html": "2.17.7",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
-    "bcryptjs": "^3.0.3",
     "eslint": "^9.38.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^16.4.0",
@@ -70,5 +70,12 @@
     "prettier-plugin-sh": "^0.18.0",
     "sqlite3": "^6.0.1",
     "supertest": "^7.1.4"
+  },
+  "allowScripts": {
+    "bcrypt@6.0.0": true,
+    "sqlite3@6.0.1": true,
+    "@parcel/watcher@2.6.0": true,
+    "unrs-resolver@1.12.2": true,
+    "@scarf/scarf": false
   }
 }
