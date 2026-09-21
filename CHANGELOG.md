@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.41.2 - 2026-09-21
+
+### Bug Fixes
+
+- **A bare letter after a version is no longer read as alpha, beta or patch.** The comparator followed PHP's `version_compare()`, which reads `1.0b` as "1.0 beta", placing it before 1.0. Plugin authors use `1.0b` for a later build as often as for a beta, so against an advisory for "<= 1.0b", release 1.0 was treated as unaffected. `a`, `b` and `p` on their own are now unrecognised suffixes. A release that ties with such a bound is undecidable, and `vulnerabilities:reconcile` keeps it rather than deleting it. The full words (`dev`, `alpha`, `beta`, `rc`, `patch`, `pl`) keep their PHP ordering. The prod dry run found six such rows.
+- **CLI output was cut off at 64 KB when piped.** Commands called `process.exit()` straight after printing. When stdout is a pipe, Node had not finished writing, so large `--json` output (such as `vulnerabilities:reconcile --json`) arrived truncated. Every CLI exit now waits for stdout and stderr to drain first.
+
+### Upgrading
+
+- No migrations.
+
 ## 1.41.1 - 2026-09-21
 
 ### Bug Fixes
