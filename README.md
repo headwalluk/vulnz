@@ -1,10 +1,10 @@
 # VULNZ
 
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen)](https://nodejs.org/)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.12.0-brightgreen)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Database](https://img.shields.io/badge/database-MySQL%2FMariaDB-blue)](https://mariadb.org/)
 [![Security](https://img.shields.io/badge/security-bcrypt%20%7C%20helmet-success)](docs/README.md)
-[![Tests](https://img.shields.io/badge/tests-441%20passing-brightgreen)](tests/README.md)
+[![Tests](https://img.shields.io/badge/tests-526%20passing-brightgreen)](tests/README.md)
 
 Self-hosted vulnerability database for WordPress plugins, themes, and npm packages. Track vulnerabilities, monitor security events, and manage web applications across your infrastructure.
 
@@ -14,7 +14,7 @@ Self-hosted vulnerability database for WordPress plugins, themes, and npm packag
 
 VULNZ is a security monitoring platform designed for web agencies and hosting providers managing multiple applications. It helps you:
 
-- **Track vulnerabilities** in WordPress plugins, themes, and npm packages
+- **Track vulnerabilities** in WordPress plugins, themes, and npm packages, by affected version range, so every vulnerable release is flagged and the release that fixes it is not
 - **Flag known malware** and spot plugins **withdrawn from wordpress.org** — often pulled for an unpatched vulnerability, and frequently carrying no CVE at all
 - **Monitor security events** like failed logins and attack attempts
 - **Track software versions** (WordPress core, PHP, Node.js, database)
@@ -35,7 +35,8 @@ git clone https://github.com/headwalluk/vulnz
 cd vulnz
 npm install
 cp .env.example .env
-# Edit .env with your database credentials
+chmod 600 .env
+# Edit .env with your database credentials (VULNZ refuses to start until they are set)
 npm run dev
 ```
 
@@ -64,7 +65,9 @@ Then use the generated API key with `X-API-Key: <key>` to authenticate against t
 - [CLI Reference](docs/cli.md) - Administration commands
 - [Fleet Queries for an AI Agent](docs/agent-queries.md) - Task-oriented recipes for whole-fleet questions, and the traps that make a correct response read wrongly
 - [Fast Update Triggers](docs/fast-update-triggers.md) - Fleet latest-versions manifest, urgent-update classification, and watchlist administration
+- [Version Matching](docs/version-matching.md) - How vulnerability ranges match release versions, and mapping Wordfence and OSV data
 - [Testing Guide](tests/README.md) - Running and writing tests
+- [Contributing](docs/README.md#contributing) - Coding style, architecture, schema, security and testing patterns
 
 ## License
 

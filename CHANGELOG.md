@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.40.0 - 2026-09-21
+
+Vulnerabilities from Wordfence were attached to a single release, the upper bound of each advisory's range. For a "< 1.26.7" advisory that flagged 1.26.7, the release that _fixes_ the problem, and missed every release below it, so a site was caught only when it ran exactly the last vulnerable version. This release has the API take affected version ranges and match them to releases itself.
+
+### Features
+
+- **Affected version ranges (M18).** `POST /api/vulnerabilities/bulk` accepts `ranges` (`{from, fromInclusive, to, toInclusive}`, with `null` for unbounded) as an alternative to `version`. Ranges are stored in a new `vulnerability_ranges` table and matched against every known release of the component, and against every release created later, whichever path creates it: website sync, wordpress.org sync, bulk releases or the CLI. Posting a range never creates a release. Readers are unchanged, because matches are written into `vulnerabilities` as before. See [Version Matching](docs/version-matching.md), which also covers mapping Wordfence and OSV data.
+- **Version comparator.** New rules in `src/lib/versionCompare.js`. Stages are ordered as PHP's `version_compare()` orders them (`6.4-beta2` < `6.4`), numeric segments may be any length, and missing segments count as zero (`1.26.7` = `1.26.7.0`). A version that cannot be placed against a bound, such as an unrecognised suffix exactly at the bound, is never flagged. Release lists sort by the same rules.
+- **Reference URLs up to 2048 characters (M19).** Up from 255. Uniqueness moves to a stored SHA-256 of the URL (`url_hash`), because a unique key on the URL itself cannot index that length.
+
+### Bug Fixes
+
+- **wordpress.org requests never timed out.** `node-fetch` v3 silently ignores the `timeout` option, so `WPORG_TIMEOUT_MS` never applied, and a stalled connection could hang a sync indefinitely. All requests now use Node's built-in `fetch` with `AbortSignal.timeout()`, which also covers reading the response body.
+- **Versions were rewritten on the way in.** `sanitizeVersion()` turned `5.0-RC1` into `5.01` and `1.0.0-rc.1` into `1.0.0.1` on four release paths, creating phantom releases and hiding pre-releases from matching. It is removed. Versions are now stored as reported: tags stripped, whitespace trimmed, and nothing else.
+- **A missing password setting disabled the password policy.** An unset `PASSWORD_MIN_*` parsed as `NaN`, every check against `NaN` passed, and any password was accepted. See Configuration.
+- **One bad item failed a whole bulk batch.** `POST /api/vulnerabilities/bulk` now validates items one by one: an invalid item is reported under `errors` by `index`, and the rest are written. The response is `400` only when no item is valid. Unknown component types are caught at the same stage.
+- **`.env` was read from the current directory.** Both the server and the CLI now read it from the project root, wherever they are run from.
+
+### Security
+
+- `nodemailer` 9.1.1 (four advisories, including delivery to an attacker-controlled domain) and `sanitize-html` 2.17.7 (two XSS bypasses), plus `js-yaml` and `qs` through `npm audit fix`. `npm audit` reports no vulnerabilities.
+
+### Configuration
+
+- **VULNZ refuses to start without `.env`, or with a critical setting missing or malformed,** listing every problem at once and how to fix it. The critical settings:
+  - `DB_HOST`, `DB_USER`, `DB_PASSWORD` and `DB_NAME`: set, and not left at their `.env.example` placeholders
+  - all six `PASSWORD_MIN_*`: whole numbers, with `PASSWORD_MIN_LENGTH` at least 1
+  - `VULNZ_NOTIFY_SECRET`: may be unset, which keeps the notification endpoints closed, but not left at its public `CHANGE_ME` placeholder
+- **Node.js 22.12 or higher** is required (`engines` in `package.json`), because `sanitize-html` now depends on an ESM-only parser that Node loads natively from 22.12. The test suite needs Node 24.9 or higher.
+- `package.json` declares `allowScripts` for npm 12, approving the install scripts `bcrypt`, `sqlite3` and Jest's native helpers need, and denying `@scarf/scarf`'s install analytics.
+
+### Upgrading
+
+- **Check `.env` before restarting.** Every critical setting above must be present and valid, or the server will not start. The error lists anything missing.
+- **Two migrations run on restart** (or run `node bin/vulnz.js db:migrate` first to see them): `vulnerability_ranges` is created, and `vulnerabilities` is rebuilt to add `url_hash`. The rebuild takes a few seconds per million rows.
+- **Ingest clients can switch to `ranges`.** `version` is still accepted and behaves as before. Rows already attached to the wrong release are not removed by this release. A clean-up command is planned for once a full pass of range data is in.
+- **Behaviour changes to watch for:**
+  - Exact `version` values and range bounds must be recognisable versions. `POST /api/components/{type}/{slug}/{version}` now returns `400` for one it cannot parse.
+  - URLs that differ only in letter case now count as distinct, where the old key treated them as the same.
+  - A website sync entry with no usable version is skipped with a warning, instead of failing the whole request.
+  - Pre-releases now sort below their final release.
+
 ## 1.39.2 - 2026-08-16
 
 Everything here came from an AI agent's review of [`docs/agent-queries.md`](docs/agent-queries.md) — the first consumer to actually read the M17 surface end to end. Most of it is the same defect repeated: an input the API accepted and quietly ignored.
