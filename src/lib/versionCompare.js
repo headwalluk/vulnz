@@ -18,17 +18,18 @@ const LEADING_ZEROS_PATTERN = /^0+(?=\d)/;
 
 const STAGE_RANK_FINAL = 0;
 
-/** Stage ranks, ordered as PHP version_compare() orders them. */
+/**
+ * Stage ranks, ordered as PHP version_compare() orders them. The single letters PHP also
+ * accepts (a, b, p) are deliberately absent: plugin authors use "1.0b" for a later build
+ * as often as for a beta, so they are unrecognised suffixes rather than a guess.
+ */
 const STAGE_RANKS = new Map([
   ['dev', -4],
   ['alpha', -3],
-  ['a', -3],
   ['beta', -2],
-  ['b', -2],
   ['rc', -1],
   ['patch', 1],
   ['pl', 1],
-  ['p', 1],
 ]);
 
 /**

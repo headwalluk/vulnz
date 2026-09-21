@@ -104,6 +104,13 @@ describe('classifyRow', () => {
     expect(classifyRow('1.26.7-abc123', [lessThan('1.26.7')])).toBe('undecidable');
     expect(classifyRow('', [lessThan('1.26.7')])).toBe('undecidable');
   });
+
+  it('keeps a release against a bare-letter bound of the same core, rather than guessing a beta', () => {
+    const upTo = (to) => ({ fromVersion: null, fromInclusive: true, toVersion: to, toInclusive: true });
+    expect(classifyRow('1.0.4', [upTo('1.0.4b')])).toBe('undecidable');
+    expect(classifyRow('1.0', [upTo('1.0b')])).toBe('undecidable');
+    expect(classifyRow('1.1', [upTo('1.0b')])).toBe('delete');
+  });
 });
 
 describe('reconcileRangeVulnerabilities', () => {
