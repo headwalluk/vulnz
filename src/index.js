@@ -6,8 +6,8 @@
 // correctness, not a preference — do not make it configurable.
 process.env.TZ = 'UTC';
 
-require('dotenv').config({ quiet: true });
-const { normalizeEnv, checkEnvFilePermissions } = require('./lib/env');
+const { loadEnvFile, normalizeEnv, checkEnvFilePermissions } = require('./lib/env');
+loadEnvFile();
 normalizeEnv();
 checkEnvFilePermissions();
 

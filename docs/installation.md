@@ -43,11 +43,20 @@ FLUSH PRIVILEGES;
 
 ### 4. Configure Environment
 
-Copy the sample environment file:
+Copy the sample environment file and make it readable only by you:
 
 ```bash
 cp .env.example .env
+chmod 600 .env
 ```
+
+VULNZ refuses to start without `.env`, and lists every problem at once when a critical setting is wrong:
+
+- `DB_HOST`, `DB_USER`, `DB_PASSWORD` and `DB_NAME` must be set, and not left at their placeholder values.
+- All six `PASSWORD_MIN_*` settings must be whole numbers (`PASSWORD_MIN_LENGTH` at least 1), so the password policy can never be silently switched off.
+- `VULNZ_NOTIFY_SECRET` may be left unset, which keeps the notification endpoints closed, but not at its `CHANGE_ME` placeholder.
+
+The server also refuses to start if `.env` is readable by anyone but its owner. Both the server and the CLI read `.env` from the project root, whatever directory they are run from.
 
 Edit `.env` and configure at minimum:
 

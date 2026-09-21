@@ -55,6 +55,8 @@ const mockWporg = {
 // ─── Module mocks ─────────────────────────────────────────────────────────────
 
 jest.mock('dotenv', () => ({ config: jest.fn() }));
+// The CLI tests supply their environment directly, so skip the .env file check.
+jest.mock('../../src/lib/env', () => ({ ...jest.requireActual('../../src/lib/env'), loadEnvFile: jest.fn() }));
 jest.mock('../../src/db', () => mockDb);
 jest.mock('../../src/models/user', () => mockUser);
 jest.mock('../../src/models/apiKey', () => mockApiKey);
