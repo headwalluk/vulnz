@@ -1,4 +1,24 @@
 // Helpers and normalization for environment variables
+const fs = require('fs');
+const path = require('path');
+
+const ENV_FILE_PATH = path.join(__dirname, '../../.env');
+const ENV_EXAMPLE_PATH = path.join(__dirname, '../../.env.example');
+const REQUIRED_DATABASE_VARS = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+// Placeholder values shipped in .env.example; the repo is public, so none of them is a secret.
+const EXAMPLE_PLACEHOLDER_PATTERNS = [/^YOUR_[A-Z_]+_HERE$/, /^CHANGE_ME/];
+const NOTIFY_SECRET_VAR = 'VULNZ_NOTIFY_SECRET';
+const WHOLE_NUMBER_PATTERN = /^\d+$/;
+const PASSWORD_POLICY_SETTINGS = [
+  { name: 'PASSWORD_MIN_LENGTH', key: 'minLength', min: 1 },
+  { name: 'PASSWORD_MIN_ALPHA', key: 'minAlpha', min: 0 },
+  { name: 'PASSWORD_MIN_SYMBOLS', key: 'minSymbols', min: 0 },
+  { name: 'PASSWORD_MIN_NUMERIC', key: 'minNumeric', min: 0 },
+  { name: 'PASSWORD_MIN_UPPERCASE', key: 'minUppercase', min: 0 },
+  { name: 'PASSWORD_MIN_LOWERCASE', key: 'minLowercase', min: 0 },
+];
+const BANNER_RULE = '═'.repeat(63);
+
 const TRUE_SET = new Set(['1', 'true', 'yes', 'y', 'on']);
 const FALSE_SET = new Set(['0', 'false', 'no', 'n', 'off']);
 
@@ -35,6 +55,105 @@ function parseStr(name, defaultValue = '') {
   if (raw == null) return defaultValue;
   const trimmed = String(raw).trim();
   return trimmed === '' ? defaultValue : trimmed;
+}
+
+/** Whether a value is one of the placeholders shipped in .env.example. */
+function isExamplePlaceholder(value) {
+  return EXAMPLE_PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+/** Problems with the password policy settings: each must be a whole number at or above its minimum. */
+function findPasswordPolicyProblems() {
+  const problems = [];
+  for (const setting of PASSWORD_POLICY_SETTINGS) {
+    const value = String(process.env[setting.name] ?? '').trim();
+    if (value === '') {
+      problems.push(`${setting.name} is not set.`);
+    } else if (!WHOLE_NUMBER_PATTERN.test(value) || Number(value) < setting.min) {
+      problems.push(`${setting.name} must be a whole number of at least ${setting.min} (got "${value}").`);
+    }
+  }
+  return problems;
+}
+
+/** Problems with the settings VULNZ must not run without, read from the loaded environment. */
+function findCriticalSettingProblems() {
+  const problems = [];
+  for (const name of REQUIRED_DATABASE_VARS) {
+    const value = String(process.env[name] ?? '').trim();
+    if (value === '') {
+      problems.push(`${name} is not set.`);
+    } else if (isExamplePlaceholder(value)) {
+      problems.push(`${name} still has its placeholder value from .env.example (${value}).`);
+    }
+  }
+  problems.push(...findPasswordPolicyProblems());
+  // Optional (unset keeps the notification endpoints closed), but the example value is public.
+  const notifySecret = String(process.env[NOTIFY_SECRET_VAR] ?? '').trim();
+  if (notifySecret !== '' && isExamplePlaceholder(notifySecret)) {
+    problems.push(`${NOTIFY_SECRET_VAR} still has its placeholder value from .env.example. Generate one with: openssl rand -hex 32`);
+  }
+  return problems;
+}
+
+/**
+ * Load .env from the project root, exiting with every problem listed if it is missing or
+ * any critical setting is unset or malformed. Call before anything reads the environment.
+ *
+ * @param {{envFilePath?: string, examplePath?: string}} [options] paths, overridable for tests
+ */
+function loadEnvFile({ envFilePath = ENV_FILE_PATH, examplePath = ENV_EXAMPLE_PATH } = {}) {
+  const fileExists = fs.existsSync(envFilePath);
+  let problems = [`${envFilePath} does not exist.`];
+  let instructions = [
+    '  To set it up:',
+    '',
+    `    cp ${examplePath} ${envFilePath}`,
+    `    chmod 600 ${envFilePath}`,
+    '',
+    `  Then edit ${envFilePath} and set the database credentials:`,
+    `    ${REQUIRED_DATABASE_VARS.join(', ')}`,
+  ];
+  if (fileExists) {
+    // dotenv never overrides a variable already set in the real environment.
+    require('dotenv').config({ path: envFilePath, quiet: true });
+    problems = findCriticalSettingProblems();
+    instructions = [`  Edit ${envFilePath} and fix the settings above.`, `  ${examplePath} documents each one.`];
+  }
+
+  if (problems.length > 0) {
+    const lines = [
+      '',
+      BANNER_RULE,
+      'VULNZ cannot start: the environment is not configured.',
+      BANNER_RULE,
+      '',
+      ...problems.map((problem) => `  - ${problem}`),
+      '',
+      ...instructions,
+      '',
+      '  See docs/installation.md for the other settings.',
+      '',
+      BANNER_RULE,
+      '',
+    ];
+    console.error(lines.join('\n'));
+    process.exit(1);
+  }
+}
+
+/**
+ * The password policy, parsed from the environment.
+ *
+ * @returns {{minLength: number, minAlpha: number, minSymbols: number, minNumeric: number, minUppercase: number, minLowercase: number}}
+ * @throws {Error} if any setting is unset or malformed; loadEnvFile() refuses to start in that case
+ */
+function getPasswordPolicy() {
+  const problems = findPasswordPolicyProblems();
+  if (problems.length > 0) {
+    throw new Error(`Password policy is not configured: ${problems.join(' ')}`);
+  }
+  return Object.fromEntries(PASSWORD_POLICY_SETTINGS.map((setting) => [setting.key, Number(String(process.env[setting.name]).trim())]));
 }
 
 // Normalize environment variables to safe, predictable values at startup
@@ -147,15 +266,10 @@ function checkEnvFilePermissions() {
     return;
   }
 
-  const fs = require('fs');
-  const path = require('path');
+  const envPath = ENV_FILE_PATH;
 
-  // Find .env file in project root (one level up from src/)
-  const envPath = path.join(__dirname, '../../.env');
-
-  // Check if .env exists
+  // loadEnvFile() has already refused to start without it; nothing to check.
   if (!fs.existsSync(envPath)) {
-    // .env doesn't exist - this is fine (might be using env vars directly)
     return;
   }
 
@@ -195,4 +309,4 @@ function checkEnvFilePermissions() {
   }
 }
 
-module.exports = { normalizeEnv, checkEnvFilePermissions, parseBool, parseIntEnv, parseEnum, parseStr };
+module.exports = { loadEnvFile, getPasswordPolicy, normalizeEnv, checkEnvFilePermissions, parseBool, parseIntEnv, parseEnum, parseStr };

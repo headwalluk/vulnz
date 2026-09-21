@@ -7,8 +7,8 @@
 // src/index.js for the full rationale. Mandatory for correctness.
 process.env.TZ = 'UTC';
 
-// dotenv must load before any src/ modules touch process.env
-require('dotenv').config();
+// .env must load before any other src/ module touches process.env
+require('../src/lib/env').loadEnvFile();
 
 // Allow BigInt JSON serialization (same patch as src/index.js)
 BigInt.prototype.toJSON = function () {

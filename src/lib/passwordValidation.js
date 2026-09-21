@@ -1,12 +1,8 @@
-require('dotenv').config({ quiet: true });
+const { getPasswordPolicy } = require('./env');
 
+/** Check a password against the configured policy, returning every rule it breaks. */
 function validatePassword(password) {
-  const minLength = parseInt(process.env.PASSWORD_MIN_LENGTH, 10);
-  const minAlpha = parseInt(process.env.PASSWORD_MIN_ALPHA, 10);
-  const minSymbols = parseInt(process.env.PASSWORD_MIN_SYMBOLS, 10);
-  const minNumeric = parseInt(process.env.PASSWORD_MIN_NUMERIC, 10);
-  const minUppercase = parseInt(process.env.PASSWORD_MIN_UPPERCASE, 10);
-  const minLowercase = parseInt(process.env.PASSWORD_MIN_LOWERCASE, 10);
+  const { minLength, minAlpha, minSymbols, minNumeric, minUppercase, minLowercase } = getPasswordPolicy();
 
   const errors = [];
 

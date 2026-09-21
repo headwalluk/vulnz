@@ -18,6 +18,14 @@ process.env.DB_PASSWORD = 'test';
 process.env.DB_NAME = 'test';
 process.env.DB_PORT = '3306';
 
+// Password policy, set explicitly so tests never depend on a local .env (values match .env.example)
+process.env.PASSWORD_MIN_LENGTH = '8';
+process.env.PASSWORD_MIN_ALPHA = '1';
+process.env.PASSWORD_MIN_SYMBOLS = '1';
+process.env.PASSWORD_MIN_NUMERIC = '1';
+process.env.PASSWORD_MIN_UPPERCASE = '1';
+process.env.PASSWORD_MIN_LOWERCASE = '1';
+
 // Increase timeout for database operations
 jest.setTimeout(10000);
 
