@@ -1,5 +1,6 @@
 const mariadb = require('mariadb');
 const dbConfig = require('./config/db');
+const logger = require('./lib/logger');
 
 const pool = mariadb.createPool({
   ...dbConfig,
@@ -9,15 +10,11 @@ const pool = mariadb.createPool({
 
 // Log pool events for debugging
 pool.on('acquire', (connection) => {
-  if (process.env.LOG_LEVEL === 'debug') {
-    console.log(`Connection ${connection.threadId} acquired`);
-  }
+  logger.debug(`Connection ${connection.threadId} acquired`);
 });
 
 pool.on('release', (connection) => {
-  if (process.env.LOG_LEVEL === 'debug') {
-    console.log(`Connection ${connection.threadId} released`);
-  }
+  logger.debug(`Connection ${connection.threadId} released`);
 });
 
 pool.on('error', (err) => {

@@ -10,6 +10,7 @@ const { loadEnvFile, normalizeEnv, checkEnvFilePermissions } = require('./lib/en
 loadEnvFile();
 normalizeEnv();
 checkEnvFilePermissions();
+const logger = require('./lib/logger');
 
 // Colorful startup banner for quick visibility
 (() => {
@@ -20,7 +21,7 @@ checkEnvFilePermissions();
   const color = process.env.NODE_ENV === 'production' ? GREEN : CYAN;
   const instance = process.env.NODE_APP_INSTANCE;
   const env = process.env.NODE_ENV;
-  console.log(`${BOLD}${color}[vulnz] ${env} instance ${instance}${RESET}`);
+  logger.info(`${BOLD}${color}[vulnz] ${env} instance ${instance}${RESET}`);
 })();
 
 process.on('uncaughtException', (err) => {
@@ -179,9 +180,9 @@ if (process.env.CORS_ENABLED === 'true') {
   };
 
   app.use(cors(corsOptions));
-  console.log('[CORS] Enabled with origin:', process.env.CORS_ORIGIN || '*');
+  logger.info('[CORS] Enabled with origin:', process.env.CORS_ORIGIN || '*');
 } else {
-  console.log('[CORS] Disabled');
+  logger.info('[CORS] Disabled');
 }
 
 const jsonBodyLimitOpts = process.env.JSON_BODY_LIMIT ? { limit: process.env.JSON_BODY_LIMIT } : {};
@@ -190,9 +191,9 @@ app.use(express.json(jsonBodyLimitOpts));
 app.use(passport.initialize());
 
 // Diagnostic middleware to confirm if the /api path is being hit
-if (process.env.LOG_LEVEL === 'debug') {
+if (logger.isLevelEnabled('debug')) {
   app.use('/api', (req, res, next) => {
-    console.log('Generic /api middleware triggered for route:', req.originalUrl);
+    logger.debug('Generic /api middleware triggered for route:', req.originalUrl);
     next();
   });
 }
@@ -249,11 +250,11 @@ async function startServer() {
     await fileSecurityIssue.createTable();
     await componentChange.createTable();
     await websiteMalware.createTable();
-    console.log('Database tables created or already exist.');
+    logger.info('Database tables created or already exist.');
 
     if (process.env.NODE_APP_INSTANCE === '0') {
       await migrations.run();
-      console.log('Migrations complete.');
+      logger.info('Migrations complete.');
       await initializeGeoIP();
       // Update reference data on startup
       await updateFromReference();
@@ -274,29 +275,29 @@ async function startServer() {
       console.warn('Cron jobs are disabled in .env (CRON_ENABLE).');
     } else {
       if (process.env.NODE_ENV === 'production' && process.env.NODE_APP_INSTANCE && process.env.NODE_APP_INSTANCE !== '0') {
-        console.log(`Not scheduling cron jobs on this instance (${process.env.NODE_APP_INSTANCE})`);
+        logger.info(`Not scheduling cron jobs on this instance (${process.env.NODE_APP_INSTANCE})`);
         return;
       }
 
-      console.log(`Scheduling cron jobs for instance ${process.env.NODE_APP_INSTANCE}`);
+      logger.info(`Scheduling cron jobs for instance ${process.env.NODE_APP_INSTANCE}`);
 
       cron.schedule('0 0 * * *', () => {
-        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to purge old API call logs...');
+        logger.debug('Running cron job to purge old API call logs...');
         apiCallLog.purgeOldLogs();
       });
 
       cron.schedule('0 0,12 * * *', () => {
-        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to purge old email logs...');
+        logger.debug('Running cron job to purge old email logs...');
         emailLog.purgeOldLogs();
       });
 
       cron.schedule('*/10 * * * *', () => {
-        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to send weekly summary emails...');
+        logger.debug('Running cron job to send weekly summary emails...');
         sendWeeklyReports();
       });
 
       cron.schedule('* * * * *', () => {
-        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to sync plugin data from wporg...');
+        logger.debug('Running cron job to sync plugin data from wporg...');
         syncNextPlugin();
       });
 
@@ -305,12 +306,10 @@ async function startServer() {
 
       // High-priority plugin lane — re-sync every watchlist plugin hourly.
       cron.schedule('0 * * * *', async () => {
-        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to sync high-priority plugins from wporg...');
+        logger.debug('Running cron job to sync high-priority plugins from wporg...');
         try {
           const summary = await syncHighPriorityPlugins();
-          if (process.env.LOG_LEVEL === 'info' || process.env.LOG_LEVEL === 'debug') {
-            console.log(`High-priority sync: ${summary.synced} synced, ${summary.unavailable} unavailable, ${summary.transient} transient, ${summary.errors} errors.`);
-          }
+          logger.info(`High-priority sync: ${summary.synced} synced, ${summary.unavailable} unavailable, ${summary.transient} transient, ${summary.errors} errors.`);
         } catch (err) {
           console.error('Error running high-priority plugin sync:', err);
         }
@@ -319,7 +318,7 @@ async function startServer() {
       // WordPress core version — refresh hourly (offset to avoid colliding
       // with the plugin lane).
       cron.schedule('5 * * * *', async () => {
-        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to sync WordPress core version...');
+        logger.debug('Running cron job to sync WordPress core version...');
         try {
           const result = await syncWordPressCoreVersion();
           if (!result.ok) {
@@ -335,10 +334,10 @@ async function startServer() {
       // lane (0 * * * *): the rebuild briefly demotes all high plugins while
       // re-promoting the new set, and a colliding sync could see zero.
       cron.schedule('30 */6 * * *', async () => {
-        console.log('Running cron job to rebuild the wporg high-priority watchlist...');
+        logger.debug('Running cron job to rebuild the wporg high-priority watchlist...');
         try {
           const result = await buildWatchlist();
-          console.log(`Watchlist rebuilt: ${result.high.length} high-priority, ${result.blindSpots.length} blind spot(s), ${result.probed} probed.`);
+          logger.info(`Watchlist rebuilt: ${result.high.length} high-priority, ${result.blindSpots.length} blind spot(s), ${result.probed} probed.`);
         } catch (err) {
           console.error('Error rebuilding watchlist:', err);
         }
@@ -350,13 +349,13 @@ async function startServer() {
       // has finished writing changelogs before the queue is drained. Kept out
       // of the sync itself so a slow provider never delays the manifest.
       cron.schedule('20 * * * *', async () => {
-        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to classify pending release urgency...');
+        logger.debug('Running cron job to classify pending release urgency...');
         try {
           const summary = await classifyPendingReleases();
           if (summary.skipped) {
-            process.env.LOG_LEVEL === 'debug' && console.log(`Urgency classification skipped: ${summary.reason}`);
+            logger.debug(`Urgency classification skipped: ${summary.reason}`);
           } else if (summary.classified > 0 || summary.failed > 0) {
-            console.log(`Urgency classification: ${summary.classified} classified (${summary.urgent} urgent), ${summary.failed} failed.`);
+            logger.info(`Urgency classification: ${summary.classified} classified (${summary.urgent} urgent), ${summary.failed} failed.`);
           }
         } catch (err) {
           console.error('Error running urgency classification:', err);
@@ -367,10 +366,10 @@ async function startServer() {
       // Marks plugins not synced in 7 days for re-sync
       cron.schedule('0 2 * * *', async () => {
         const daysThreshold = parseInt(process.env.WPORG_RESYNC_DAYS || '7', 10);
-        console.log(`Running cron job to invalidate stale wporg syncs (older than ${daysThreshold} days)...`);
+        logger.debug(`Running cron job to invalidate stale wporg syncs (older than ${daysThreshold} days)...`);
         try {
           const invalidatedCount = await component.invalidateStaleSyncs(daysThreshold);
-          console.log(`Invalidated ${invalidatedCount} stale plugin sync(s).`);
+          logger.info(`Invalidated ${invalidatedCount} stale plugin sync(s).`);
         } catch (err) {
           console.error('Error invalidating stale syncs:', err);
         }
@@ -379,25 +378,25 @@ async function startServer() {
       if (process.env.WEBSITE_AUTO_DELETE_ENABLED === 'true') {
         const days = parseInt(process.env.WEBSITE_AUTO_DELETE_DAYS, 10) || 30;
         cron.schedule('0 0 * * *', async () => {
-          console.log(`Running cron job to delete stale websites (older than ${days} days)...`);
+          logger.debug(`Running cron job to delete stale websites (older than ${days} days)...`);
           try {
             const deletedCount = await website.removeStaleWebsites(days);
-            console.log(`Deleted ${deletedCount} stale website(s).`);
+            logger.info(`Deleted ${deletedCount} stale website(s).`);
           } catch (err) {
             console.error('Error deleting stale websites:', err);
           }
         });
       } else {
-        console.log('Stale website deletion is disabled (WEBSITE_AUTO_DELETE_ENABLED=false).');
+        logger.info('Stale website deletion is disabled (WEBSITE_AUTO_DELETE_ENABLED=false).');
       }
 
       // Purge old security events
       cron.schedule('0 1 * * *', async () => {
         const securityEventsRetentionDays = await appSetting.getWithFallback('retention.security_events_days', 'SECURITY_EVENTS_RETENTION_DAYS', 30);
-        console.log(`Running cron job to purge old security events (older than ${securityEventsRetentionDays} days)...`);
+        logger.debug(`Running cron job to purge old security events (older than ${securityEventsRetentionDays} days)...`);
         try {
           const deletedCount = await securityEvent.removeOldEvents(securityEventsRetentionDays);
-          console.log(`Purged ${deletedCount} old security event(s).`);
+          logger.info(`Purged ${deletedCount} old security event(s).`);
         } catch (err) {
           console.error('Error purging old security events:', err);
         }
@@ -406,10 +405,10 @@ async function startServer() {
       // Purge stale file security issues
       cron.schedule('0 2 * * *', async () => {
         const fileIssuesRetentionDays = await appSetting.getWithFallback('retention.file_security_issues_days', 'FILE_SECURITY_ISSUES_RETENTION_DAYS', 30);
-        console.log(`Running cron job to purge stale file security issues (older than ${fileIssuesRetentionDays} days)...`);
+        logger.debug(`Running cron job to purge stale file security issues (older than ${fileIssuesRetentionDays} days)...`);
         try {
           const deletedCount = await fileSecurityIssue.removeStaleIssues(fileIssuesRetentionDays);
-          console.log(`Purged ${deletedCount} stale file security issue(s).`);
+          logger.info(`Purged ${deletedCount} stale file security issue(s).`);
         } catch (err) {
           console.error('Error purging stale file security issues:', err);
         }
@@ -418,10 +417,10 @@ async function startServer() {
       // Purge old component changes (runs weekly on Sunday at 3 AM)
       cron.schedule('0 3 * * 0', async () => {
         const componentChangesRetentionDays = await appSetting.getWithFallback('retention.component_changes_days', 'COMPONENT_CHANGES_RETENTION_DAYS', 365);
-        console.log(`Running cron job to purge old component changes (older than ${componentChangesRetentionDays} days)...`);
+        logger.debug(`Running cron job to purge old component changes (older than ${componentChangesRetentionDays} days)...`);
         try {
           const deletedCount = await componentChange.removeOldChanges(componentChangesRetentionDays);
-          console.log(`Purged ${deletedCount} old component change(s).`);
+          logger.info(`Purged ${deletedCount} old component change(s).`);
         } catch (err) {
           console.error('Error purging old component changes:', err);
         }
@@ -429,11 +428,11 @@ async function startServer() {
 
       // Process notification queue (every 2 minutes)
       cron.schedule('*/2 * * * *', async () => {
-        process.env.LOG_LEVEL === 'debug' && console.log('Running cron job to process notification queue...');
+        logger.debug('Running cron job to process notification queue...');
         try {
           const processed = await processQueue(10);
           if (processed > 0) {
-            console.log(`Processed ${processed} queued notification(s).`);
+            logger.info(`Processed ${processed} queued notification(s).`);
           }
         } catch (err) {
           console.error('Error processing notification queue:', err);
@@ -442,10 +441,10 @@ async function startServer() {
 
       // Purge old notification queue entries (weekly on Sunday at 4 AM)
       cron.schedule('0 4 * * 0', async () => {
-        console.log('Running cron job to purge old notification queue entries...');
+        logger.debug('Running cron job to purge old notification queue entries...');
         try {
           const purged = await notificationQueue.purgeOld(30);
-          console.log(`Purged ${purged} old notification queue entry/entries.`);
+          logger.info(`Purged ${purged} old notification queue entry/entries.`);
         } catch (err) {
           console.error('Error purging notification queue:', err);
         }
@@ -454,7 +453,7 @@ async function startServer() {
       // Update reference data twice daily (11am and 11pm)
       // WordPress updates typically happen around 9pm GMT
       cron.schedule('0 11,23 * * *', async () => {
-        console.log('Running reference data update...');
+        logger.debug('Running reference data update...');
         try {
           await updateFromReference();
         } catch (err) {
@@ -464,7 +463,7 @@ async function startServer() {
     }
 
     app.listen(port, () => {
-      console.log(`Server accessible at ${process.env.BASE_URL} in ${process.env.NODE_ENV || 'development'} mode`);
+      logger.info(`Server accessible at ${process.env.BASE_URL} in ${process.env.NODE_ENV || 'development'} mode`);
     });
   } catch (err) {
     console.error('Failed to initialize the database or start the server:', err);

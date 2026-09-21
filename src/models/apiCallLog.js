@@ -1,4 +1,5 @@
 const db = require('../db');
+const logger = require('../lib/logger');
 
 async function createTable() {
   const sql = `
@@ -24,7 +25,7 @@ async function logCall(username, route, method, ipAddress, statusCode) {
 async function purgeOldLogs() {
   const retentionDays = parseInt(process.env.API_LOG_RETENTION_DAYS, 10);
   if (isNaN(retentionDays) || retentionDays <= 0) {
-    console.log('API_LOG_RETENTION_DAYS is not set or is invalid. Skipping log purge.');
+    logger.warn('API_LOG_RETENTION_DAYS is not set or is invalid. Skipping log purge.');
     return;
   }
 
@@ -36,7 +37,7 @@ async function purgeOldLogs() {
   try {
     const result = await db.query(sql, [retentionDays]);
     const affectedRows = result && result[0] ? result[0].affectedRows : 0;
-    console.log(`Purged ${affectedRows} old API call logs.`);
+    logger.info(`Purged ${affectedRows} old API call logs.`);
   } catch (err) {
     console.error('Failed to purge old API call logs:', err);
   }

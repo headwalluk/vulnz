@@ -1,5 +1,6 @@
-const { parseBool, parseIntEnv, parseStr, parseEnum } = require('../env');
+const { parseBool, parseIntEnv, parseStr } = require('../env');
 const { getTask } = require('./tasks');
+const logger = require('../logger');
 
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
 const DEFAULT_MODEL = 'anthropic/claude-haiku-4.5';
@@ -48,11 +49,6 @@ function llmConfig() {
 function isLlmAvailable() {
   const config = llmConfig();
   return config.enabled && config.apiKey !== '';
-}
-
-function isDebugLogging() {
-  const level = parseEnum('LOG_LEVEL', ['debug', 'info', 'warn', 'error'], 'info');
-  return level === 'debug' || level === 'info';
 }
 
 /**
@@ -221,8 +217,8 @@ async function runTask(taskSlug, input, { fetchImpl } = {}) {
   let lastError = 'No attempt was made.';
 
   for (let attempt = 1; attempt <= config.maxAttempts; attempt++) {
-    if (isDebugLogging() && attempt > 1) {
-      console.log(`LLM task ${taskSlug}: retry ${attempt} of ${config.maxAttempts}`);
+    if (attempt > 1) {
+      logger.info(`LLM task ${taskSlug}: retry ${attempt} of ${config.maxAttempts}`);
     }
 
     const outcome = await requestCompletion({ fetch, config, model, task, userPrompt });

@@ -10,6 +10,7 @@ const appSetting = require('../models/appSetting');
 const emailer = require('../lib/email');
 const emailLog = require('../models/emailLog');
 const { validateEmailAddress } = require('../lib/emailValidation');
+const logger = require('./logger');
 
 /**
  * Format a date/datetime into a human-readable string with relative time
@@ -303,7 +304,7 @@ async function sendWeeklyReports() {
 
   for (const userToSend of users) {
     // Diagnostics
-    console.log(`Sending emails to ${userToSend.username}`);
+    logger.info(`Sending emails to ${userToSend.username}`);
 
     try {
       await sendSummaryEmail(userToSend);

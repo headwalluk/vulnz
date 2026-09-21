@@ -1,5 +1,6 @@
 const maxmind = require('maxmind');
 const path = require('path');
+const logger = require('./logger');
 
 let cityLookup = null;
 let countryLookup = null;
@@ -12,7 +13,7 @@ async function initializeGeoIP() {
     const cityDbPath = path.join(geoipPath, 'GeoLite2-City.mmdb');
     try {
       cityLookup = await maxmind.open(cityDbPath);
-      console.log('GeoIP City database loaded successfully');
+      logger.info('GeoIP City database loaded successfully');
       return;
     } catch {
       console.warn('GeoIP City database not found, trying Country database');
@@ -22,7 +23,7 @@ async function initializeGeoIP() {
     const countryDbPath = path.join(geoipPath, 'GeoLite2-Country.mmdb');
     try {
       countryLookup = await maxmind.open(countryDbPath);
-      console.log('GeoIP Country database loaded successfully');
+      logger.info('GeoIP Country database loaded successfully');
       return;
     } catch {
       console.warn('GeoIP Country database not found');

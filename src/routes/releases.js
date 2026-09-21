@@ -6,6 +6,7 @@ const { logApiCall } = require('../middleware/logApiCall');
 const { sanitizeComponentSlug } = require('../lib/sanitizer');
 const { normaliseReportedVersion, MAX_VERSION_LENGTH } = require('../lib/versionCompare');
 const Release = require('../models/release');
+const logger = require('../lib/logger');
 
 const MAX_BULK_ITEMS = 500;
 
@@ -182,11 +183,9 @@ router.post('/bulk', apiAuth, logApiCall, async (req, res) => {
       response.errors = errors;
     }
 
-    if (process.env.LOG_LEVEL === 'info' || process.env.LOG_LEVEL === 'debug') {
-      console.log(
-        `Bulk releases: ${componentCache.size} components, ${items.length} releases processed, ${totalCreated} created, ${totalDuplicates} skipped${errors.length > 0 ? `, ${errors.length} errors` : ''}`
-      );
-    }
+    logger.info(
+      `Bulk releases: ${componentCache.size} components, ${items.length} releases processed, ${totalCreated} created, ${totalDuplicates} skipped${errors.length > 0 ? `, ${errors.length} errors` : ''}`
+    );
 
     res.status(200).json(response);
   } catch (err) {

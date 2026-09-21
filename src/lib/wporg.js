@@ -3,6 +3,7 @@ const { stripAll } = require('./sanitizer');
 const { parseStr, parseIntEnv } = require('./env');
 const Release = require('../models/release');
 const { normaliseReportedVersion } = require('./versionCompare');
+const logger = require('./logger');
 
 const WPORG_PLUGIN_PAGE_BASE = 'https://wordpress.org/plugins/';
 const HIGH_PRIORITY = 'high';
@@ -307,9 +308,7 @@ async function syncPluginComponent(component, fetch, config) {
     headers: { 'User-Agent': config.userAgent },
   };
 
-  if (process.env.LOG_LEVEL === 'info' || process.env.LOG_LEVEL === 'debug') {
-    console.log(`Syncing plugin: ${component.slug}`);
-  }
+  logger.debug(`Syncing plugin: ${component.slug}`);
 
   const response = await fetch(url, options);
 

@@ -5,6 +5,7 @@ const apiKey = require('../models/apiKey');
 const userSubscription = require('../models/userSubscription');
 const notificationQueue = require('../models/notificationQueue');
 const crypto = require('crypto');
+const logger = require('./logger');
 
 /**
  * Pull customer and subscription data from a WordPress site's REST API.
@@ -28,7 +29,7 @@ async function pullFromWordPress(site, wpUserId) {
     if (customerRes.ok) {
       customer = await customerRes.json();
     } else if (customerRes.status === 404) {
-      console.log(`Customer ${wpUserId} not found on ${site.site_url}`);
+      logger.warn(`Customer ${wpUserId} not found on ${site.site_url}`);
     } else {
       throw new Error(`Customer pull failed: HTTP ${customerRes.status}`);
     }
@@ -43,7 +44,7 @@ async function pullFromWordPress(site, wpUserId) {
     if (subRes.ok) {
       subscription = await subRes.json();
     } else if (subRes.status === 404) {
-      console.log(`Subscription for user ${wpUserId} not found on ${site.site_url}`);
+      logger.warn(`Subscription for user ${wpUserId} not found on ${site.site_url}`);
     } else {
       throw new Error(`Subscription pull failed: HTTP ${subRes.status}`);
     }
@@ -73,14 +74,14 @@ function generateProvisioningPassword() {
 async function processNotification(site, wpUserId, event) {
   const siteId = parseInt(site.id, 10);
 
-  console.log(`Processing notification: site=${site.site_url} wp_user=${wpUserId} event=${event}`);
+  logger.debug(`Processing notification: site=${site.site_url} wp_user=${wpUserId} event=${event}`);
 
   // 1. Pull data from WordPress
   const { customer, subscription } = await pullFromWordPress(site, wpUserId);
 
   // 2. Handle customer 404 — user deleted on WP side
   if (!customer) {
-    console.log(`Customer ${wpUserId} deleted on ${site.site_url} — no action taken`);
+    logger.info(`Customer ${wpUserId} deleted on ${site.site_url} — no action taken`);
     return;
   }
 
@@ -105,7 +106,7 @@ async function processNotification(site, wpUserId, event) {
       null, // white_label_html
       false // paused
     );
-    console.log(`Created user: ${accountEmail} (id=${localUser.id})`);
+    logger.info(`Created user: ${accountEmail} (id=${localUser.id})`);
   }
 
   const userId = parseInt(localUser.id, 10);
@@ -127,7 +128,7 @@ async function processNotification(site, wpUserId, event) {
 
     // Compute effective state across all sites and update blocked status
     await syncUserBlockedState(userId);
-    console.log(`Subscription removed for ${accountEmail} on ${site.site_url}`);
+    logger.info(`Subscription removed for ${accountEmail} on ${site.site_url}`);
     return;
   }
 
@@ -172,7 +173,7 @@ async function processNotification(site, wpUserId, event) {
     }
   }
 
-  console.log(`Processed notification for ${accountEmail}: state=${effectiveState}`);
+  logger.info(`Processed notification for ${accountEmail}: state=${effectiveState}`);
 }
 
 /**
@@ -184,7 +185,7 @@ async function processNotification(site, wpUserId, event) {
  */
 async function provisionApiKey(site, userId, wpUserId, accountEmail) {
   const newKey = await apiKey.createForUser(userId);
-  console.log(`Generated API key for ${accountEmail}`);
+  logger.info(`Generated API key for ${accountEmail}`);
 
   // Push API key back to WordPress
   const baseUrl = site.site_url.replace(/\/+$/, '');
@@ -200,7 +201,7 @@ async function provisionApiKey(site, userId, wpUserId, accountEmail) {
   if (!pushRes.ok) {
     console.error(`Failed to push API key to ${site.site_url} for user ${wpUserId}: HTTP ${pushRes.status}`);
   } else {
-    console.log(`Pushed API key to ${site.site_url} for ${accountEmail}`);
+    logger.info(`Pushed API key to ${site.site_url} for ${accountEmail}`);
   }
 }
 

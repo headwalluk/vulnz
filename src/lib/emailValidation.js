@@ -1,3 +1,5 @@
+const logger = require('./logger');
+
 function validateEmailAddress(email) {
   // This regex is a widely used pattern for email validation and allows for the "+" symbol.
   const emailRegex = new RegExp(
@@ -6,7 +8,7 @@ function validateEmailAddress(email) {
   const isValid = emailRegex.test(email);
 
   // Check we're validating email addresses correctly.
-  process.env.LOG_LEVEL === 'debug' && console.log(`Validating email: ${email}, isValid: ${isValid}`);
+  logger.debug(`Validating email: ${email}, isValid: ${isValid}`);
 
   return {
     isValid: isValid,
