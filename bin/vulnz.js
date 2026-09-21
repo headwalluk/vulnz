@@ -10,6 +10,23 @@ process.env.TZ = 'UTC';
 // .env must load before any other src/ module touches process.env
 require('../src/lib/env').loadEnvFile();
 
+/** Resolve once a stream's queued writes have been handed to the OS. */
+function waitForStream(stream) {
+  return new Promise((resolve) => {
+    if (stream.writableLength === 0) {
+      resolve();
+    } else {
+      stream.once('drain', resolve);
+    }
+  });
+}
+
+/** Exit once stdout and stderr have drained; process.exit() alone truncates piped output at the pipe buffer (64 KB). */
+async function exitAfterOutput(code) {
+  await Promise.all([waitForStream(process.stdout), waitForStream(process.stderr)]);
+  process.exit(code);
+}
+
 // Allow BigInt JSON serialization (same patch as src/index.js)
 BigInt.prototype.toJSON = function () {
   return this.toString();
@@ -79,11 +96,11 @@ program
       const roles = created.roles || roleNames;
       console.log(`Created user: ${created.username} (id=${created.id}, roles=${roles.join(',')})`);
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -125,11 +142,11 @@ program
       }
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -145,16 +162,16 @@ program
       if (!found) {
         process.stderr.write(`Error: User '${email}' not found.\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
       }
       await user.deleteUser(parseInt(found.id, 10));
       console.log(`Deleted user: ${email} (id=${found.id})`);
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -170,16 +187,16 @@ program
       if (!found) {
         process.stderr.write(`Error: User '${email}' not found.\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
       }
       await user.updateUser(parseInt(found.id, 10), { blocked: true });
       console.log(`Blocked user: ${email} (id=${found.id})`);
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -195,16 +212,16 @@ program
       if (!found) {
         process.stderr.write(`Error: User '${email}' not found.\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
       }
       await user.updateUser(parseInt(found.id, 10), { blocked: false });
       console.log(`Unblocked user: ${email} (id=${found.id})`);
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -220,16 +237,16 @@ program
       if (!found) {
         process.stderr.write(`Error: User '${email}' not found.\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
       }
       await user.updatePassword(parseInt(found.id, 10), newPassword);
       console.log(`Password reset for user: ${email} (id=${found.id})`);
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -246,7 +263,7 @@ program
       if (!found) {
         process.stderr.write(`Error: User '${email}' not found.\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
       }
 
       const userId = parseInt(found.id, 10);
@@ -321,11 +338,11 @@ program
       }
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -342,7 +359,7 @@ program
       if (!found) {
         process.stderr.write(`Error: User '${email}' not found.\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
       }
 
       const keys = await apiKey.listByUserId(parseInt(found.id, 10));
@@ -372,11 +389,11 @@ program
       }
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -392,17 +409,17 @@ program
       if (!found) {
         process.stderr.write(`Error: User '${email}' not found.\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
       }
 
       const newKey = await apiKey.createForUser(parseInt(found.id, 10));
       console.log(`Generated API key for ${email}: ${newKey}`);
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -418,18 +435,18 @@ program
       if (!found) {
         process.stderr.write(`Error: API key not found.\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
         return;
       }
 
       await apiKey.revokeByKey(key);
       console.log(`Revoked API key: ${key}`);
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -458,11 +475,11 @@ program
       }
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -506,11 +523,11 @@ program
       }
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -559,11 +576,11 @@ program
 
       console.log(`Releases: ${added} added, ${skipped} already existed.`);
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -609,11 +626,11 @@ program
       }
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -633,7 +650,7 @@ program
       if (Number.isNaN(sampleSize) || sampleSize < 0) {
         process.stderr.write(`Error: --sample must be a whole number, got "${opts.sample}".\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
         return;
       }
 
@@ -673,11 +690,11 @@ program
       }
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -709,11 +726,11 @@ program
       }
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -737,7 +754,7 @@ program
       if (url && !isUrl(url)) {
         process.stderr.write(`Error: "${url}" is not a valid URL.\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
         return;
       }
 
@@ -746,7 +763,7 @@ program
       if (!slug) {
         process.stderr.write(`Error: "${rawSlug}" is not a usable component slug.\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
         return;
       }
 
@@ -754,7 +771,7 @@ program
       if (componentTypes.length === 0) {
         process.stderr.write(`Error: unknown component type "${type}".\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
         return;
       }
 
@@ -777,7 +794,7 @@ program
           process.stderr.write('       Flagging it would report a legitimate plugin as malware across the fleet.\n');
           process.stderr.write('       If the wordpress.org listing is itself malicious, re-run with --force.\n');
           await db.end();
-          process.exit(1);
+          await exitAfterOutput(1);
           return;
         }
 
@@ -821,11 +838,11 @@ program
       }
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -843,14 +860,14 @@ program
       if (!target) {
         console.log(`No component found: ${type}/${slug}`);
         await db.end();
-        process.exit(0);
+        await exitAfterOutput(0);
         return;
       }
 
       if (!target.is_malware) {
         console.log(`Not flagged as malware: ${type}/${slug}`);
         await db.end();
-        process.exit(0);
+        await exitAfterOutput(0);
         return;
       }
 
@@ -858,11 +875,11 @@ program
       console.log(`Cleared malware flag: ${type}/${slug} (id=${parseInt(target.id, 10)})`);
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -914,11 +931,11 @@ program
       }
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -935,7 +952,7 @@ program
       if (value === null) {
         process.stderr.write(`Error: Setting '${key}' not found.\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
       }
 
       if (opts.json) {
@@ -945,11 +962,11 @@ program
       }
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -968,11 +985,11 @@ program
       const stored = await appSetting.get(key);
       console.log(`${key} = ${stored}`);
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1014,11 +1031,11 @@ program
       }
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1035,17 +1052,17 @@ program
       if (existing) {
         process.stderr.write(`Error: Site '${url}' is already registered (id=${existing.id}).\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
       }
 
       const site = await notificationSite.create(url, dataSecret, opts.ipAllowlist || null);
       console.log(`Registered site: ${url} (id=${parseInt(site.id, 10)})`);
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1087,11 +1104,11 @@ program
       }
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1107,17 +1124,17 @@ program
       if (!site) {
         process.stderr.write(`Error: Site '${url}' not found.\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
       }
 
       await notificationSite.remove(parseInt(site.id, 10));
       console.log(`Removed site: ${url} (id=${site.id})`);
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1144,11 +1161,11 @@ program
       }
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1165,11 +1182,11 @@ program
       const processed = await processQueue(batchSize);
       console.log(`Processed ${processed} notification(s).`);
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1191,11 +1208,11 @@ program
         console.log(`WordPress core version sync did not update settings: ${result.reason}`);
       }
       await db.end();
-      process.exit(result.ok ? 0 : 1);
+      await exitAfterOutput(result.ok ? 0 : 1);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1210,11 +1227,11 @@ program
       const summary = await syncHighPriorityPlugins();
       console.log(`High-priority sync: ${summary.synced} synced, ${summary.unavailable} unavailable, ${summary.transient} transient, ${summary.errors} error(s).`);
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1231,7 +1248,7 @@ program
       if (Number.isNaN(limit) || limit < 1) {
         process.stderr.write(`Error: --limit must be a positive integer, got "${opts.limit}".\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
         return;
       }
 
@@ -1255,11 +1272,11 @@ program
       }
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1311,14 +1328,14 @@ program
           )
         );
         await db.end();
-        process.exit(0);
+        await exitAfterOutput(0);
         return;
       }
 
       if (rows.length === 0) {
         console.log('No closed components recorded. Run `vulnz wporg:reclassify` if statuses have not been resolved yet.');
         await db.end();
-        process.exit(0);
+        await exitAfterOutput(0);
         return;
       }
 
@@ -1334,11 +1351,11 @@ program
       }
 
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1371,11 +1388,11 @@ program
         console.log(`Blind spots (${blindSpots.length}): ${blindSpots.length ? blindSpots.join(', ') : 'none'}`);
       }
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1400,11 +1417,11 @@ program
         }
       }
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1429,11 +1446,11 @@ program
         }
       }
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1453,11 +1470,11 @@ program
         console.log(`"${result.slug}" is already on the static watchlist.`);
       }
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1477,11 +1494,11 @@ program
         console.log(`"${result.slug}" is not on the static watchlist.`);
       }
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1507,11 +1524,11 @@ program
         }
       }
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1551,11 +1568,11 @@ program
         }
       }
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1580,13 +1597,13 @@ program
         if (!fetched.ok) {
           process.stderr.write(`Error: ${fetched.reason}\n`);
           await db.end();
-          process.exit(1);
+          await exitAfterOutput(1);
         }
         if (fetched.version !== version) {
           process.stderr.write(`Error: no changelog stored for ${slug} ${version}, and wordpress.org currently publishes ${fetched.version}.\n`);
           process.stderr.write('wordpress.org only exposes the changelog for the current release.\n');
           await db.end();
-          process.exit(1);
+          await exitAfterOutput(1);
         }
         changelog = fetched.changelog;
       }
@@ -1596,7 +1613,7 @@ program
       if (!outcome.ok) {
         process.stderr.write(`Error: ${outcome.error}\n`);
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
       }
 
       let saved = false;
@@ -1604,7 +1621,7 @@ program
         if (!stored) {
           process.stderr.write(`Error: cannot save — no stored release found for ${slug} ${version}.\n`);
           await db.end();
-          process.exit(1);
+          await exitAfterOutput(1);
         }
         await saveVerdict(stored.id, outcome.verdict);
         saved = true;
@@ -1630,11 +1647,11 @@ program
         console.log(saved ? '  Saved.' : '  Not saved (dry run — pass --save to persist).');
       }
       await db.end();
-      process.exit(0);
+      await exitAfterOutput(0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
@@ -1652,7 +1669,7 @@ program
       if (opts.limit && (Number.isNaN(limit) || limit < 1)) {
         process.stderr.write('Error: --limit must be a positive integer.\n');
         await db.end();
-        process.exit(1);
+        await exitAfterOutput(1);
       }
 
       const summary = await classifyPendingReleases({ limit });
@@ -1665,11 +1682,11 @@ program
         console.log(`Classified ${summary.classified} release(s): ${summary.urgent} urgent, ${summary.failed} failed.`);
       }
       await db.end();
-      process.exit(summary.skipped || summary.failed > 0 ? 1 : 0);
+      await exitAfterOutput(summary.skipped || summary.failed > 0 ? 1 : 0);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
-      process.exit(1);
+      await exitAfterOutput(1);
     }
   });
 
