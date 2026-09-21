@@ -1,6 +1,7 @@
 const { versionSortCompare } = require('./versionCompare');
 const appSetting = require('../models/appSetting');
 const { parseStr, parseIntEnv } = require('./env');
+const logger = require('./logger');
 
 // api.wordpress.org/core/stable-check/1.0/ returns a flat map of every
 // released WordPress core version to one of three statuses:
@@ -162,9 +163,7 @@ async function syncWordPressCoreVersion({ fetchImpl } = {}) {
   await appSetting.set(CURRENT_VERSION_KEY, latest, 'string', CURRENT_VERSION_DESC, VERSIONS_CATEGORY, true);
   await appSetting.set(SAFE_VERSIONS_KEY, JSON.stringify(safeMap), 'string', SAFE_VERSIONS_DESC, VERSIONS_CATEGORY, true);
 
-  if (process.env.LOG_LEVEL === 'info' || process.env.LOG_LEVEL === 'debug') {
-    console.log(`WP core version synced: latest=${latest}, safe versions=${Object.keys(safeMap).length}`);
-  }
+  logger.info(`WP core version synced: latest=${latest}, safe versions=${Object.keys(safeMap).length}`);
 
   return { ok: true, latest, safeCount: Object.keys(safeMap).length };
 }

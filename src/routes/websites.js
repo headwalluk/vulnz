@@ -7,6 +7,7 @@ const { apiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 const { resolvePagination } = require('../lib/pagination');
 const { normaliseReportedVersion } = require('../lib/versionCompare');
+const logger = require('../lib/logger');
 const ComponentType = require('../models/componentType');
 const Component = require('../models/component');
 const Release = require('../models/release');
@@ -834,11 +835,11 @@ router.put('/:domain', apiAuth, logApiCall, canAccessWebsite, async (req, res) =
       }
 
       // Record component changes
-      console.log('Recording component changes...');
-      console.log('Old components:', oldComponents.length);
-      console.log('New components:', newComponents.length);
+      logger.debug('Recording component changes...');
+      logger.debug('Old components:', oldComponents.length);
+      logger.debug('New components:', newComponents.length);
       componentChangeSummary = await ComponentChange.recordChanges(req.website.id, oldComponents, newComponents, req.user?.id, 'api');
-      console.log('Component changes recorded:', componentChangeSummary);
+      logger.debug('Component changes recorded:', componentChangeSummary);
 
       await Website.touch(req.website.id);
 

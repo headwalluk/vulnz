@@ -1,5 +1,6 @@
 const db = require('../db');
 const { versionSortCompare } = require('../lib/versionCompare');
+const logger = require('../lib/logger');
 
 // Who decided a component is malware. Mirrors the malware_sources lookup
 // table seeded by the M14 migration.
@@ -66,9 +67,7 @@ async function search(query, page = 1, limit = 10, { type, ecosystem } = {}) {
   // Each branch has: [branchParam, ...filterParams]
   const componentsParams = [query, ...filterParams, searchQuery, ...filterParams, searchQuery, ...filterParams, query, ...filterParams];
 
-  if (process.env.LOG_LEVEL === 'debug') {
-    console.log('Executing componentsSql with params:', componentsParams);
-  }
+  logger.debug('Executing componentsSql with params:', componentsParams);
 
   const allComponentIds = (await db.query(componentsSql, componentsParams)).map((c) => c.id);
 

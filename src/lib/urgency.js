@@ -1,6 +1,7 @@
 const db = require('../db');
 const { parseIntEnv } = require('./env');
 const { runTask, isLlmAvailable } = require('./llm/client');
+const logger = require('./logger');
 
 const URGENCY_TASK_SLUG = 'release-urgency';
 const PLUGIN_TYPE = 'wordpress-plugin';
@@ -218,7 +219,7 @@ async function classifyPendingReleases({ limit, fetchImpl } = {}) {
       summary.classified++;
       if (outcome.verdict.is_urgent) {
         summary.urgent++;
-        console.log(`URGENT: ${release.slug} ${release.version} — ${outcome.verdict.summary}`);
+        logger.warn(`URGENT: ${release.slug} ${release.version} — ${outcome.verdict.summary}`);
       }
     } catch (err) {
       summary.failed++;

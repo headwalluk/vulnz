@@ -3,6 +3,7 @@ const http = require('http');
 const fs = require('fs').promises;
 const path = require('path');
 const AppSetting = require('../models/appSetting');
+const logger = require('./logger');
 
 /**
  * Reference Data Updater
@@ -110,14 +111,14 @@ const applyReferenceSettings = async (referenceData) => {
       const exists = await AppSetting.exists(key);
 
       if (!exists) {
-        console.log(`⚠️  Unknown setting in reference data: ${key} (not in database)`);
+        logger.warn(`⚠️  Unknown setting in reference data: ${key} (not in database)`);
         summary.unknown++;
         continue;
       }
 
       // Validate version strings (for settings with 'version' in the key)
       if (key.includes('version') && !isValidVersion(value)) {
-        console.log(`⚠️  Invalid version format for ${key}: ${value}`);
+        logger.warn(`⚠️  Invalid version format for ${key}: ${value}`);
         summary.invalid++;
         summary.errors.push(`${key}: invalid version format`);
         continue;
@@ -144,7 +145,7 @@ const applyReferenceSettings = async (referenceData) => {
       // Update the setting (this will validate type compatibility)
       await AppSetting.set(key, value, existingSetting.type, existingSetting.description, existingSetting.category, existingSetting.isSystem);
 
-      console.log(`✅ Updated ${key}: ${currentValue} → ${value}`);
+      logger.info(`✅ Updated ${key}: ${currentValue} → ${value}`);
       summary.updated++;
     } catch (err) {
       console.error(`❌ Error updating ${key}:`, err.message);
@@ -165,7 +166,7 @@ const updateFromReference = async () => {
   const location = process.env.REFERENCE_UPDATE_LOCATION;
 
   if (method === 'disabled') {
-    console.log('Reference data updates are disabled (REFERENCE_UPDATE_METHOD=disabled)');
+    logger.info('Reference data updates are disabled (REFERENCE_UPDATE_METHOD=disabled)');
     return { updated: 0, skipped: 0, method: 'disabled' };
   }
 
@@ -174,7 +175,7 @@ const updateFromReference = async () => {
     return { error: 'REFERENCE_UPDATE_LOCATION not configured' };
   }
 
-  console.log(`Fetching reference data from ${method}: ${location}`);
+  logger.info(`Fetching reference data from ${method}: ${location}`);
 
   try {
     let referenceData;
@@ -189,7 +190,7 @@ const updateFromReference = async () => {
 
     const summary = await applyReferenceSettings(referenceData);
 
-    console.log(`📊 Reference data update complete: ${summary.updated} updated, ${summary.skipped} unchanged, ${summary.unknown} unknown, ${summary.invalid} invalid`);
+    logger.info(`📊 Reference data update complete: ${summary.updated} updated, ${summary.skipped} unchanged, ${summary.unknown} unknown, ${summary.invalid} invalid`);
 
     if (summary.errors.length > 0) {
       console.error(`⚠️  Errors during update:`, summary.errors);
