@@ -112,4 +112,38 @@ describe('Vulnerability ranges on website sync', () => {
     expect(plugin.version).toBe('3.0-beta2');
     expect(plugin.has_vulnerabilities).toBe(true);
   });
+
+  describe('components without a usable version', () => {
+    /** Sync one plugin, returning the site's recorded version for it, or undefined if it was dropped. */
+    async function syncAndFindVersion(slug, versionField) {
+      const response = await request(app)
+        .put(`/api/websites/${website.domain}`)
+        .set('X-API-Key', adminApiKey)
+        .send({ 'wordpress-plugins': [{ slug, ...versionField }] });
+      expect(response.status).toBe(200);
+      const rows = await db.query(
+        'SELECT r.version FROM website_components wc JOIN releases r ON r.id = wc.release_id JOIN components c ON c.id = r.component_id WHERE wc.website_id = ? AND c.slug = ?',
+        [website.id, slug]
+      );
+      return rows.length > 0 ? rows[0].version : undefined;
+    }
+
+    test('records a plugin reported with an empty version, rather than dropping it', async () => {
+      expect(await syncAndFindVersion('no-version-header', { version: '' })).toBe('');
+    });
+
+    test('records a plugin reported with no version field at all', async () => {
+      expect(await syncAndFindVersion('missing-version-field', {})).toBe('');
+    });
+
+    test('records a plugin whose version is too long to store, with a warning', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const version = await syncAndFindVersion('oversized-version', { version: '1.'.repeat(200) });
+
+      expect(version).toBe('');
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Recording wordpress-plugin oversized-version with no version'));
+      warnSpy.mockRestore();
+    });
+  });
 });

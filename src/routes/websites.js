@@ -22,6 +22,8 @@ const { lookupIp } = require('../lib/geoip');
 // Preserved from the original inline `|| 10`; callers that send no limit
 // must keep getting the page size they always got.
 const DEFAULT_WEBSITE_PAGE_SIZE = 10;
+// Stored for a component a site reports without a usable version, so it stays in the inventory.
+const UNKNOWN_REPORTED_VERSION = '';
 
 const getWebsiteComponents = async (website) => {
   const wordpressPlugins = await WebsiteComponent.getPlugins(website.id);
@@ -560,10 +562,11 @@ const processComponents = async (components, componentType) => {
 
   if (Array.isArray(components)) {
     for (const { slug, version: reportedVersion } of components) {
-      const version = normaliseReportedVersion(reportedVersion);
-      if (!version) {
-        console.warn(`Skipping ${componentType} ${slug}: unusable version ${JSON.stringify(reportedVersion)}`);
-        continue;
+      const normalisedVersion = normaliseReportedVersion(reportedVersion);
+      // Never drop a reported component: a plugin without a version header can still be malware.
+      const version = normalisedVersion === null ? UNKNOWN_REPORTED_VERSION : normalisedVersion;
+      if (normalisedVersion === null && typeof reportedVersion === 'string' && reportedVersion.trim() !== '') {
+        console.warn(`Recording ${componentType} ${slug} with no version: reported version ${JSON.stringify(reportedVersion)} is unusable`);
       }
       const component = await Component.findOrCreate(slug, componentType, slug);
       const release = await Release.findOrCreate(component.id, version);
