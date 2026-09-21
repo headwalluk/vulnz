@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.41.3 - 2026-09-21
+
+### Changes
+
+- **Pre-releases inherit their final release's vulnerabilities.** A release with a recognised pre-release stage (`dev`, `alpha`, `beta`, `rc`) is also matched as its final version, so `2.0.0-dev` is flagged whenever `2.0.0` is. It works in one direction only. A final release is never flagged because one of its pre-releases is: an advisory for "<= 3.0.0-beta.4" says the problem was fixed before 3.0.0 shipped. The same rule is used when a range is posted, when a release is created, and by `vulnerabilities:reconcile`. See [Version Matching](docs/version-matching.md#pre-releases-inherit-their-final-releases-vulnerabilities).
+
+### Upgrading
+
+- No migrations. Existing pre-release releases pick up their inherited vulnerabilities the next time their advisory's ranges are posted, which the regular Wordfence ingest does on each pass.
+
 ## 1.41.2 - 2026-09-21
 
 ### Bug Fixes
