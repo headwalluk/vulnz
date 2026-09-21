@@ -403,6 +403,54 @@ A dash (`-`) indicates no known vulnerabilities for that release.
 
 ---
 
+## Vulnerability Data Maintenance Commands
+
+### `vulnerabilities:reconcile [--apply] [--component <slug>] [--sample <n>] [--json]`
+
+Remove vulnerability rows that their advisory's stored ranges do not cover. Before v1.40.0, each advisory was attached to one release, the upper bound of its range, so a "< 1.26.7" advisory flagged 1.26.7, the release that fixes it. Once ranges have been imported, this finds and removes those rows. See [Version Matching](version-matching.md#cleaning-up-rows-the-ranges-do-not-cover) for the exact rule.
+
+It is a **dry run unless `--apply` is given**. Run it after a complete pass of range data has been imported, and read the report before applying.
+
+```bash
+node bin/vulnz.js vulnerabilities:reconcile
+node bin/vulnz.js vulnerabilities:reconcile --apply
+```
+
+Output (dry run):
+
+```
+Checked 2410 vulnerability row(s) on 566 component(s) with stored ranges.
+  Covered by a range (kept):     2383
+  Undecidable (kept):            0
+  Not covered by any range:      27
+
+By component (not covered / undecidable):
+  wordpress-plugin advanced-custom-fields: 2 / 0
+  ...
+
+Sample of rows to delete:
+  wordpress-plugin master-slider 2.8.0  https://www.wordfence.com/threat-intel/vulnerabilities/id/...
+  ...
+
+Dry run: nothing was deleted. Re-run with --apply to delete the rows not covered by any range.
+```
+
+- `--component <slug>` limits the run to one component, which is useful for checking a known case first.
+- `--sample <n>` sets how many example rows and components are listed (default 20). `--json` returns the full summary.
+- Safe to re-run: a second `--apply` finds nothing more to delete.
+
+---
+
+### `releases:phantoms [--json]`
+
+Read-only. Lists releases that the pre-1.40.0 version rewrite may have created, such as `3.0.0.1` from `3.0.0-beta.1`. For each one it shows how many sites run the suspect version and how many vulnerability rows it carries. It changes nothing. See [Version Matching](version-matching.md#phantom-releases).
+
+```bash
+node bin/vulnz.js releases:phantoms
+```
+
+---
+
 ## Known Malware Commands
 
 Mark a component as known malware. The verdict applies to **every version** of that component — past, present, and any version ingested in future — because malware is a property of the artefact, not of a release.

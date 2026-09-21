@@ -82,6 +82,23 @@ The trade-off is deliberate: an unusual version string can be missed, but a clea
 
 Release lists are sorted with `versionSortCompare()`, which needs a total order. It agrees with the comparison rules wherever those decide. Otherwise unparseable versions sort first, and an unrecognised suffix sorts just after the final release of its core.
 
+## Cleaning up rows the ranges do not cover
+
+Before v1.40.0, each advisory was attached to a single release, the upper bound of its range. Those rows are still in `vulnerabilities`, and for a "< X" advisory the row sits on X, the release that fixes the problem. `vulnz vulnerabilities:reconcile` removes them once range data has been imported. The rule for each vulnerability row:
+
+- It is considered only if its component has stored ranges **for the same URL**. Rows from other sources, and a URL whose ranges belong to a different component, are left alone.
+- It is **kept** if any of those ranges covers its release.
+- It is **kept, and reported as undecidable,** if no range covers it but at least one comparison could not be decided (see [Undecidable means "not flagged"](#undecidable-means-not-flagged)).
+- It is **removed** if every range definitely excludes its release.
+
+It follows the advisory's structured ranges, not its title. When an advisory has been narrowed since its rows were created, rows outside the current ranges are removed, even if the title still names a wider range. Wordfence advisories occasionally disagree with their own titles, so read the dry-run report before applying it.
+
+Run it only after a complete pass of range data. An advisory whose ranges arrive in several items (more than 50 ranges) could otherwise be judged on only some of them. A row removed early is restored when the rest of that advisory's ranges are posted, but it is missing until then.
+
+## Phantom releases
+
+Before v1.40.0, `sanitizeVersion()` rewrote versions on the way in, so a release reported as `3.0.0-beta.1` could also be stored as `3.0.0.1`, a version that never existed. `vulnz releases:phantoms` finds each pair where a raw release and its old rewrite both exist, and shows how many sites run the rewritten one and how many vulnerability rows it carries. Not every pair is a phantom: `2.0.0-dev` rewrites to `2.0.0`, which is usually a genuine release, and a rewritten version that sites actually run is genuine. The command only reports; nothing is changed.
+
 ## Reference URLs
 
 A vulnerability's reference URL can be up to 2048 characters. Both write endpoints reject anything longer rather than letting the database truncate it. Uniqueness in `vulnerabilities` comes from `url_hash`, a SHA-256 of the URL that MariaDB computes and stores. A unique key on the URL itself can't index more than 765 characters in utf8mb4. The hash is case-sensitive, so URLs that differ only in case are distinct. `url_hash` is internal, so read explicit columns rather than `SELECT *`, or the binary value leaks into JSON responses.
