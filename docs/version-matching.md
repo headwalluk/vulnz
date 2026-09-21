@@ -46,7 +46,7 @@ Ranges are only matched reliably for ecosystems whose versions follow the [compa
 
 ### Rejected versions
 
-A bound, or an exact `version`, must be a version the comparison rules can parse (see below), made of letters, digits and `.-+_~`. Nothing is guessed. The feeds contain strings like `.51.1`, `47.0(20-11-2023)`, `v.1.1` and `5 alpha 2`, and an item carrying one is rejected with `not a recognisable version`. Rejection is per item: the rest of the batch is still written, and the response lists each failed item by `index` under `errors`. The request returns 400 only when no item in it is valid, and unknown component types are caught at this stage too. Always read `errors`, even on a 200. Clients should log these rejections and count them, not retry them.
+A bound, or an exact `version`, must be a version the comparison rules can parse (see below), made of letters, digits and `.-+_~`. Nothing is guessed. The feeds contain strings like `.51.1`, `47.0(20-11-2023)`, `v.1.1` and `5 alpha 2`, and an item carrying one is rejected with the code `UNRECOGNISED_VERSION`. Rejection is per item: the rest of the batch is still written, and the response lists each failed item by `index` under `errors`. The request returns 400 only when no item in it is valid, and unknown component types are caught at this stage too. Always read `errors`, even on a 200. Clients should recognise these rejections by `code` (never by message text), log them and count them, and not retry them. See [Bulk Error Codes](api-usage.md#bulk-error-codes) for every code.
 
 ## How a range reaches the releases
 

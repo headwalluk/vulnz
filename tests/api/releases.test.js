@@ -445,5 +445,27 @@ describe('Releases API', () => {
       const flagged = await db.query('SELECT r.version FROM vulnerabilities v JOIN releases r ON r.id = v.release_id WHERE r.component_id = ? ORDER BY r.version', [component.id]);
       expect(flagged.map((row) => row.version)).toEqual(['1.0', '1.2']);
     });
+
+    test('skips invalid items with a code, and writes the valid ones', async () => {
+      const response = await request(app)
+        .post('/api/releases/bulk')
+        .set('X-API-Key', regularApiKey)
+        .send({
+          items: [
+            { componentTypeSlug: 'wordpress-plugin', componentSlug: 'release-codes-ok', version: '1.0.0' },
+            { componentTypeSlug: 'wordpress-core', componentSlug: 'release-codes-type', version: '1.0.0' },
+            { componentTypeSlug: 'wordpress-plugin', componentSlug: 'release-codes-version' },
+            { componentTypeSlug: 'wordpress-plugin', componentSlug: 'release-codes-long', version: '1.'.repeat(200) },
+          ],
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.created).toBe(1);
+      expect(response.body.errors.map(({ index, code, field }) => [index, code, field])).toEqual([
+        [1, 'UNKNOWN_COMPONENT_TYPE', 'componentTypeSlug'],
+        [2, 'FIELD_REQUIRED', 'version'],
+        [3, 'FIELD_INVALID', 'version'],
+      ]);
+    });
   });
 });

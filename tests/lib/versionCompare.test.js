@@ -174,8 +174,13 @@ describe('validateVersion', () => {
     expect(validateVersion('v2.2.0', 'to')).toBeNull();
   });
 
-  it.each(['.51.1', '47.0(20-11-2023)', 'v.1.1', '5 alpha 2', '*', ''])('rejects %p', (version) => {
-    expect(validateVersion(version, 'to')).toMatch(/^to /);
+  it.each(['.51.1', '47.0(20-11-2023)', 'v.1.1', '5 alpha 2', '*'])('rejects %p as UNRECOGNISED_VERSION', (version) => {
+    expect(validateVersion(version, 'to')).toEqual({ code: 'UNRECOGNISED_VERSION', message: `to is not a recognisable version: ${version}` });
+  });
+
+  it('rejects an empty or over-long version as FIELD_INVALID', () => {
+    expect(validateVersion('', 'to')).toMatchObject({ code: 'FIELD_INVALID' });
+    expect(validateVersion('1.'.repeat(128), 'to')).toMatchObject({ code: 'FIELD_INVALID' });
   });
 });
 

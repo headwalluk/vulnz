@@ -372,7 +372,7 @@ describe('Vulnerabilities API', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.created).toBe(1);
-      expect(response.body.errors).toEqual([{ index: 1, message: 'version is not a recognisable version: 1.0.0abc x' }]);
+      expect(response.body.errors).toEqual([{ index: 1, code: 'UNRECOGNISED_VERSION', field: 'version', message: 'version is not a recognisable version: 1.0.0abc x' }]);
     });
 
     test('should reject unknown component types during validation', async () => {
@@ -581,6 +581,77 @@ describe('Vulnerabilities API', () => {
 
       expect(response.status).toBe(400);
       expect(response.body.errors).toHaveLength(1);
+    });
+  });
+
+  describe('POST /api/vulnerabilities/bulk error codes', () => {
+    const TYPE = 'wordpress-plugin';
+    const URL = 'https://example.test/error-codes';
+    const valid = (slug) => ({ componentTypeSlug: TYPE, componentSlug: slug, version: '1.0.0', urls: [URL] });
+
+    function postItems(items) {
+      return request(app).post('/api/vulnerabilities/bulk').set('X-API-Key', regularApiKey).send({ items });
+    }
+
+    test('reports every per-item problem with a stable code and the offending field', async () => {
+      const response = await postItems([
+        valid('codes-ok'),
+        'not-an-object',
+        { componentSlug: 'codes-a', version: '1.0', urls: [URL] },
+        { componentTypeSlug: 'wordpress-core', componentSlug: 'codes-b', version: '1.0', urls: [URL] },
+        { componentTypeSlug: TYPE, componentSlug: 'codes-c', version: '1.0', ranges: [], urls: [URL] },
+        { componentTypeSlug: TYPE, componentSlug: 'codes-d', urls: [URL] },
+        { componentTypeSlug: TYPE, componentSlug: 'codes-e', version: '.3.1', urls: [URL] },
+        { componentTypeSlug: TYPE, componentSlug: 'codes-f', ranges: 'nope', urls: [URL] },
+        { componentTypeSlug: TYPE, componentSlug: 'codes-g', ranges: [{ from: null, to: '1.0', toInclusive: true }, { from: null, to: '1 EN', toInclusive: true }], urls: [URL] },
+        { componentTypeSlug: TYPE, componentSlug: 'codes-h', ranges: [{ from: null, to: '1.0' }], urls: [URL] },
+        { componentTypeSlug: TYPE, componentSlug: 'codes-i', ranges: [{ from: '2.0', fromInclusive: true, to: '1.0', toInclusive: true }], urls: [URL] },
+        { componentTypeSlug: TYPE, componentSlug: 'codes-j', version: '1.0' },
+        { componentTypeSlug: TYPE, componentSlug: 'codes-k', version: '1.0', urls: [URL, 'not-a-url'] },
+      ]);
+
+      expect(response.status).toBe(200);
+      expect(response.body.created).toBe(1);
+      expect(response.body.errors.map(({ index, code, field }) => [index, code, field])).toEqual([
+        [1, 'ITEM_NOT_OBJECT', null],
+        [2, 'FIELD_REQUIRED', 'componentTypeSlug'],
+        [3, 'UNKNOWN_COMPONENT_TYPE', 'componentTypeSlug'],
+        [4, 'CONFLICTING_FIELDS', 'ranges'],
+        [5, 'FIELD_REQUIRED', 'version'],
+        [6, 'UNRECOGNISED_VERSION', 'version'],
+        [7, 'FIELD_INVALID', 'ranges'],
+        [8, 'UNRECOGNISED_VERSION', 'ranges[1].to'],
+        [9, 'FIELD_REQUIRED', 'ranges[0].toInclusive'],
+        [10, 'EMPTY_RANGE', 'ranges[0]'],
+        [11, 'FIELD_REQUIRED', 'urls'],
+        [12, 'INVALID_URL', 'urls[1]'],
+      ]);
+      for (const error of response.body.errors) {
+        expect(typeof error.message).toBe('string');
+      }
+    });
+
+    test('gives request-level errors a code too', async () => {
+      const empty = await request(app).post('/api/vulnerabilities/bulk').set('X-API-Key', regularApiKey).send({ items: [] });
+      const tooMany = await postItems(Array.from({ length: 501 }, (_, index) => valid(`codes-many-${index}`)));
+
+      expect(empty.status).toBe(400);
+      expect(empty.body).toMatchObject({ code: 'ITEMS_INVALID', error: expect.any(String) });
+      expect(tooMany.status).toBe(400);
+      expect(tooMany.body).toMatchObject({ code: 'TOO_MANY_ITEMS' });
+    });
+
+    test('returns a JSON INTERNAL_ERROR, not plain text, when something fails unexpectedly', async () => {
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      // Fail only the route's own component-type lookup, so authentication still succeeds.
+      mockDb.query.mockImplementation((sql, params) => (/FROM component_types/.test(sql) ? Promise.reject(new Error('database went away')) : db.query(sql, params)));
+
+      const response = await postItems([valid('codes-500')]);
+
+      mockDb.query.mockImplementation((...args) => db.query(...args));
+      errorSpy.mockRestore();
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Server error', code: 'INTERNAL_ERROR' });
     });
   });
 
