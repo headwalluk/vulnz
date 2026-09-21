@@ -1,4 +1,4 @@
-const versionCompare = require('./versionCompare');
+const { versionSortCompare } = require('./versionCompare');
 const appSetting = require('../models/appSetting');
 const { parseStr, parseIntEnv } = require('./env');
 
@@ -54,7 +54,7 @@ function parseStableCheck(data) {
       safeMap[version] = 'latest';
       // Exactly one is expected; if a malformed response marks several,
       // keep the highest so we never regress the current version.
-      if (!latest || versionCompare(version, latest) > 0) {
+      if (!latest || versionSortCompare(version, latest) > 0) {
         latest = version;
       }
     } else if (status === 'outdated') {
@@ -89,7 +89,7 @@ function classifyWordPressVersion(installed, info = {}) {
     return safeMap[version];
   }
 
-  if (latest && CORE_VERSION_RE.test(latest) && versionCompare(version, latest) >= 0) {
+  if (latest && CORE_VERSION_RE.test(latest) && versionSortCompare(version, latest) >= 0) {
     return 'current';
   }
 

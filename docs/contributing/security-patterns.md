@@ -359,8 +359,10 @@ if (!domainRegex.test(domain)) {
   return res.status(400).send('Invalid domain format');
 }
 
-// Version validation
-const version = sanitizer.sanitizeVersion(versionString);
+// Version validation: never rewrite a version, only clean or reject it
+const { normaliseReportedVersion, validateVersion } = require('./lib/versionCompare');
+const version = normaliseReportedVersion(reportedVersion); // null if unusable
+const versionError = validateVersion(advisoryVersion, 'version'); // null if valid
 ```
 
 ---

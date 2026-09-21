@@ -476,8 +476,7 @@ describe('Components API', () => {
       expect(response.status).toBe(200); // Doesn't validate, just ignores duplicates
     });
 
-    test('should not reject invalid version format', async () => {
-      // Production doesn't validate version format
+    test('should reject a version that is not a recognisable version', async () => {
       const response = await request(app)
         .post(`/api/components/${testComponentType.slug}/${testComponent.slug}/invalid-version`)
         .set('X-API-Key', regularApiKey)
@@ -485,7 +484,8 @@ describe('Components API', () => {
           urls: ['https://example.com/vuln'],
         });
 
-      expect(response.status).toBe(200); // No validation
+      expect(response.status).toBe(400);
+      expect(response.text).toMatch(/not a recognisable version/);
     });
 
     test('should require authentication', async () => {
@@ -496,6 +496,28 @@ describe('Components API', () => {
         });
 
       expect(response.status).toBe(401);
+    });
+
+    test('accepts a URL at the 2048-character limit and rejects one past it (M19)', async () => {
+      const urlOfLength = (length) => `https://example.com/${'a'.repeat(length - 'https://example.com/'.length)}`;
+      const endpoint = `/api/components/${testComponentType.slug}/${testComponent.slug}/4.0.0`;
+
+      const accepted = await request(app)
+        .post(endpoint)
+        .set('X-API-Key', regularApiKey)
+        .send({ urls: [urlOfLength(2048)] });
+      const rejected = await request(app)
+        .post(endpoint)
+        .set('X-API-Key', regularApiKey)
+        .send({ urls: [urlOfLength(2049)] });
+
+      expect(accepted.status).toBe(200);
+      expect(rejected.status).toBe(400);
+      const stored = await db.query('SELECT v.url FROM vulnerabilities v JOIN releases r ON r.id = v.release_id WHERE r.component_id = ? AND r.version = ?', [
+        testComponent.id,
+        '4.0.0',
+      ]);
+      expect(stored.map((row) => row.url.length)).toEqual([2048]);
     });
   });
 
@@ -523,6 +545,19 @@ describe('Components API', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.has_vulnerabilities).toBe(true);
+    });
+
+    test('does not expose the internal url_hash column (M19)', async () => {
+      const releaseResult = await db.query('INSERT INTO releases (component_id, version) VALUES (?, ?)', [testComponent.id, '0.8.0']);
+      await db.query('INSERT INTO vulnerabilities (release_id, url) VALUES (?, ?)', [releaseResult.insertId, 'https://example.com/cve-url-hash']);
+
+      const response = await request(app).get(`/api/components/${testComponentType.slug}/${testComponent.slug}/0.8.0`).set('X-API-Key', regularApiKey);
+
+      expect(response.status).toBe(200);
+      expect(response.body.vulnerabilities.length).toBeGreaterThan(0);
+      for (const vulnerability of response.body.vulnerabilities) {
+        expect(Object.keys(vulnerability).sort()).toEqual(['id', 'release_id', 'url']);
+      }
     });
   });
 

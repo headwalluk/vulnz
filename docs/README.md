@@ -23,6 +23,16 @@ VULNZ is a self-hosted vulnerability database for WordPress plugins, themes, and
 
 - [Testing Guide](../tests/README.md) - Running and writing tests
 
+### Contributing
+
+- [Coding Style](contributing/coding-style.md) - JS conventions and patterns
+- [Architecture](contributing/architecture.md) - System diagram and request flows
+- [Database Schema](contributing/database-schema.md) - Full schema reference
+- [Common Patterns](contributing/common-patterns.md) - Adding models, routes and migrations
+- [Security Patterns](contributing/security-patterns.md) - Read before touching auth
+- [Testing Patterns](contributing/testing.md) - Jest/Supertest conventions
+- [Version Matching](version-matching.md) - How vulnerability ranges match release versions
+
 ---
 
 ## Architecture

@@ -29,6 +29,7 @@ const { processQueue } = require('../src/lib/notificationProcessor');
 const { syncWordPressCoreVersion, getWordPressVersionInfo } = require('../src/lib/wpcore');
 const { syncHighPriorityPlugins, fetchPluginChangelog, probeWpOrgSlug, reclassifyUnknown, WPORG_STATUS_CLOSED } = require('../src/lib/wporg');
 const { formatDateOnly } = require('../src/lib/dates');
+const { normaliseReportedVersion } = require('../src/lib/versionCompare');
 const { sanitizeComponentSlug, stripAll, isUrl } = require('../src/lib/sanitizer');
 const { classifyRelease, classifyPendingReleases, countPendingReleases, findStoredRelease, saveVerdict } = require('../src/lib/urgency');
 const { llmConfig } = require('../src/lib/llm/client');
@@ -540,13 +541,17 @@ program
       let added = 0;
       let skipped = 0;
 
-      for (const version of versionList) {
-        const existingRelease = await db.query('SELECT id FROM releases WHERE component_id = ? AND version = ?', [componentId, version]);
-        await release.findOrCreate(componentId, version);
-        if (existingRelease.length > 0) {
-          skipped++;
-        } else {
+      for (const reportedVersion of versionList) {
+        const version = normaliseReportedVersion(reportedVersion);
+        if (!version) {
+          console.error(`Skipping unusable version: ${reportedVersion}`);
+          continue;
+        }
+        const { created } = await release.resolve(componentId, version);
+        if (created) {
           added++;
+        } else {
+          skipped++;
         }
       }
 

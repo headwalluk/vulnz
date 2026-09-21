@@ -52,6 +52,7 @@ const apiCallLog = require('./models/apiCallLog');
 const emailLog = require('./models/emailLog');
 const release = require('./models/release');
 const vulnerability = require('./models/vulnerability');
+const vulnerabilityRange = require('./models/vulnerabilityRange');
 const passport = require('./config/passport');
 const apiKeyRoutes = require('./routes/apiKeys');
 const componentRoutes = require('./routes/components');
@@ -240,6 +241,7 @@ async function startServer() {
     await emailLog.createTable();
     await release.createTable();
     await vulnerability.createTable();
+    await vulnerabilityRange.createTable();
     await website.createTable();
     await websiteComponent.createTable();
     await securityEventType.createTable();

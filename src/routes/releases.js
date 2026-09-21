@@ -3,7 +3,9 @@ const router = express.Router();
 const db = require('../db');
 const { apiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
-const { sanitizeVersion, sanitizeComponentSlug } = require('../lib/sanitizer');
+const { sanitizeComponentSlug } = require('../lib/sanitizer');
+const { normaliseReportedVersion, MAX_VERSION_LENGTH } = require('../lib/versionCompare');
+const Release = require('../models/release');
 
 const MAX_BULK_ITEMS = 500;
 
@@ -112,6 +114,10 @@ router.post('/bulk', apiAuth, logApiCall, async (req, res) => {
         errors.push({ index: i, message: 'version is required.' });
         continue;
       }
+      if (!normaliseReportedVersion(item.version)) {
+        errors.push({ index: i, message: `version must be 1-${MAX_VERSION_LENGTH} characters after trimming.` });
+        continue;
+      }
     }
 
     if (errors.length > 0) {
@@ -130,7 +136,7 @@ router.post('/bulk', apiAuth, logApiCall, async (req, res) => {
       const item = items[i];
       const componentTypeSlug = item.componentTypeSlug;
       const componentSlug = sanitizeComponentSlug(item.componentSlug);
-      const version = sanitizeVersion(item.version);
+      const version = normaliseReportedVersion(item.version);
 
       // Resolve component type (cached)
       if (!componentTypeCache.has(componentTypeSlug)) {
@@ -157,14 +163,13 @@ router.post('/bulk', apiAuth, logApiCall, async (req, res) => {
       // Resolve release (cached, auto-create with duplicate tracking)
       const releaseKey = `${comp.id}:${version}`;
       if (!releaseCache.has(releaseKey)) {
-        const rows = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [comp.id, version]);
-        if (rows.length > 0) {
-          releaseCache.set(releaseKey, 'existing');
-          totalDuplicates++;
-        } else {
-          await db.query('INSERT INTO releases (component_id, version) VALUES (?, ?)', [comp.id, version]);
+        const { created } = await Release.resolve(comp.id, version);
+        if (created) {
           releaseCache.set(releaseKey, 'created');
           totalCreated++;
+        } else {
+          releaseCache.set(releaseKey, 'existing');
+          totalDuplicates++;
         }
       } else {
         // Already seen in this batch
