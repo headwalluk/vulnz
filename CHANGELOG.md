@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.41.1 - 2026-09-21
+
+### Bug Fixes
+
+- **`LOG_LEVEL` was mostly ignored.** Only a few call sites checked it, each by hand, so `LOG_LEVEL=warn` still printed four lines for every website sync, plus cron progress and routine outcomes. A small leveled logger (`src/lib/logger.js`) now gates all runtime output. Levels:
+  - `debug`: per-request and per-cron-tick detail
+  - `info`: outcomes of routine work and startup progress
+  - `warn`: only what an operator should see, plus every warning and error
+  - `error`: failures only
+
+  Urgent release classifications and sent malware alerts are now logged at `warn`, so they still appear in a quiet log. Nothing outside `src/lib/env.js` reads `LOG_LEVEL` any more.
+
+### Upgrading
+
+- No migrations. With `LOG_LEVEL=warn`, startup lines such as the banner and "Server accessible at" are no longer printed; set `info` to see them. `.env.example` describes each level.
+
 ## 1.41.0 - 2026-09-21
 
 Tools for tidying up after the move to affected version ranges in 1.40.0.
