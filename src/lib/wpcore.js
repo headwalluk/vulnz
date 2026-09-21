@@ -127,13 +127,13 @@ async function getWordPressVersionInfo() {
  * @returns {Promise<{ ok: boolean, reason?: string, latest?: string, safeCount?: number }>}
  */
 async function syncWordPressCoreVersion({ fetchImpl } = {}) {
-  const fetch = fetchImpl || (await import('node-fetch')).default;
+  const fetch = fetchImpl || globalThis.fetch;
   const { baseUrl, timeout, userAgent } = wpOrgConfig();
   const url = `${baseUrl}${STABLE_CHECK_ENDPOINT}`;
 
   let response;
   try {
-    response = await fetch(url, { timeout, headers: { 'User-Agent': userAgent } });
+    response = await fetch(url, { signal: AbortSignal.timeout(timeout), headers: { 'User-Agent': userAgent } });
   } catch (err) {
     console.error('WP core stable-check fetch failed:', err.message);
     return { ok: false, reason: 'fetch_error' };

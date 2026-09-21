@@ -250,12 +250,12 @@ async function recordLatestVersion(componentId, rawVersion, changelog = null) {
  *   (couldn't tell — a timeout, rate limit, or 5xx).
  */
 async function probeWpOrgSlug(slug, { fetchImpl } = {}) {
-  const fetch = fetchImpl || (await import('node-fetch')).default;
+  const fetch = fetchImpl || globalThis.fetch;
   const config = wporgConfig();
   const url = `${config.baseUrl}${config.endpoint}${slug}.json`;
 
   const response = await fetch(url, {
-    timeout: config.timeout,
+    signal: AbortSignal.timeout(config.timeout),
     headers: { 'User-Agent': config.userAgent },
   });
 
@@ -301,8 +301,9 @@ async function probeWpOrgSlug(slug, { fetchImpl } = {}) {
  */
 async function syncPluginComponent(component, fetch, config) {
   const url = `${config.baseUrl}${config.endpoint}${component.slug}.json`;
+  // The signal also covers reading the body, so a response that stalls mid-stream times out too.
   const options = {
-    timeout: config.timeout,
+    signal: AbortSignal.timeout(config.timeout),
     headers: { 'User-Agent': config.userAgent },
   };
 
@@ -385,7 +386,7 @@ async function syncPluginComponent(component, fetch, config) {
  * cycle (the stale-invalidation cron re-queues them by clearing the flag).
  */
 async function syncNextPlugin({ fetchImpl } = {}) {
-  const fetch = fetchImpl || (await import('node-fetch')).default;
+  const fetch = fetchImpl || globalThis.fetch;
   const config = wporgConfig();
 
   try {
@@ -423,7 +424,7 @@ async function syncNextPlugin({ fetchImpl } = {}) {
  * @returns {Promise<{synced:number, unavailable:number, transient:number, errors:number}>}
  */
 async function syncHighPriorityPlugins({ fetchImpl } = {}) {
-  const fetch = fetchImpl || (await import('node-fetch')).default;
+  const fetch = fetchImpl || globalThis.fetch;
   const config = wporgConfig();
   const summary = { synced: 0, unavailable: 0, transient: 0, errors: 0 };
 
@@ -482,12 +483,12 @@ async function syncHighPriorityPlugins({ fetchImpl } = {}) {
  * @returns {Promise<{ok:boolean, reason:string|null, version:string|null, changelog:string|null}>}
  */
 async function fetchPluginChangelog(slug, { fetchImpl } = {}) {
-  const fetch = fetchImpl || (await import('node-fetch')).default;
+  const fetch = fetchImpl || globalThis.fetch;
   const config = wporgConfig();
   const url = `${config.baseUrl}${config.endpoint}${slug}.json`;
 
   const response = await fetch(url, {
-    timeout: config.timeout,
+    signal: AbortSignal.timeout(config.timeout),
     headers: { 'User-Agent': config.userAgent },
   });
 
@@ -526,7 +527,7 @@ async function fetchPluginChangelog(slug, { fetchImpl } = {}) {
  * @returns {Promise<{checked:number, available:number, closed:number, absent:number, transient:number, errors:number, securityClosures:Array<{slug:string, reason:string, closedAt:string|null}>}>}
  */
 async function reclassifyUnknown({ limit = 50, fetchImpl } = {}) {
-  const fetch = fetchImpl || (await import('node-fetch')).default;
+  const fetch = fetchImpl || globalThis.fetch;
   const config = wporgConfig();
   const summary = { checked: 0, available: 0, closed: 0, absent: 0, transient: 0, errors: 0, securityClosures: [] };
 

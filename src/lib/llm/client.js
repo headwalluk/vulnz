@@ -208,7 +208,7 @@ async function runTask(taskSlug, input, { fetchImpl } = {}) {
     return { ok: false, result: null, model: null, error: 'No provider API key configured (OPENROUTER_API_KEY).' };
   }
 
-  const fetch = fetchImpl || (await import('node-fetch')).default;
+  const fetch = fetchImpl || globalThis.fetch;
   const model = resolveModel(task, config);
 
   let userPrompt;

@@ -930,7 +930,7 @@ curl -X POST \
 
 ### Programming Languages
 
-- **JavaScript/Node.js**: `node-fetch`, `axios`
+- **JavaScript/Node.js**: built-in `fetch`, `axios`
 - **PHP**: `wp_remote_*`, `curl`
 - **Python**: `requests`
 - **Ruby**: `httparty`, `rest-client`

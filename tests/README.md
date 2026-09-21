@@ -34,6 +34,8 @@ The test setup (`tests/setup.js`) automatically converts MySQL-specific SQL synt
 
 ## Running Tests
 
+The suite needs **Node 24.9 or higher**. `sanitize-html` depends on an ESM-only `htmlparser2`, and Jest can only `require()` ESM on Node 24.9+ with `--experimental-vm-modules`, which the `npm test` scripts set. The application itself runs on Node 22.12+, which loads ESM natively.
+
 ```bash
 # Run all tests
 npm test
@@ -207,7 +209,7 @@ These are baseline targets. Aim for higher coverage in critical paths:
 Install missing dependencies:
 
 ```bash
-npm install --save-dev jest supertest sqlite3 bcryptjs
+npm install --save-dev jest supertest sqlite3
 ```
 
 ### Tests fail with "Address already in use"

@@ -142,7 +142,7 @@ async function applyPriorities(highComponentIds) {
  * @returns {Promise<{high: string[], blindSpots: string[], staticCount: number, derivedCount: number, probed: number}>}
  */
 async function buildWatchlist({ fetchImpl, size } = {}) {
-  const fetch = fetchImpl || (await import('node-fetch')).default;
+  const fetch = fetchImpl || globalThis.fetch;
   const config = wporgConfig();
   const targetSize = size || parseIntEnv('WPORG_WATCHLIST_SIZE', { min: 1, default: 20 });
   const scanLimit = parseIntEnv('WPORG_WATCHLIST_SCAN_LIMIT', { min: targetSize, default: 100 });

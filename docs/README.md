@@ -57,7 +57,7 @@ There is no built-in web UI — it was removed in v1.31.0. Administration is the
 
 ## Requirements
 
-- **Node.js**: v22 or higher
+- **Node.js**: v22.12 or higher to run VULNZ; v24.9 or higher to run the test suite
 - **Database**: MySQL 8.0+ or MariaDB 10.6+
 - **SMTP Server**: For email reports (optional)
 - **MaxMind GeoLite2**: For GeoIP features (optional)
