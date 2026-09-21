@@ -30,6 +30,8 @@ const { syncWordPressCoreVersion, getWordPressVersionInfo } = require('../src/li
 const { syncHighPriorityPlugins, fetchPluginChangelog, probeWpOrgSlug, reclassifyUnknown, WPORG_STATUS_CLOSED } = require('../src/lib/wporg');
 const { formatDateOnly } = require('../src/lib/dates');
 const { normaliseReportedVersion } = require('../src/lib/versionCompare');
+const { reconcileRangeVulnerabilities } = require('../src/lib/rangeReconcile');
+const { findPhantomReleaseCandidates } = require('../src/lib/phantomReleases');
 const { sanitizeComponentSlug, stripAll, isUrl } = require('../src/lib/sanitizer');
 const { classifyRelease, classifyPendingReleases, countPendingReleases, findStoredRelease, saveVerdict } = require('../src/lib/urgency');
 const { llmConfig } = require('../src/lib/llm/client');
@@ -604,6 +606,106 @@ program
           console.log('');
           console.log(`${releases.length} release(s) listed.`);
         }
+      }
+
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// vulnerabilities:reconcile [--apply] [--component <slug>] [--sample <n>] [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('vulnerabilities:reconcile')
+  .description("Remove vulnerability rows their advisory's stored ranges do not cover (dry run unless --apply)")
+  .option('--apply', 'Delete the rows; without it, only report them')
+  .option('--component <slug>', 'Only components with this slug')
+  .option('--sample <n>', 'How many example rows to show', '20')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const sampleSize = parseInt(opts.sample, 10);
+      if (Number.isNaN(sampleSize) || sampleSize < 0) {
+        process.stderr.write(`Error: --sample must be a whole number, got "${opts.sample}".\n`);
+        await db.end();
+        process.exit(1);
+        return;
+      }
+
+      const summary = await reconcileRangeVulnerabilities({ apply: !!opts.apply, componentSlug: opts.component || null, sampleSize });
+
+      if (opts.json) {
+        console.log(JSON.stringify(summary, null, 2));
+      } else {
+        const exampleLine = (row) => `  ${row.type} ${row.slug} ${row.version === '' ? '(no version)' : row.version}  ${row.url}`;
+        console.log(`Checked ${summary.rowsChecked} vulnerability row(s) on ${summary.componentsWithRanges} component(s) with stored ranges.`);
+        console.log(`  Covered by a range (kept):     ${summary.kept}`);
+        console.log(`  Undecidable (kept):            ${summary.undecidable}`);
+        console.log(`  Not covered by any range:      ${summary.toDelete}${summary.applied ? ` (deleted ${summary.deleted})` : ''}`);
+
+        if (summary.byComponent.length > 0) {
+          console.log('');
+          console.log('By component (not covered / undecidable):');
+          for (const totals of summary.byComponent.slice(0, sampleSize)) {
+            console.log(`  ${totals.type} ${totals.slug}: ${totals.toDelete} / ${totals.undecidable}`);
+          }
+          if (summary.byComponent.length > sampleSize) {
+            console.log(`  ... and ${summary.byComponent.length - sampleSize} more component(s)`);
+          }
+        }
+        if (summary.deleteSample.length > 0) {
+          console.log('');
+          console.log(`Sample of rows ${summary.applied ? 'deleted' : 'to delete'}:`);
+          summary.deleteSample.forEach((row) => console.log(exampleLine(row)));
+        }
+        if (summary.undecidableSample.length > 0) {
+          console.log('');
+          console.log('Sample of undecidable rows (kept: the version cannot be placed against the range bounds):');
+          summary.undecidableSample.forEach((row) => console.log(exampleLine(row)));
+        }
+        console.log('');
+        console.log(summary.applied ? 'Done.' : 'Dry run: nothing was deleted. Re-run with --apply to delete the rows not covered by any range.');
+      }
+
+      await db.end();
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// releases:phantoms [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('releases:phantoms')
+  .description('Report releases the pre-1.40.0 version rewrite may have created (read-only)')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const candidates = await findPhantomReleaseCandidates();
+
+      if (opts.json) {
+        console.log(JSON.stringify(candidates, null, 2));
+      } else if (candidates.length === 0) {
+        console.log('No releases found whose version matches the old rewrite of a sibling.');
+      } else {
+        console.log(`${candidates.length} release(s) match the old rewrite of a sibling release:`);
+        console.log('');
+        for (const candidate of candidates) {
+          console.log(
+            `  ${candidate.type} ${candidate.slug}: ${candidate.suspectVersion} (from ${candidate.rawVersion}) - ${candidate.suspectInstalls} install(s), ${candidate.suspectVulnerabilityRows} vulnerability row(s)`
+          );
+        }
+        console.log('');
+        console.log('A suspect that sites run is a genuine release. Nothing was changed.');
       }
 
       await db.end();
