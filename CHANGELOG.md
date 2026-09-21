@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.42.0 - 2026-09-21
+
+### Features
+
+- **Machine-readable error codes on the bulk endpoints.** Every per-item error from `POST /api/vulnerabilities/bulk` and `POST /api/releases/bulk` now carries a stable `code` and the offending `field`, alongside the existing `message`: `{ "index": 272, "code": "UNRECOGNISED_VERSION", "field": "ranges[0].to", "message": "…" }`. Request-level errors gain a `code` too. Clients can recognise an expected rejection, such as an unparseable version from a feed, without matching on message text, which may be reworded between releases. The codes are:
+  - per item: `ITEM_NOT_OBJECT`, `FIELD_REQUIRED`, `FIELD_INVALID`, `CONFLICTING_FIELDS`, `UNKNOWN_COMPONENT_TYPE`, `UNRECOGNISED_VERSION`, `EMPTY_RANGE`, `INVALID_URL`
+  - request-level: `ITEMS_INVALID`, `TOO_MANY_ITEMS`, `INTERNAL_ERROR`
+
+  Documented in Swagger (`BulkItemError`, `ErrorResponse`) and in [API Usage](docs/api-usage.md#bulk-error-codes).
+
+### Changes
+
+- **`POST /api/releases/bulk` validates items one by one,** like `POST /api/vulnerabilities/bulk`. An invalid item is reported and skipped, and the rest of the batch is written. Previously one invalid item rejected the whole batch with a 400. The response is now 400 only when no item is valid. Unknown component types are caught during validation.
+- **Both bulk endpoints return JSON on an unexpected failure:** `500 { "error": "Server error", "code": "INTERNAL_ERROR" }` instead of plain text.
+
+### Upgrading
+
+- No migrations. Existing clients keep working: `index` and `message` are unchanged, and the new fields are additions. A client that relied on `POST /api/releases/bulk` rejecting a whole batch for one bad item should now read `errors` instead.
+
 ## 1.41.3 - 2026-09-21
 
 ### Changes
