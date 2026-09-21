@@ -5,6 +5,7 @@
  */
 
 const { stripAll } = require('./sanitizer');
+const { ERROR_CODES } = require('./apiErrors');
 
 /** Longest version string stored; matches releases.version and the range bound columns. */
 const MAX_VERSION_LENGTH = 255;
@@ -54,14 +55,14 @@ function normaliseReportedVersion(rawVersion) {
  *
  * @param {*} version
  * @param {string} fieldName used in the error message
- * @returns {string|null} error message, or null when valid
+ * @returns {{code: string, message: string}|null} null when valid
  */
 function validateVersion(version, fieldName) {
   let error = null;
   if (typeof version !== 'string' || version.length === 0 || version.length > MAX_VERSION_LENGTH) {
-    error = `${fieldName} must be a version string of 1-${MAX_VERSION_LENGTH} characters.`;
+    error = { code: ERROR_CODES.FIELD_INVALID, message: `${fieldName} must be a version string of 1-${MAX_VERSION_LENGTH} characters.` };
   } else if (!STRICT_VERSION_PATTERN.test(version) || !parseVersion(version)) {
-    error = `${fieldName} is not a recognisable version: ${version}`;
+    error = { code: ERROR_CODES.UNRECOGNISED_VERSION, message: `${fieldName} is not a recognisable version: ${version}` };
   }
   return error;
 }

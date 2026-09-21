@@ -456,7 +456,7 @@ router.post('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, 
 
     const versionError = validateVersion(version, 'version');
     if (versionError) {
-      return res.status(400).send(versionError);
+      return res.status(400).send(versionError.message);
     }
 
     if (!Array.isArray(urls)) {

@@ -423,9 +423,44 @@ curl -X POST \
 - The range is stored and matched against every release VULNZ knows for the component, and against every release that arrives later. Posting a range never creates a release.
 - A version that cannot be placed against a bound (an unrecognised suffix on the bound itself, such as `1.7.5-698baaf` against `< 1.7.5`) is not flagged.
 - Reference URLs may be up to 2048 characters, on this endpoint and on `POST /api/components/{type}/{slug}/{version}`. A longer URL is rejected, never truncated.
-- Items are validated one by one. An invalid item appears under `errors` with its `index`, and the valid items are still written. The response is `400` only when no item is valid.
+- Items are validated one by one. An invalid item appears under `errors` with its `index`, a `code` and the offending `field`, and the valid items are still written. The response is `400` only when no item is valid. See [Bulk Error Codes](#bulk-error-codes).
 - Feed-specific mapping (Wordfence, OSV) is in [Version Matching](version-matching.md#mapping-feed-formats).
 - Re-posting the same range is harmless. The response reports `rangesCreated` / `rangesDuplicates` alongside the usual `created` / `duplicates` vulnerability counts.
+
+### Bulk Error Codes
+
+`POST /api/vulnerabilities/bulk` and `POST /api/releases/bulk` validate each item independently. An invalid item is skipped and reported, and the rest of the batch is written:
+
+```json
+{
+  "created": 395,
+  "duplicates": 4,
+  "errors": [{ "index": 272, "code": "UNRECOGNISED_VERSION", "field": "ranges[0].to", "message": "to is not a recognisable version: .3.1" }]
+}
+```
+
+**Branch on `code`, never on `message`.** Codes are part of the API contract, and messages may be reworded between releases. `field` names the offending field (`version`, `ranges[1].to`, `urls[0]`), or is `null` when the whole item is at fault.
+
+| Code                     | Meaning                                                                                                                                                                           |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ITEM_NOT_OBJECT`        | The item is not a JSON object                                                                                                                                                     |
+| `FIELD_REQUIRED`         | A required field is missing: `componentTypeSlug`, `componentSlug`, `version` or `ranges`, `urls`, a range's `from`/`to`, or the inclusivity flag of a bound that is set           |
+| `FIELD_INVALID`          | A field has the wrong type or size: a version over 255 characters, `ranges` not an array of 1–50, `urls` not a non-empty array                                                    |
+| `CONFLICTING_FIELDS`     | Both `version` and `ranges` were given                                                                                                                                            |
+| `UNKNOWN_COMPONENT_TYPE` | `componentTypeSlug` is not a type VULNZ knows                                                                                                                                     |
+| `UNRECOGNISED_VERSION`   | A version or range bound cannot be parsed (see [Rejected versions](version-matching.md#rejected-versions)). **Expected for some feed data; log it and count it, don't retry it.** |
+| `EMPTY_RANGE`            | A range's `from` is not below its `to`                                                                                                                                            |
+| `INVALID_URL`            | A URL is malformed or longer than 2048 characters                                                                                                                                 |
+
+Request-level errors return `{ "error": "…", "code": "…" }`:
+
+| Code             | Status | Meaning                                             |
+| ---------------- | ------ | --------------------------------------------------- |
+| `ITEMS_INVALID`  | 400    | `items` is missing, not an array, or empty          |
+| `TOO_MANY_ITEMS` | 400    | More than 500 items in one request                  |
+| `INTERNAL_ERROR` | 500    | Something failed unexpectedly. Safe to retry later. |
+
+When every item is invalid, the response is `400` with `{ "errors": [...] }`. Always read `errors`, even on a `200`.
 
 ### Logging Security Events
 

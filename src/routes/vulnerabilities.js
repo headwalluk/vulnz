@@ -5,6 +5,7 @@ const { apiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 const { isUrl, sanitizeComponentSlug } = require('../lib/sanitizer');
 const { validateVersion } = require('../lib/versionCompare');
+const { ERROR_CODES, itemError, requestError } = require('../lib/apiErrors');
 const ComponentType = require('../models/componentType');
 const Release = require('../models/release');
 const VulnerabilityRange = require('../models/vulnerabilityRange');
@@ -125,28 +126,41 @@ const MAX_RANGES_PER_ITEM = 50;
  *                   description: Number of (url, range) records that already existed
  *                 errors:
  *                   type: array
+ *                   description: One entry per invalid item, which was skipped. Branch on code, not message.
  *                   items:
- *                     type: object
- *                     properties:
- *                       index:
- *                         type: integer
- *                       message:
- *                         type: string
+ *                     $ref: '#/components/schemas/BulkItemError'
  *       400:
- *         description: No item in the batch is valid (per-item reasons in errors)
+ *         description: No item in the batch is valid (errors lists each one), or the items array itself is unusable (error and code)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - $ref: '#/components/schemas/ErrorResponse'
+ *                 - type: object
+ *                   properties:
+ *                     errors:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/BulkItemError'
  *       401:
  *         description: Unauthorized
+ *       500:
+ *         description: Unexpected failure
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/bulk', apiAuth, logApiCall, async (req, res) => {
   try {
     const { items } = req.body;
 
     if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'items must be a non-empty array.' });
+      return res.status(400).json(requestError(ERROR_CODES.ITEMS_INVALID, 'items must be a non-empty array.'));
     }
 
     if (items.length > MAX_BULK_ITEMS) {
-      return res.status(400).json({ error: `Maximum ${MAX_BULK_ITEMS} items per request.` });
+      return res.status(400).json(requestError(ERROR_CODES.TOO_MANY_ITEMS, `Maximum ${MAX_BULK_ITEMS} items per request.`));
     }
 
     // Validate all items up-front before writing anything
@@ -157,67 +171,70 @@ router.post('/bulk', apiAuth, logApiCall, async (req, res) => {
       const item = items[i];
 
       if (!item || typeof item !== 'object') {
-        errors.push({ index: i, message: 'Each item must be an object.' });
+        errors.push(itemError(i, ERROR_CODES.ITEM_NOT_OBJECT, null, 'Each item must be an object.'));
         continue;
       }
       if (!item.componentTypeSlug || typeof item.componentTypeSlug !== 'string') {
-        errors.push({ index: i, message: 'componentTypeSlug is required.' });
+        errors.push(itemError(i, ERROR_CODES.FIELD_REQUIRED, 'componentTypeSlug', 'componentTypeSlug is required.'));
         continue;
       }
       if (!componentTypeSlugs.has(item.componentTypeSlug)) {
-        errors.push({ index: i, message: `Component type not found: ${item.componentTypeSlug}` });
+        errors.push(itemError(i, ERROR_CODES.UNKNOWN_COMPONENT_TYPE, 'componentTypeSlug', `Component type not found: ${item.componentTypeSlug}`));
         continue;
       }
       if (!item.componentSlug || typeof item.componentSlug !== 'string') {
-        errors.push({ index: i, message: 'componentSlug is required.' });
+        errors.push(itemError(i, ERROR_CODES.FIELD_REQUIRED, 'componentSlug', 'componentSlug is required.'));
         continue;
       }
       if (item.version !== undefined && item.ranges !== undefined) {
-        errors.push({ index: i, message: 'Provide either version or ranges, not both.' });
+        errors.push(itemError(i, ERROR_CODES.CONFLICTING_FIELDS, 'ranges', 'Provide either version or ranges, not both.'));
         continue;
       }
       if (item.ranges === undefined && item.version === undefined) {
-        errors.push({ index: i, message: 'version or ranges is required.' });
+        errors.push(itemError(i, ERROR_CODES.FIELD_REQUIRED, 'version', 'version or ranges is required.'));
         continue;
       }
       if (item.version !== undefined) {
         const versionError = validateVersion(item.version, 'version');
         if (versionError) {
-          errors.push({ index: i, message: versionError });
+          errors.push(itemError(i, versionError.code, 'version', versionError.message));
           continue;
         }
       }
       if (item.ranges !== undefined) {
         if (!Array.isArray(item.ranges) || item.ranges.length === 0 || item.ranges.length > MAX_RANGES_PER_ITEM) {
-          errors.push({ index: i, message: `ranges must be an array of 1-${MAX_RANGES_PER_ITEM} ranges.` });
+          errors.push(itemError(i, ERROR_CODES.FIELD_INVALID, 'ranges', `ranges must be an array of 1-${MAX_RANGES_PER_ITEM} ranges.`));
           continue;
         }
         const ranges = [];
         let rangeError = null;
-        for (const input of item.ranges) {
-          const { range, error } = VulnerabilityRange.normaliseRange(input);
+        for (let rangeIndex = 0; rangeIndex < item.ranges.length; rangeIndex++) {
+          const { range, error } = VulnerabilityRange.normaliseRange(item.ranges[rangeIndex]);
           if (error) {
-            rangeError = error;
+            const rangeField = `ranges[${rangeIndex}]`;
+            rangeError = itemError(i, error.code, error.field ? `${rangeField}.${error.field}` : rangeField, error.message);
             break;
           }
           ranges.push(range);
         }
         if (rangeError) {
-          errors.push({ index: i, message: rangeError });
+          errors.push(rangeError);
           continue;
         }
         normalisedRanges.set(i, ranges);
       }
+      if (item.urls === undefined) {
+        errors.push(itemError(i, ERROR_CODES.FIELD_REQUIRED, 'urls', 'urls must be a non-empty array.'));
+        continue;
+      }
       if (!Array.isArray(item.urls) || item.urls.length === 0) {
-        errors.push({ index: i, message: 'urls must be a non-empty array.' });
+        errors.push(itemError(i, ERROR_CODES.FIELD_INVALID, 'urls', 'urls must be a non-empty array.'));
         continue;
       }
 
-      for (const url of item.urls) {
-        if (!isUrl(url) || url.length > MAX_VULNERABILITY_URL_LENGTH) {
-          errors.push({ index: i, message: `Invalid URL format: ${url}` });
-          break;
-        }
+      const invalidUrlIndex = item.urls.findIndex((url) => !isUrl(url) || url.length > MAX_VULNERABILITY_URL_LENGTH);
+      if (invalidUrlIndex !== -1) {
+        errors.push(itemError(i, ERROR_CODES.INVALID_URL, `urls[${invalidUrlIndex}]`, `Invalid URL format: ${item.urls[invalidUrlIndex]}`));
       }
     }
 
@@ -293,8 +310,47 @@ router.post('/bulk', apiAuth, logApiCall, async (req, res) => {
     res.status(200).json(response);
   } catch (err) {
     console.error(err);
-    res.status(500).send('Server error');
+    res.status(500).json(requestError(ERROR_CODES.INTERNAL_ERROR, 'Server error'));
   }
 });
 
 module.exports = router;
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     BulkItemError:
+ *       type: object
+ *       description: Why one item of a bulk request was rejected. The item is skipped; the rest of the batch is still written.
+ *       properties:
+ *         index:
+ *           type: integer
+ *           description: Position of the item in the request's items array
+ *         code:
+ *           type: string
+ *           description: Stable, machine-readable reason. UNRECOGNISED_VERSION is expected for some feed data (a version VULNZ cannot parse) and is not worth retrying.
+ *           enum: [ITEM_NOT_OBJECT, FIELD_REQUIRED, FIELD_INVALID, CONFLICTING_FIELDS, UNKNOWN_COMPONENT_TYPE, UNRECOGNISED_VERSION, EMPTY_RANGE, INVALID_URL]
+ *         field:
+ *           type: string
+ *           nullable: true
+ *           description: The offending field, e.g. version, ranges[1].to or urls[0]; null when the whole item is at fault
+ *         message:
+ *           type: string
+ *           description: Human-readable explanation. May be reworded between releases, so never parse it.
+ *       example:
+ *         index: 272
+ *         code: UNRECOGNISED_VERSION
+ *         field: ranges[0].to
+ *         message: "to is not a recognisable version: .3.1"
+ *     ErrorResponse:
+ *       type: object
+ *       description: A request-level error.
+ *       properties:
+ *         error:
+ *           type: string
+ *           description: Human-readable explanation
+ *         code:
+ *           type: string
+ *           enum: [ITEMS_INVALID, TOO_MANY_ITEMS, INTERNAL_ERROR]
+ */

@@ -6,6 +6,8 @@ const { logApiCall } = require('../middleware/logApiCall');
 const { sanitizeComponentSlug } = require('../lib/sanitizer');
 const { normaliseReportedVersion, MAX_VERSION_LENGTH } = require('../lib/versionCompare');
 const Release = require('../models/release');
+const ComponentType = require('../models/componentType');
+const { ERROR_CODES, itemError, requestError } = require('../lib/apiErrors');
 const logger = require('../lib/logger');
 
 const MAX_BULK_ITEMS = 500;
@@ -74,59 +76,80 @@ const MAX_BULK_ITEMS = 500;
  *                   description: Number of duplicate releases skipped
  *                 errors:
  *                   type: array
+ *                   description: One entry per invalid item, which was skipped. Branch on code, not message.
  *                   items:
- *                     type: object
- *                     properties:
- *                       index:
- *                         type: integer
- *                       message:
- *                         type: string
+ *                     $ref: '#/components/schemas/BulkItemError'
  *       400:
- *         description: Invalid input
+ *         description: No item in the batch is valid (errors lists each one), or the items array itself is unusable (error and code)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - $ref: '#/components/schemas/ErrorResponse'
+ *                 - type: object
+ *                   properties:
+ *                     errors:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/BulkItemError'
  *       401:
  *         description: Unauthorized
+ *       500:
+ *         description: Unexpected failure
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/bulk', apiAuth, logApiCall, async (req, res) => {
   try {
     const { items } = req.body;
 
     if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'items must be a non-empty array.' });
+      return res.status(400).json(requestError(ERROR_CODES.ITEMS_INVALID, 'items must be a non-empty array.'));
     }
 
     if (items.length > MAX_BULK_ITEMS) {
-      return res.status(400).json({ error: `Maximum ${MAX_BULK_ITEMS} items per request.` });
+      return res.status(400).json(requestError(ERROR_CODES.TOO_MANY_ITEMS, `Maximum ${MAX_BULK_ITEMS} items per request.`));
     }
 
-    // Validate all items up-front before touching the database
+    // Validate all items up-front before writing anything; an invalid item is skipped, not fatal
+    const componentTypeSlugs = new Set((await ComponentType.findAll()).map((componentType) => componentType.slug));
     const errors = [];
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
 
+      if (!item || typeof item !== 'object') {
+        errors.push(itemError(i, ERROR_CODES.ITEM_NOT_OBJECT, null, 'Each item must be an object.'));
+        continue;
+      }
       if (!item.componentTypeSlug || typeof item.componentTypeSlug !== 'string') {
-        errors.push({ index: i, message: 'componentTypeSlug is required.' });
+        errors.push(itemError(i, ERROR_CODES.FIELD_REQUIRED, 'componentTypeSlug', 'componentTypeSlug is required.'));
+        continue;
+      }
+      if (!componentTypeSlugs.has(item.componentTypeSlug)) {
+        errors.push(itemError(i, ERROR_CODES.UNKNOWN_COMPONENT_TYPE, 'componentTypeSlug', `Component type not found: ${item.componentTypeSlug}`));
         continue;
       }
       if (!item.componentSlug || typeof item.componentSlug !== 'string') {
-        errors.push({ index: i, message: 'componentSlug is required.' });
+        errors.push(itemError(i, ERROR_CODES.FIELD_REQUIRED, 'componentSlug', 'componentSlug is required.'));
         continue;
       }
       if (!item.version || typeof item.version !== 'string') {
-        errors.push({ index: i, message: 'version is required.' });
+        errors.push(itemError(i, ERROR_CODES.FIELD_REQUIRED, 'version', 'version is required.'));
         continue;
       }
       if (!normaliseReportedVersion(item.version)) {
-        errors.push({ index: i, message: `version must be 1-${MAX_VERSION_LENGTH} characters after trimming.` });
-        continue;
+        errors.push(itemError(i, ERROR_CODES.FIELD_INVALID, 'version', `version must be 1-${MAX_VERSION_LENGTH} characters after trimming.`));
       }
     }
 
-    if (errors.length > 0) {
+    const invalidIndexes = new Set(errors.map((error) => error.index));
+    if (invalidIndexes.size === items.length) {
       return res.status(400).json({ errors });
     }
 
     // Caches to avoid redundant lookups within the same batch
-    const componentTypeCache = new Map();
     const componentCache = new Map();
     const releaseCache = new Map();
 
@@ -134,20 +157,13 @@ router.post('/bulk', apiAuth, logApiCall, async (req, res) => {
     let totalDuplicates = 0;
 
     for (let i = 0; i < items.length; i++) {
+      if (invalidIndexes.has(i)) {
+        continue;
+      }
       const item = items[i];
       const componentTypeSlug = item.componentTypeSlug;
       const componentSlug = sanitizeComponentSlug(item.componentSlug);
       const version = normaliseReportedVersion(item.version);
-
-      // Resolve component type (cached)
-      if (!componentTypeCache.has(componentTypeSlug)) {
-        const [ct] = await db.query('SELECT * FROM component_types WHERE slug = ?', [componentTypeSlug]);
-        componentTypeCache.set(componentTypeSlug, ct || null);
-      }
-      if (!componentTypeCache.get(componentTypeSlug)) {
-        errors.push({ index: i, message: `Component type not found: ${componentTypeSlug}` });
-        continue;
-      }
 
       // Resolve component (cached, auto-create)
       const componentKey = `${componentTypeSlug}:${componentSlug}`;
@@ -190,7 +206,7 @@ router.post('/bulk', apiAuth, logApiCall, async (req, res) => {
     res.status(200).json(response);
   } catch (err) {
     console.error(err);
-    res.status(500).send('Server error');
+    res.status(500).json(requestError(ERROR_CODES.INTERNAL_ERROR, 'Server error'));
   }
 });
 
