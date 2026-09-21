@@ -14,13 +14,14 @@ This file is for AI coding agents working on this project. Read it before making
 | Document                                                                                                         | Purpose                                                                                           |
 | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | [`~/Documents/project-notes/node-mariadb-express-api.md`](~/Documents/project-notes/node-mariadb-express-api.md) | **Stack-level guide** — env vars, DB access, CLI tools, testing conventions for this project type |
-| [`dev-notes/01-coding-style.md`](dev-notes/01-coding-style.md)                                                   | JS conventions, patterns, and anti-patterns                                                       |
-| [`dev-notes/02-database-schema.md`](dev-notes/02-database-schema.md)                                             | Database structure reference                                                                      |
-| [`dev-notes/03-architecture-overview.md`](dev-notes/03-architecture-overview.md)                                 | How the app fits together                                                                         |
-| [`dev-notes/04-common-patterns.md`](dev-notes/04-common-patterns.md)                                             | Reusable patterns used across the codebase                                                        |
-| [`dev-notes/05-security-patterns.md`](dev-notes/05-security-patterns.md)                                         | Security conventions — read before touching auth                                                  |
-| [`dev-notes/00-project-tracker.md`](dev-notes/00-project-tracker.md)                                             | **Active project tracker** — current milestones and tasks                                         |
-| [`dev-notes/archive/`](dev-notes/archive/)                                                                       | Archived tracker history (completed milestones, earlier trackers)                                 |
+| [`docs/contributing/coding-style.md`](docs/contributing/coding-style.md)                                         | JS conventions, patterns, and anti-patterns                                                       |
+| [`docs/contributing/database-schema.md`](docs/contributing/database-schema.md)                                   | Database structure reference                                                                      |
+| [`docs/contributing/architecture.md`](docs/contributing/architecture.md)                                         | How the app fits together                                                                         |
+| [`docs/contributing/common-patterns.md`](docs/contributing/common-patterns.md)                                   | Reusable patterns used across the codebase                                                        |
+| [`docs/contributing/security-patterns.md`](docs/contributing/security-patterns.md)                               | Security conventions — read before touching auth                                                  |
+| [`docs/contributing/testing.md`](docs/contributing/testing.md)                                                   | Jest/Supertest patterns                                                                           |
+| [`docs/version-matching.md`](docs/version-matching.md)                                                           | How vulnerability ranges match release versions                                                   |
+| [`dev-notes/00-project-tracker.md`](dev-notes/00-project-tracker.md)                                             | **Active project tracker** — maintainer-local, not in git (see below)                             |
 
 ---
 
@@ -58,7 +59,8 @@ vulnz-api/
 ├── artwork/              # Source brand assets (not served)
 ├── scripts/              # Shell scripts (Wordfence feed ingestion, etc.)
 ├── tests/                # Jest test suite
-├── dev-notes/            # All project documentation
+├── docs/                 # Public documentation: operators, API users, contributors
+├── dev-notes/            # Maintainer-local notes — gitignored, never committed
 ├── .env.example          # Template for .env — NEVER copy over existing .env
 └── package.json
 ```
@@ -133,7 +135,7 @@ Never create a new mariadb connection directly. Never use `mysql2` or any other 
 
 ## Project Tracker (Markdown Format)
 
-The tracker is `dev-notes/00-project-tracker.md`. It uses GitHub-flavored Markdown checkboxes.
+The tracker is `dev-notes/00-project-tracker.md`. `dev-notes/` is maintainer-local and gitignored, so it exists only on the maintainer's dev host; nothing in `docs/`, code comments or commit messages may depend on it. The tracker uses GitHub-flavored Markdown checkboxes.
 
 **To mark a task complete**, flip `- [ ]` to `- [x]`:
 
