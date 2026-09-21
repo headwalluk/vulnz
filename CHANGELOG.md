@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.41.0 - 2026-09-21
+
+Tools for tidying up after the move to affected version ranges in 1.40.0.
+
+### Features
+
+- **`vulnz vulnerabilities:reconcile` (M18.6).** Removes vulnerability rows that their advisory's stored ranges do not cover. Before 1.40.0, each advisory was attached to the upper bound of its range, so a "< X" advisory flagged X, the release that fixes it. A row is judged only against its own component's ranges for the same URL, so manual entries and other sources are left alone. A row whose version cannot be placed against the range bounds is kept and reported. The command is a dry run unless `--apply` is given, and a second run finds nothing more to delete. It follows the advisory's structured ranges, not its title. See [Version Matching](docs/version-matching.md#cleaning-up-rows-the-ranges-do-not-cover).
+- **`vulnz releases:phantoms`.** A read-only report of releases the pre-1.40.0 version rewrite may have created (`3.0.0.1` from `3.0.0-beta.1`), with how many sites run each and how many vulnerability rows it carries.
+
+### Upgrading
+
+- No migrations. Run `vulnerabilities:reconcile` only after a complete pass of range data has been imported, and read the dry-run report before adding `--apply`.
+
 ## 1.40.1 - 2026-09-21
 
 ### Bug Fixes
