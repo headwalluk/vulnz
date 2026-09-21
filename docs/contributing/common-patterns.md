@@ -638,8 +638,10 @@ const sanitizer = require('./lib/sanitizer');
 // Strip all HTML and decode entities
 const cleanText = sanitizer.stripAll(userInput);
 
-// Sanitize version numbers
-const version = sanitizer.sanitizeVersion(versionString);
+// Versions: store as reported, never rewritten (see docs/version-matching.md)
+const { normaliseReportedVersion, validateVersion } = require('./lib/versionCompare');
+const version = normaliseReportedVersion(reportedVersion); // strip tags, trim, cap length; null if unusable
+const versionError = validateVersion(advisoryVersion, 'version'); // strict: advisory bounds and exact versions
 
 // Check if string is URL
 if (sanitizer.isUrl(input)) { ... }

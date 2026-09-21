@@ -6,6 +6,7 @@ const Ecosystem = require('../models/ecosystem');
 const { apiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 const { resolvePagination } = require('../lib/pagination');
+const { normaliseReportedVersion } = require('../lib/versionCompare');
 const ComponentType = require('../models/componentType');
 const Component = require('../models/component');
 const Release = require('../models/release');
@@ -558,7 +559,12 @@ const processComponents = async (components, componentType) => {
   const componentIds = [];
 
   if (Array.isArray(components)) {
-    for (const { slug, version } of components) {
+    for (const { slug, version: reportedVersion } of components) {
+      const version = normaliseReportedVersion(reportedVersion);
+      if (!version) {
+        console.warn(`Skipping ${componentType} ${slug}: unusable version ${JSON.stringify(reportedVersion)}`);
+        continue;
+      }
       const component = await Component.findOrCreate(slug, componentType, slug);
       const release = await Release.findOrCreate(component.id, version);
       releaseIds.push(release.id);

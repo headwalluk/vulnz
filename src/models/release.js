@@ -1,4 +1,5 @@
 const db = require('../db');
+const vulnerabilityRange = require('./vulnerabilityRange');
 
 async function createTable() {
   const sql = `
@@ -14,15 +15,35 @@ async function createTable() {
   await db.query(sql);
 }
 
-const findOrCreate = async (componentId, version) => {
+/**
+ * Find a release, creating it and applying stored vulnerability ranges if it is new.
+ *
+ * The only path that inserts into releases; see docs/version-matching.md.
+ *
+ * @param {number} componentId
+ * @param {string} version
+ * @returns {Promise<{release: object, created: boolean, vulnerabilitiesCreated: number}>}
+ */
+const resolve = async (componentId, version) => {
   let rows = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [componentId, version]);
-  let release = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
-  if (!release) {
-    const result = await db.query('INSERT INTO releases (component_id, version) VALUES (?, ?)', [componentId, version]);
-    const insertId = result.insertId;
-    rows = await db.query('SELECT * FROM releases WHERE id = ?', [insertId]);
-    release = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
+  let created = false;
+  let vulnerabilitiesCreated = 0;
+  if (rows.length === 0) {
+    // INSERT IGNORE so a concurrent creator of the same release loses quietly; only
+    // the winner applies ranges.
+    const result = await db.query('INSERT IGNORE INTO releases (component_id, version) VALUES (?, ?)', [componentId, version]);
+    created = (result.affectedRows || 0) > 0;
+    rows = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [componentId, version]);
+    if (created) {
+      vulnerabilitiesCreated = await vulnerabilityRange.applyRangesToRelease(rows[0]);
+    }
   }
+  return { release: rows[0], created, vulnerabilitiesCreated };
+};
+
+/** Find a release by component and version, creating it if missing. */
+const findOrCreate = async (componentId, version) => {
+  const { release } = await resolve(componentId, version);
   return release;
 };
 
@@ -33,6 +54,7 @@ const findById = async (id) => {
 
 module.exports = {
   createTable,
+  resolve,
   findOrCreate,
   findById,
 };

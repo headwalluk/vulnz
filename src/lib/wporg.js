@@ -1,6 +1,8 @@
 const db = require('../db');
 const { stripAll } = require('./sanitizer');
 const { parseStr, parseIntEnv } = require('./env');
+const Release = require('../models/release');
+const { normaliseReportedVersion } = require('./versionCompare');
 
 const WPORG_PLUGIN_PAGE_BASE = 'https://wordpress.org/plugins/';
 const HIGH_PRIORITY = 'high';
@@ -215,13 +217,12 @@ async function adoptClosedName(component, name) {
  * @param {string|null} [changelog] raw wordpress.org changelog HTML
  */
 async function recordLatestVersion(componentId, rawVersion, changelog = null) {
-  const version = stripAll(String(rawVersion)).trim();
+  const version = normaliseReportedVersion(String(rawVersion));
   if (!version) {
     return;
   }
   await db.query('UPDATE components SET latest_version = ?, latest_version_at = CURRENT_TIMESTAMP WHERE id = ?', [version, componentId]);
-  // INSERT IGNORE leaves an existing release (and its release_date) intact.
-  await db.query('INSERT IGNORE INTO releases (component_id, version) VALUES (?, ?)', [componentId, version]);
+  await Release.findOrCreate(componentId, version);
 
   if (typeof changelog === 'string' && changelog.trim() !== '') {
     await db.query('UPDATE releases SET changelog = ? WHERE component_id = ? AND version = ? AND changelog IS NULL', [changelog, componentId, version]);

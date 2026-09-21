@@ -6,7 +6,7 @@
 
 const sqlite3 = require('sqlite3');
 const { promisify } = require('util');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 
 /**
  * Create an in-memory SQLite database for testing
@@ -410,9 +410,29 @@ async function initializeSchema(db) {
     CREATE TABLE IF NOT EXISTS vulnerabilities (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       release_id INTEGER NOT NULL,
-      url VARCHAR(255) NOT NULL,
+      url VARCHAR(2048) NOT NULL,
+      -- Stand-in for MariaDB's UNHEX(SHA2(url, 256)); SQLite has no SHA2. Present so a
+      -- SELECT * leaking it into a response fails a test.
+      url_hash BLOB GENERATED ALWAYS AS (CAST(url AS BLOB)) STORED,
       FOREIGN KEY (release_id) REFERENCES releases(id) ON DELETE CASCADE,
       UNIQUE(release_id, url)
+    )
+  `);
+
+  // Create vulnerability_ranges table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS vulnerability_ranges (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      component_id INTEGER NOT NULL,
+      url VARCHAR(2048) NOT NULL,
+      from_version VARCHAR(255) NULL,
+      from_inclusive INTEGER NOT NULL DEFAULT 1,
+      to_version VARCHAR(255) NULL,
+      to_inclusive INTEGER NOT NULL DEFAULT 1,
+      range_hash CHAR(64) NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (component_id) REFERENCES components(id) ON DELETE CASCADE,
+      UNIQUE(component_id, range_hash)
     )
   `);
 

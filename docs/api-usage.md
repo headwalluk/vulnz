@@ -395,6 +395,38 @@ curl -X POST \
   http://localhost:3000/api/components/wordpress-plugin/jetpack/12.8.0
 ```
 
+### Reporting an Affected Range
+
+Most advisories name a range of affected versions rather than a single release. `POST /api/vulnerabilities/bulk` accepts `ranges` in place of `version` on each item:
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{
+    "items": [
+      {
+        "componentTypeSlug": "wordpress-plugin",
+        "componentSlug": "updraftplus",
+        "urls": ["https://www.wordfence.com/threat-intel/vulnerabilities/id/946ec633-a271-4e39-9ffe-e5543b063066"],
+        "ranges": [{ "from": null, "to": "1.26.7", "toInclusive": false }]
+      }
+    ]
+  }' \
+  http://localhost:3000/api/vulnerabilities/bulk
+```
+
+- `from` / `to` are version strings, or `null` for unbounded. Both keys are required.
+- `fromInclusive` / `toInclusive` are required whenever that bound is set. A "fixed in X" advisory is `"to": "X", "toInclusive": false`.
+- An item carries `version` or `ranges`, never both. Up to 50 ranges per item.
+- Range bounds and exact `version` values must be recognisable versions (see [Version Matching](version-matching.md#rejected-versions)), and are stored exactly as given. They are never rewritten.
+- The range is stored and matched against every release VULNZ knows for the component, and against every release that arrives later. Posting a range never creates a release.
+- A version that cannot be placed against a bound (an unrecognised suffix on the bound itself, such as `1.7.5-698baaf` against `< 1.7.5`) is not flagged.
+- Reference URLs may be up to 2048 characters, on this endpoint and on `POST /api/components/{type}/{slug}/{version}`. A longer URL is rejected, never truncated.
+- Items are validated one by one. An invalid item appears under `errors` with its `index`, and the valid items are still written. The response is `400` only when no item is valid.
+- Feed-specific mapping (Wordfence, OSV) is in [Version Matching](version-matching.md#mapping-feed-formats).
+- Re-posting the same range is harmless. The response reports `rangesCreated` / `rangesDuplicates` alongside the usual `created` / `duplicates` vulnerability counts.
+
 ### Logging Security Events
 
 Report security incidents (failed logins, attacks, etc.):

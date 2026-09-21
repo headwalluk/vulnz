@@ -100,7 +100,7 @@ Test utilities for creating test data:
 ```javascript
 const sqlite3 = require('sqlite3');
 const { promisify } = require('util');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 
 // Create in-memory SQLite database for testing
@@ -402,7 +402,7 @@ Create reusable test data generators:
 
 ```javascript
 // tests/factories/user.js
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 
 async function createUser(db, overrides = {}) {
   const defaults = {

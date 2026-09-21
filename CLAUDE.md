@@ -16,7 +16,7 @@ source .env && mysql -u "${DB_USER}" -p"${DB_PASSWORD}" "${DB_NAME}" -e "SELECT 
 
 ```bash
 npm run dev           # Start dev server with nodemon
-npm test              # Run all Jest tests (441 tests, in-memory SQLite)
+npm test              # Run all Jest tests (513 tests, in-memory SQLite)
 npm test -- landing   # Run a single test file by name match
 npm run test:watch    # Jest watch mode
 npm run test:coverage # Coverage report (50% threshold)
@@ -78,14 +78,18 @@ Tests mock `src/db` and redirect queries to SQLite. Test files live in `tests/ap
 
 ## Key Documentation
 
-Detailed guides live in `dev-notes/`:
+Contributor guides live in `docs/contributing/`:
 
-- `01-coding-style.md` — JS conventions and patterns
-- `02-database-schema.md` — full schema reference
-- `03-architecture-overview.md` — system diagram and request flows
-- `04-common-patterns.md` — patterns for adding models, routes, migrations
-- `05-security-patterns.md` — security conventions (read before touching auth)
-- `06-testing-guide.md` — Jest/Supertest patterns
+- `coding-style.md` — JS conventions and patterns
+- `database-schema.md` — full schema reference
+- `architecture.md` — system diagram and request flows
+- `common-patterns.md` — patterns for adding models, routes, migrations
+- `security-patterns.md` — security conventions (read before touching auth)
+- `testing.md` — Jest/Supertest patterns
+
+`docs/version-matching.md` covers how vulnerability ranges match release versions.
+
+**`dev-notes/` is private.** It is gitignored and exists only on the maintainer's dev host: the project tracker, snag list, milestone plans, and anything touching production. This repo is public. Never reference `dev-notes/` from `docs/`, code comments or commit messages, and never put production hostnames, paths or data into tracked files.
 
 Also see `AGENTS.md` for the full list of non-negotiable rules and project conventions.
 

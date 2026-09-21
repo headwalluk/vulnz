@@ -3,7 +3,8 @@ const router = express.Router();
 const db = require('../db');
 const { hasRole, apiAuth, optionalApiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
-const { isUrl, sanitizeVersion, sanitizeSearchQuery, sanitizeComponentSlug } = require('../lib/sanitizer');
+const { isUrl, sanitizeSearchQuery, sanitizeComponentSlug } = require('../lib/sanitizer');
+const { normaliseReportedVersion, validateVersion } = require('../lib/versionCompare');
 const { unauthenticatedSearchLimiter } = require('../middleware/rateLimit');
 const { formatDateOnly } = require('../lib/dates');
 const { resolvePagination } = require('../lib/pagination');
@@ -15,6 +16,8 @@ const Website = require('../models/website');
 // Named componentModel rather than component: several handlers below declare
 // a local `component` for the row they are working on.
 const componentModel = require('../models/component');
+const Release = require('../models/release');
+const { MAX_VULNERABILITY_URL_LENGTH } = require('../models/vulnerability');
 
 function sanitiseComponentSlugMiddleware(req, res, next) {
   if (req.params.componentSlug) {
@@ -448,17 +451,21 @@ router.post('/', apiAuth, logApiCall, hasRole('administrator'), async (req, res)
 router.post('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, sanitiseComponentSlugMiddleware, async (req, res) => {
   try {
     const { componentTypeSlug, componentSlug } = req.params;
-    const version = sanitizeVersion(req.params.version);
+    const version = req.params.version;
     const { urls } = req.body;
+
+    const versionError = validateVersion(version, 'version');
+    if (versionError) {
+      return res.status(400).send(versionError);
+    }
 
     if (!Array.isArray(urls)) {
       return res.status(400).send('An array of URLs is required.');
     }
 
-    for (const url of urls) {
-      if (!isUrl(url)) {
-        return res.status(400).send(`Invalid URL format: ${url}`);
-      }
+    const invalidUrl = urls.find((url) => !isUrl(url) || url.length > MAX_VULNERABILITY_URL_LENGTH);
+    if (invalidUrl !== undefined) {
+      return res.status(400).send(`Invalid URL format: ${invalidUrl}`);
     }
 
     const [componentType] = await db.query('SELECT * FROM component_types WHERE slug = ?', [componentTypeSlug]);
@@ -472,14 +479,10 @@ router.post('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, 
       component = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
     }
 
-    let release = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [component[0].id, version]);
-    if (release.length === 0) {
-      await db.query('INSERT INTO releases (component_id, version) VALUES (?, ?)', [component[0].id, version]);
-      release = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [component[0].id, version]);
-    }
+    const release = await Release.findOrCreate(component[0].id, version);
 
     for (const url of urls) {
-      await db.query('INSERT IGNORE INTO vulnerabilities (release_id, url) VALUES (?, ?)', [release[0].id, url]);
+      await db.query('INSERT IGNORE INTO vulnerabilities (release_id, url) VALUES (?, ?)', [release.id, url]);
     }
 
     res.status(200).send();
@@ -546,7 +549,10 @@ router.post('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, 
 router.get('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, sanitiseComponentSlugMiddleware, async (req, res) => {
   try {
     const { componentTypeSlug, componentSlug } = req.params;
-    const version = sanitizeVersion(req.params.version);
+    const version = normaliseReportedVersion(req.params.version);
+    if (!version) {
+      return res.status(400).send('A version is required.');
+    }
 
     const [componentType] = await db.query('SELECT * FROM component_types WHERE slug = ?', [componentTypeSlug]);
     if (!componentType) {
@@ -558,16 +564,12 @@ router.get('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, s
       await db.query('INSERT INTO components (slug, component_type_slug, title, description) VALUES (?, ?, ?, ?)', [componentSlug, componentTypeSlug, componentSlug, '']);
       component = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
     }
-    let release = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [component[0].id, version]);
-    if (release.length === 0) {
-      await db.query('INSERT INTO releases (component_id, version) VALUES (?, ?)', [component[0].id, version]);
-      release = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [component[0].id, version]);
-    }
-    const vulnerabilities = await db.query('SELECT * FROM vulnerabilities WHERE release_id = ?', [release[0].id]);
+    const release = await Release.findOrCreate(component[0].id, version);
+    const vulnerabilities = await db.query('SELECT id, release_id, url FROM vulnerabilities WHERE release_id = ?', [release.id]);
     res.json({
-      ...release[0],
-      id: parseInt(release[0].id, 10),
-      component_id: parseInt(release[0].component_id, 10),
+      ...release,
+      id: parseInt(release.id, 10),
+      component_id: parseInt(release.component_id, 10),
       is_malware: !!component[0].is_malware,
       malware_summary: component[0].malware_summary || null,
       malware_url: component[0].malware_url || null,

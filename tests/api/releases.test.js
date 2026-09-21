@@ -347,7 +347,7 @@ describe('Releases API', () => {
       expect(response.body.created).toBe(2);
     });
 
-    test('should sanitize component slugs and versions', async () => {
+    test('should sanitize component slugs and store versions as reported', async () => {
       const response = await request(app)
         .post('/api/releases/bulk')
         .set('X-API-Key', regularApiKey)
@@ -356,7 +356,7 @@ describe('Releases API', () => {
             {
               componentTypeSlug: 'wordpress-plugin',
               componentSlug: 'Sanitize-Rel.zip',
-              version: '1.0.0abc',
+              version: '  <b>1.0.0-rc.1</b> ',
             },
           ],
         });
@@ -371,9 +371,9 @@ describe('Releases API', () => {
       ]);
       expect(comp.length).toBe(1);
 
-      // Version should have non-numeric/dot chars stripped
-      const release = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [comp[0].id, '1.0.0']);
-      expect(release.length).toBe(1);
+      // Tags and whitespace go; the version itself is never rewritten
+      const releases = await db.query('SELECT version FROM releases WHERE component_id = ?', [comp[0].id]);
+      expect(releases.map((row) => row.version)).toEqual(['1.0.0-rc.1']);
     });
 
     test('should handle multiple versions of the same component', async () => {
@@ -418,6 +418,32 @@ describe('Releases API', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.created).toBe(500);
+    });
+
+    test('should apply stored vulnerability ranges to newly created releases (M18)', async () => {
+      const VulnerabilityRange = require('../../src/models/vulnerabilityRange');
+      const advisoryUrl = 'https://example.test/advisory/range-bulk-release';
+      await db.query('INSERT INTO components (slug, component_type_slug, title, description) VALUES (?, ?, ?, ?)', [
+        'range-bulk-release',
+        'wordpress-plugin',
+        'range-bulk-release',
+        '',
+      ]);
+      const [component] = await db.query('SELECT id FROM components WHERE slug = ?', ['range-bulk-release']);
+      const { range } = VulnerabilityRange.normaliseRange({ from: '1.0', fromInclusive: true, to: '1.2', toInclusive: true });
+      await VulnerabilityRange.recordRanges(component.id, [advisoryUrl], [range]);
+
+      const response = await request(app)
+        .post('/api/releases/bulk')
+        .set('X-API-Key', regularApiKey)
+        .send({
+          items: ['0.9', '1.0', '1.2', '1.3'].map((version) => ({ componentTypeSlug: 'wordpress-plugin', componentSlug: 'range-bulk-release', version })),
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.created).toBe(4);
+      const flagged = await db.query('SELECT r.version FROM vulnerabilities v JOIN releases r ON r.id = v.release_id WHERE r.component_id = ? ORDER BY r.version', [component.id]);
+      expect(flagged.map((row) => row.version)).toEqual(['1.0', '1.2']);
     });
   });
 });

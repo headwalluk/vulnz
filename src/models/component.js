@@ -1,5 +1,5 @@
 const db = require('../db');
-const versionCompare = require('../lib/versionCompare');
+const { versionSortCompare } = require('../lib/versionCompare');
 
 // Who decided a component is malware. Mirrors the malware_sources lookup
 // table seeded by the M14 migration.
@@ -143,7 +143,7 @@ async function search(query, page = 1, limit = 10, { type, ecosystem } = {}) {
     const component = componentsMap.get(componentId);
     if (component) {
       component.releases = Array.from(component.releases.values());
-      component.releases.sort((a, b) => versionCompare(b.version, a.version));
+      component.releases.sort((a, b) => versionSortCompare(b.version, a.version));
       for (const release of component.releases) {
         // Honest: this is about recorded vulnerabilities only. A malware
         // verdict is reported by is_malware on the component, which is a

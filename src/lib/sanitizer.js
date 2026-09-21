@@ -43,28 +43,6 @@ function isUrl(str) {
   return /^(ftp|http|https):\/\/[^ "]+$/.test(str);
 }
 
-function sanitizeVersion(version) {
-  if (typeof version !== 'string') {
-    return '0';
-  }
-
-  let sanitized = version.replace(/[^0-9.]+[a-z]+[0-9]+/g, '').replace(/[^0-9.]/g, '');
-
-  if (sanitized.startsWith('.')) {
-    sanitized = `0${sanitized}`;
-  }
-
-  if (sanitized.endsWith('.')) {
-    sanitized = `${sanitized}0`;
-  }
-
-  if (sanitized === '' || sanitized === null) {
-    return '0';
-  }
-
-  return sanitized;
-}
-
 function stripNonAlphaNumeric(str) {
   if (typeof str !== 'string') {
     return '';
@@ -102,7 +80,6 @@ function sanitizeComponentSlug(slug) {
 module.exports = {
   stripAll,
   isUrl,
-  sanitizeVersion,
   stripNonAlphaNumeric,
   sanitizeSearchQuery,
   sanitizeComponentSlug,
