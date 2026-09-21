@@ -73,6 +73,12 @@ The previous `sanitizeVersion()` rewrote versions (`5.0-RC1` became `5.01`, and 
 - **Bare letters are not stages.** PHP also reads a single `a`, `b` or `p` as alpha, beta or patch. VULNZ does not: plugin authors use `1.0b` for a later build of 1.0 as often as for a beta, so `1.0b`, `0.5a` and `1.6.4.b` have an unrecognised suffix (see the next point) rather than a guessed one. The separators `-`, `.`, `_` and `~` are accepted before the stage word, and `-`, `.` and `_` between the word and its number, so npm's `1.0.0-rc.1` parses. `1.0~rc~1` does not: it is an unrecognised suffix.
 - **Unrecognised suffix** (`1.7.5-698baaf`, `2026r3`). Compared on its numeric core whenever the cores differ. When the cores are equal, the order is **undecidable**, unless both suffixes are identical, ignoring case, in which case the versions are equal. So `1.7.5-698baaf` matches an inclusive bound of `1.7.5-698baaf`.
 
+### Pre-releases inherit their final release's vulnerabilities
+
+A release with a recognised pre-release stage (`dev`, `alpha`, `beta`, `rc`) is also matched as its final version. It is flagged if either one is in range, so `2.0.0-dev` is flagged whenever `2.0.0` is, even where the range's lower bound is exactly `2.0.0`. A dev or beta build of a release usually carries that release's code, flaws included.
+
+This works in one direction only. A final release never inherits from its pre-releases: "<= 3.0.0-beta.4" means the problem was fixed before 3.0.0 shipped, so flagging 3.0.0 would put a false positive on the release people upgrade to. Implemented as `isReleaseAffected()`, which is used everywhere a range is matched: when a range is posted, when a release is created, and by `vulnerabilities:reconcile`.
+
 ### Undecidable means "not flagged"
 
 Range membership has three outcomes: inside, outside, or undecidable. A release is flagged only when it is definitely inside. `1.7.5-698baaf` against "< 1.7.5" is undecidable, so it is not flagged. The same version against "< 1.8" is flagged, because its core decides. A range unbounded on both sides matches every version, including ones that cannot be parsed.

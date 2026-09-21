@@ -4,7 +4,16 @@
  * Rules: docs/version-matching.md
  */
 
-const { parseVersion, compareVersions, versionSortCompare, isVersionInRange, normaliseReportedVersion, validateVersion } = require('../../src/lib/versionCompare');
+const {
+  parseVersion,
+  compareVersions,
+  versionSortCompare,
+  isVersionInRange,
+  isReleaseAffected,
+  preReleaseFinalVersion,
+  normaliseReportedVersion,
+  validateVersion,
+} = require('../../src/lib/versionCompare');
 
 describe('parseVersion', () => {
   it('returns null when there is no numeric core', () => {
@@ -167,5 +176,47 @@ describe('validateVersion', () => {
 
   it.each(['.51.1', '47.0(20-11-2023)', 'v.1.1', '5 alpha 2', '*', ''])('rejects %p', (version) => {
     expect(validateVersion(version, 'to')).toMatch(/^to /);
+  });
+});
+
+describe('preReleaseFinalVersion', () => {
+  it.each([
+    ['2.0.0-dev', '2.0.0'],
+    ['6.4-beta2', '6.4'],
+    ['1.0.0-rc.1', '1.0.0'],
+    ['3.0-alpha', '3.0'],
+  ])('maps the pre-release %p to %p', (version, expected) => {
+    expect(preReleaseFinalVersion(version)).toBe(expected);
+  });
+
+  it.each(['2.0.0', '1.2-pl1', '1.0b', '1.7.5-698baaf', 'trunk'])('returns null for %p, which is not a recognised pre-release', (version) => {
+    expect(preReleaseFinalVersion(version)).toBeNull();
+  });
+});
+
+describe('isReleaseAffected', () => {
+  const between = (from, to) => ({ fromVersion: from, fromInclusive: true, toVersion: to, toInclusive: true });
+
+  it('flags a pre-release when its final release is affected, even below the lower bound', () => {
+    expect(isVersionInRange('2.0.0-beta1', between('2.0.0', '2.5'))).toBe(false);
+    expect(isReleaseAffected('2.0.0-beta1', between('2.0.0', '2.5'))).toBe(true);
+    expect(isReleaseAffected('2.0.0-dev', between('2.0.0', '2.0.0'))).toBe(true);
+  });
+
+  it('never flags a final release because one of its pre-releases is affected', () => {
+    const upToBeta = { fromVersion: null, fromInclusive: true, toVersion: '3.0.0-beta.4', toInclusive: true };
+    expect(isReleaseAffected('3.0.0-beta.4', upToBeta)).toBe(true);
+    expect(isReleaseAffected('3.0.0', upToBeta)).toBe(false);
+  });
+
+  it('leaves a pre-release unflagged when neither it nor its final release is affected', () => {
+    expect(isReleaseAffected('3.0.0-dev', between('2.0.0', '2.5'))).toBe(false);
+  });
+
+  it('agrees with isVersionInRange for anything that is not a recognised pre-release', () => {
+    const upTo = { fromVersion: null, fromInclusive: true, toVersion: '1.0b', toInclusive: true };
+    expect(isReleaseAffected('1.0', upTo)).toBeNull();
+    expect(isReleaseAffected('0.9', upTo)).toBe(true);
+    expect(isReleaseAffected('1.7.5-698baaf', { fromVersion: null, fromInclusive: true, toVersion: '1.7.5', toInclusive: false })).toBeNull();
   });
 });
