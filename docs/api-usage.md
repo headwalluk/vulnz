@@ -915,10 +915,11 @@ An out-of-range or non-numeric value returns `400` with `error` and `message`, r
   "websites": [...],
   "total": 150,
   "page": 2,
-  "limit": 20,
-  "pages": 8
+  "limit": 20
 }
 ```
+
+`/api/components` also returns `totalPages`. Elsewhere, divide `total` by `limit`.
 
 ---
 

@@ -274,6 +274,7 @@ A modifier without the parameter it modifies is a `400`, not a silently wider re
 ?component_type=wordpress-plugin            -> 400  (needs an anchor)
 ?component_slug=x&component_type=wordpress-plugins -> 400  (no such type)
 ?wporg_status=withdrawn                     -> 400  (not a status)
+?wporg_closure_reason=made-up              -> 400  (not a reason; since v1.47.0)
 ```
 
 `?component_version=8.5.0` alone used to return the whole fleet, which reads as "every site runs 8.5.0". Watch the singular/plural trap in particular: the response field is `wordpress-plugins`, the filter value is `wordpress-plugin`.

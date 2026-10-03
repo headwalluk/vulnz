@@ -62,7 +62,7 @@ const closureSecurityConcern = (raw) => (raw === null || raw === undefined ? nul
  * briefly conflated in M14. See 15-known-malware.md §10.
  *
  * @param {object} componentRow row from the components table
- * @param {object[]} releases release rows, each with has_vulnerabilities
+ * @param {object[]|null} releases release rows, each with has_vulnerabilities; null leaves the key out
  */
 function buildComponentResponse(componentRow, releases) {
   // Dropped from the spread because they are re-exposed below under their
@@ -89,12 +89,16 @@ function buildComponentResponse(componentRow, releases) {
     // A closure date has no time of day. Left as the driver's Date object it
     // would serialise to a full ISO timestamp and assert one.
     wporg_closed_at: formatDateOnly(componentRow.wporg_closed_at),
-    releases: releases.map((release) => ({
-      ...release,
-      id: parseInt(release.id, 10),
-      component_id: parseInt(release.component_id, 10),
-      has_vulnerabilities: !!release.has_vulnerabilities,
-    })),
+    ...(releases === null
+      ? {}
+      : {
+          releases: releases.map((release) => ({
+            ...release,
+            id: parseInt(release.id, 10),
+            component_id: parseInt(release.component_id, 10),
+            has_vulnerabilities: !!release.has_vulnerabilities,
+          })),
+        }),
   };
 }
 
@@ -337,6 +341,14 @@ router.get('/', apiAuth, logApiCall, async (req, res) => {
 
     const closureReason = req.query.wporg_closure_reason || null;
     if (closureReason) {
+      // An unknown reason would return zero components, which reads as "no closures for that reason"
+      const knownReasons = (await db.query('SELECT slug FROM wporg_closure_reasons ORDER BY slug')).map((row) => row.slug);
+      if (!knownReasons.includes(closureReason)) {
+        return res.status(400).json({
+          error: 'Unknown wporg_closure_reason',
+          message: `wporg_closure_reason must be one of: ${knownReasons.join(', ')}`,
+        });
+      }
       filters.push('c.wporg_closure_reason_slug = ?');
       params.push(closureReason);
     }
@@ -366,7 +378,8 @@ router.get('/', apiAuth, logApiCall, async (req, res) => {
       // Shaped identically to the single-component routes. This previously
       // returned raw rows, so the same field arrived as wporg_status_slug
       // here and wporg_status there.
-      components: components.map((component) => buildComponentResponse(component, [])),
+      // The list carries no releases; GET /api/components/{type}/{slug} has them
+      components: components.map((component) => buildComponentResponse(component, null)),
       total: parseInt(total, 10),
       page,
       limit,
@@ -484,7 +497,7 @@ router.post('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, 
 
     const [componentType] = await db.query('SELECT * FROM component_types WHERE slug = ?', [componentTypeSlug]);
     if (!componentType) {
-      return res.status(404).send('Component type not found');
+      return res.status(404).json({ error: 'Component type not found', message: 'Unknown component type; see GET /api/component-types.' });
     }
 
     let component = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
@@ -639,12 +652,12 @@ router.get('/:componentTypeSlug/:componentSlug/installs', apiAuth, logApiCall, s
 
     const [componentType] = await db.query('SELECT slug FROM component_types WHERE slug = ?', [componentTypeSlug]);
     if (!componentType) {
-      return res.status(404).send('Component type not found');
+      return res.status(404).json({ error: 'Component type not found', message: 'Unknown component type; see GET /api/component-types.' });
     }
 
     const [component] = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
     if (!component) {
-      return res.status(404).send('Component not found');
+      return res.status(404).json({ error: 'Component not found', message: 'No such component.' });
     }
 
     const roles = await User.getRoles(req.user.id);
@@ -728,12 +741,12 @@ router.get('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, s
 
     const [componentType] = await db.query('SELECT * FROM component_types WHERE slug = ?', [componentTypeSlug]);
     if (!componentType) {
-      return res.status(404).send('Component type not found');
+      return res.status(404).json({ error: 'Component type not found', message: 'Unknown component type; see GET /api/component-types.' });
     }
 
     const [component] = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
     if (!component) {
-      return res.status(404).send('Component not found');
+      return res.status(404).json({ error: 'Component not found', message: 'No such component.' });
     }
     const componentId = parseInt(component.id, 10);
     const malwareFields = {
@@ -809,12 +822,12 @@ router.get('/:componentTypeSlug/:componentSlug', apiAuth, logApiCall, sanitiseCo
 
     const [componentType] = await db.query('SELECT * FROM component_types WHERE slug = ?', [componentTypeSlug]);
     if (!componentType) {
-      return res.status(404).send('Component type not found');
+      return res.status(404).json({ error: 'Component type not found', message: 'Unknown component type; see GET /api/component-types.' });
     }
 
     const component = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
     if (component.length === 0) {
-      return res.status(404).send('Component not found');
+      return res.status(404).json({ error: 'Component not found', message: 'No such component.' });
     }
     const releases = await db.query(
       `
@@ -838,7 +851,7 @@ router.get('/:id', apiAuth, logApiCall, async (req, res) => {
     const { id } = req.params;
     const component = await db.query(`${COMPONENT_SELECT} WHERE c.id = ?`, [id]);
     if (component.length === 0) {
-      return res.status(404).send('Component not found');
+      return res.status(404).json({ error: 'Component not found', message: 'No such component.' });
     }
     const releases = await db.query(
       `

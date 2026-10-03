@@ -235,6 +235,31 @@ describe('Components API', () => {
   });
 
   describe('GET /api/components', () => {
+    test('rejects an unknown wporg_closure_reason rather than returning nothing', async () => {
+      const response = await request(app).get('/api/components?wporg_closure_reason=not-a-real-reason').set('X-API-Key', regularApiKey);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Unknown wporg_closure_reason');
+      expect(response.body.message).toContain('security-issue');
+    });
+
+    test('list entries carry no releases key', async () => {
+      const response = await request(app).get('/api/components?limit=5').set('X-API-Key', regularApiKey);
+
+      expect(response.status).toBe(200);
+      expect(response.body.components.length).toBeGreaterThan(0);
+      for (const component of response.body.components) {
+        expect(component).not.toHaveProperty('releases');
+      }
+    });
+
+    test('an unknown component is a JSON 404', async () => {
+      const response = await request(app).get(`/api/components/${testComponentType.slug}/no-such-component-xyz`).set('X-API-Key', regularApiKey);
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toBe('Component not found');
+    });
+
     test('should list all components for authenticated users', async () => {
       const response = await request(app).get('/api/components').set('X-API-Key', regularApiKey);
 
