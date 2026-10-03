@@ -178,18 +178,25 @@ curl -X POST "http://localhost:3000/api/reports/summary-email" \
   -d '{}'
 ```
 
-With an empty body the report goes to the key holder's own account. An administrator may pass `{"user_id": 3}` or `{"username": "client@example.com"}` to send another user's report. A `Report sent` response means SMTP accepted it. An account with no websites gets no report, weekly or on demand: the response is `Report not sent: no websites on this account`.
+With an empty body the report goes to the key holder's own account. A `Report sent` response means SMTP accepted it. An account with no websites gets no report, weekly or on demand: the response is `Report not sent: no websites on this account`.
 
-To see what a client will receive without emailing them, an administrator can add `"preview": true`:
+An administrator can send another user's report by naming them with `user_id` or `username` (give one, not both). Because that emails the client and everyone on their CC list, it must be confirmed with `"send": true`; without it the request is refused and nothing is sent:
 
 ```bash
 curl -X POST "http://localhost:3000/api/reports/summary-email" \
   -H "X-API-Key: your-admin-api-key" \
   -H 'Content-Type: application/json' \
-  -d '{"username": "client@example.com", "preview": true}'
+  -d '{"username": "client@example.com", "send": true}'
 ```
 
-`username` and `user_id` are interchangeable ways to name the account; give one, not both. The report is built for that user exactly as their weekly email would be, but it goes only to your own report address, with no CC, and the subject starts `[Preview for <username>]`. It is logged in your email history, not theirs.
+To see what a client will receive without emailing anyone, fetch the preview instead:
+
+```bash
+curl "http://localhost:3000/api/reports/summary-email/preview?username=client@example.com" \
+  -H "X-API-Key: your-admin-api-key"
+```
+
+It returns JSON with the `subject`, the `html` and a plain-text `text` rendering of the report exactly as the weekly email would build it, plus the `delivery` it would use (`to`, `cc`, weekday, paused, blocked). `would_send` is `false` when the weekly job would skip the account, and `skip_reasons` lists why: `no_websites`, `blocked`, `paused` or `no_weekday`. With no websites there is no report to render, so `subject`, `html` and `text` are `null`. Nothing is sent and nothing is written to the email log.
 
 ### Configure WordPress.org Sync (Optional)
 

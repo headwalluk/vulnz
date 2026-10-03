@@ -101,6 +101,36 @@ Both carry `report_delivery`, computed by the same function the sender uses:
 
 That distinguishes "who **would** receive it" (`to` and `cc`) from "who **did**" (`last_logged_report`). An account's full history is at `GET /api/users/{id}/emails`. Malware alerts are separate from the weekly report. They go to the operator, and also, as a separate email, to the owning account's `cc` list (its designer or agency). They never go to the account owner. They are logged against the account, so they show in its email history with `email_type: malware_alert`.
 
+### What will a client's weekly email say?
+
+```http
+GET /api/reports/summary-email/preview?username=client@example.com
+# or ?user_id=42; with neither, the key holder's own report
+```
+
+This builds the report exactly as the weekly job would and returns it. **It sends nothing and logs nothing**, so it is safe to call at any time. Naming another user needs an administrator key.
+
+```json
+{
+  "user_id": 42,
+  "username": "client@example.com",
+  "would_send": true,
+  "skip_reasons": [],
+  "delivery": { "to": "client@example.com", "to_source": "username", "cc": ["studio@agency.example"], "weekday": "MON", "paused": false, "blocked": false, "…": "…" },
+  "subject": "Weekly Vulnerability Report: Attention Required!",
+  "html": "<!DOCTYPE html>…",
+  "text": "Website vulnerability report\n\nACTION REQUIRED\n…",
+  "generated_at": "2026-10-03T17:17:30.000Z"
+}
+```
+
+- Read **`text`** to say what the client sees. It is the same report as `html`, and it is the plain-text part of the real email. `html` runs to tens of kilobytes: save it to a file rather than printing it.
+- **`subject` has no preview marker.** It is the subject the client gets. Add your own marker if you forward the HTML to someone.
+- **`would_send: false`** means the weekly job will skip the account. `skip_reasons` says why: `no_websites`, `blocked`, `paused` or `no_weekday`. More than one can apply. The report is still returned, except with `no_websites`, where there is nothing to report and `subject`, `html` and `text` are `null`.
+- `delivery` has the same fields as `report_delivery` (above), without `last_logged_report`.
+
+**Do not use `POST /api/reports/summary-email` to look at a report.** That route sends the real email to the client and their CC list. It refuses another user's report unless the body says `"send": true`, and it refuses `preview` outright.
+
 ### Which versions of a plugin are installed, and where?
 
 ```http

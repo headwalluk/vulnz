@@ -10,9 +10,15 @@ const component = require('../models/component');
 const { loadReportThresholds } = require('./reportThresholds');
 const { resolveReportDelivery } = require('./reportRecipients');
 const { severityForWebsites } = require('./siteSeverity');
+const { renderVulnerabilityReport } = require('./reportRender');
 const emailer = require('../lib/email');
 const emailLog = require('../models/emailLog');
 const logger = require('./logger');
+
+const SKIP_REASON_NO_WEBSITES = 'no_websites';
+const SKIP_REASON_BLOCKED = 'blocked';
+const SKIP_REASON_PAUSED = 'paused';
+const SKIP_REASON_NO_WEEKDAY = 'no_weekday';
 
 /**
  * Format a date/datetime into a human-readable string with relative time
@@ -77,21 +83,46 @@ function deduplicatePlugins(plugins) {
 }
 
 /**
- * Build and send the summary report for one user; returns false without sending when they have no websites.
- * @param {object} userToSend  The account the report is about.
- * @param {{previewRecipient?: object|null}} [options]  Send the report to this account alone instead, uncopied.
- * @returns {Promise<boolean>} Whether a report was sent.
+ * Why the weekly job would not send this account's report, in a fixed order; empty when it would.
+ * @param {object} delivery  From resolveReportDelivery().
+ * @param {number} totalWebsites
+ * @returns {string[]}
  */
-async function sendSummaryEmail(userToSend, { previewRecipient = null } = {}) {
+function weeklySkipReasons(delivery, totalWebsites) {
+  const reasons = [];
+  if (totalWebsites === 0) {
+    reasons.push(SKIP_REASON_NO_WEBSITES);
+  }
+  if (delivery.blocked) {
+    reasons.push(SKIP_REASON_BLOCKED);
+  }
+  if (delivery.paused) {
+    reasons.push(SKIP_REASON_PAUSED);
+  }
+  if (!delivery.weekday) {
+    reasons.push(SKIP_REASON_NO_WEEKDAY);
+  }
+  return reasons;
+}
+
+/**
+ * Assemble one user's report: template data (null when they have no websites), delivery, and weekly skip reasons.
+ * @param {object} userToSend  Row from the users table.
+ * @returns {Promise<{emailData: object|null, delivery: object, skipReasons: string[]}>}
+ */
+async function buildSummaryEmail(userToSend) {
   const roles = await getRoles(userToSend.id);
   const isAdministrator = roles.includes(ROLE_ADMINISTRATOR);
 
   const totalWebsites = await website.countAll(isAdministrator ? null : userToSend.id);
-  if (totalWebsites === 0) {
-    logger.info(`Report for user ${userToSend.id} not sent: no websites on the account`);
-    return false;
-  }
+  const delivery = resolveReportDelivery(userToSend);
+  const emailData = totalWebsites === 0 ? null : await assembleReportData(userToSend, isAdministrator, totalWebsites);
 
+  return { emailData, delivery, skipReasons: weeklySkipReasons(delivery, totalWebsites) };
+}
+
+/** Gather the report's template data for an account that has at least one website. */
+async function assembleReportData(userToSend, isAdministrator, totalWebsites) {
   const vulnerableWebsites = await website.findAll(isAdministrator ? null : userToSend.id, 1000, 0, null, true);
 
   for (const site of vulnerableWebsites) {
@@ -281,40 +312,39 @@ async function sendSummaryEmail(userToSend, { previewRecipient = null } = {}) {
     },
   };
 
-  let to;
-  let cc;
-  let emailType;
-  let logContext;
-  let subjectPrefix = '';
-  if (previewRecipient) {
-    // Logged against the requester, so the previewed account's last-report history is untouched
-    to = resolveReportDelivery(previewRecipient).to;
-    cc = [];
-    emailType = emailLog.EMAIL_TYPE_VULNERABILITY_REPORT_PREVIEW;
-    logContext = { userId: parseInt(previewRecipient.id, 10) };
-    subjectPrefix = `[Preview for ${userToSend.username}] `;
+  return emailData;
+}
+
+/**
+ * Build, render and send the summary report for one user; returns false without sending when they have no websites.
+ * @param {object} userToSend
+ * @returns {Promise<boolean>} Whether a report was sent.
+ */
+async function sendSummaryEmail(userToSend) {
+  const { emailData, delivery } = await buildSummaryEmail(userToSend);
+  let sent = false;
+
+  if (!emailData) {
+    logger.info(`Report for user ${userToSend.id} not sent: no websites on the account`);
   } else {
-    const delivery = resolveReportDelivery(userToSend);
     if (delivery.reporting_email_rejected || delivery.cc_rejected.length > 0) {
       logger.warn(
         `Report for user ${userToSend.id}: unusable reporting addresses skipped (reporting_email rejected: ${delivery.reporting_email_rejected}; cc rejected: ${delivery.cc_rejected.join(', ') || 'none'})`
       );
     }
-    to = delivery.to;
-    cc = delivery.cc;
-    emailType = emailLog.EMAIL_TYPE_VULNERABILITY_REPORT;
-    logContext = { userId: parseInt(userToSend.id, 10), ccEmails: cc };
+    const logContext = { userId: parseInt(userToSend.id, 10), ccEmails: delivery.cc };
+
+    try {
+      await emailer.sendVulnerabilityReport(delivery.to, renderVulnerabilityReport(emailData), delivery.cc);
+      await emailLog.logEmail(delivery.to, emailLog.EMAIL_TYPE_VULNERABILITY_REPORT, 'sent', logContext);
+    } catch (emailError) {
+      await emailLog.logEmail(delivery.to, emailLog.EMAIL_TYPE_VULNERABILITY_REPORT, 'error', logContext);
+      throw emailError;
+    }
+    sent = true;
   }
 
-  try {
-    await emailer.sendVulnerabilityReport(to, emailData, cc, { subjectPrefix });
-    await emailLog.logEmail(to, emailType, 'sent', logContext);
-  } catch (emailError) {
-    await emailLog.logEmail(to, emailType, 'error', logContext);
-    throw emailError;
-  }
-
-  return true;
+  return sent;
 }
 
 async function sendWeeklyReports() {
@@ -359,6 +389,11 @@ async function sendWeeklyReports() {
 }
 
 module.exports = {
+  buildSummaryEmail,
   sendSummaryEmail,
   sendWeeklyReports,
+  SKIP_REASON_NO_WEBSITES,
+  SKIP_REASON_BLOCKED,
+  SKIP_REASON_PAUSED,
+  SKIP_REASON_NO_WEEKDAY,
 };

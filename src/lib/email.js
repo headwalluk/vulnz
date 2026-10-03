@@ -26,67 +26,19 @@ if (process.env.SMTP_IGNORE_TLS === 'true') {
 
 const transporter = nodemailer.createTransport(transportOptions);
 
-// Helper to convert country code to flag emoji
-handlebars.registerHelper('countryFlag', function (countryCode) {
-  if (!countryCode || countryCode.length !== 2) {
-    return '';
-  }
-  // Convert country code to flag emoji using Regional Indicator Symbols
-  // A=🇦(U+1F1E6), B=🇧(U+1F1E7), etc.
-  const codePoints = countryCode
-    .toUpperCase()
-    .split('')
-    .map((char) => 127397 + char.charCodeAt(0));
-  return String.fromCodePoint(...codePoints);
-});
-
-// Helper for equality comparison
-handlebars.registerHelper('eq', function (a, b) {
-  return a === b;
-});
-
-// Helper for greater than comparison
-handlebars.registerHelper('gt', function (a, b) {
-  return a > b;
-});
-
 /**
- * Send the weekly vulnerability report.
+ * Send the weekly vulnerability report, rendered by renderVulnerabilityReport(), with HTML and plain-text parts.
  * @param {string} to
- * @param {object} data  Template data.
+ * @param {{subject: string, html: string, text: string}} rendered
  * @param {string[]} [cc]  Copied in on the same message, so each recipient can see the others were told.
- * @param {{subjectPrefix?: string}} [options]  Prepended to the subject line.
  */
-async function sendVulnerabilityReport(to, data, cc = [], { subjectPrefix = '' } = {}) {
-  const templatePath = path.join(__dirname, '../emails/vulnerability-report.hbs');
-  const template = fs.readFileSync(templatePath, 'utf8');
-  const compiledTemplate = handlebars.compile(template);
-
-  const branding = {
-    heading: process.env.REPORTING_HEADING || 'Website vulnerability report',
-    openingParagraph: process.env.REPORTING_OPENING_PARAGRAPH || 'Here is your weekly vulnerability report for your WordPress plugins and themes:',
-    closingParagraph:
-      process.env.REPORTING_CLOSING_PARAGRAPH || 'This email does not contain any clickable links. To investigate your websites further, log in to your VULNZ account.',
-    signOff: process.env.REPORTING_SIGN_OFF || 'The VULNZ Team',
-    postScript: process.env.REPORTING_POST_SCRIPT || 'Stay safe online!',
-  };
-
-  const html = compiledTemplate({ ...data, branding });
-
-  // Dynamic subject line based on vulnerability status
-  const hasVulnerabilities = data.vulnerableWebsitesCount > 0;
-  const criticalWebsites = (data.executiveSummary && data.executiveSummary.criticalWebsites) || 0;
-  let subjectStatus = hasVulnerabilities ? 'Attention Required!' : 'All Clear';
-  if (criticalWebsites > 0) {
-    subjectStatus = `${criticalWebsites} site(s) with critical vulnerabilities`;
-  }
-  const subject = `${subjectPrefix}Weekly Vulnerability Report: ${subjectStatus}`;
-
+async function sendVulnerabilityReport(to, rendered, cc = []) {
   const mailOptions = {
     from: process.env.SMTP_FROM,
     to: to,
-    subject: subject,
-    html: html,
+    subject: rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
   };
   if (cc.length > 0) {
     mailOptions.cc = cc;
