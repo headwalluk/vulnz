@@ -16,7 +16,7 @@
 - No migrations and no new environment variables.
 - Anything that reads the text response of `POST /api/reports/summary-email` should allow for the two new messages. The status code is still 200.
 
-## 1.50.0 - 2026-10-04
+## 1.50.0 - 2026-10-03
 
 ### Features
 
@@ -39,7 +39,7 @@
 - No migrations and no new environment variables.
 - Severity is only as complete as the advisory data. Until a feed importer has re-sent every advisory with its details, expect most vulnerabilities to read as unrated.
 
-## 1.49.0 - 2026-10-04
+## 1.49.0 - 2026-10-03
 
 ### Features
 
