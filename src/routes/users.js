@@ -4,6 +4,7 @@ const user = require('../models/user');
 const db = require('../db');
 const { apiKeyAdminAuth, apiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
+const { ROLE_USER } = require('../models/role');
 const { sanitizeEmailHtml } = require('../lib/htmlSanitizer');
 
 /**
@@ -197,7 +198,7 @@ router.post('/', apiKeyAdminAuth, logApiCall, async (req, res) => {
       return res.status(400).send('Password is required');
     }
     if (!roles || roles.length === 0) {
-      roles = ['user'];
+      roles = [ROLE_USER];
     }
     const newUser = await user.createUser(username, password, roles, blocked, max_api_keys, reporting_weekday, reporting_email, null, null, null, paused);
     res.status(201).json(newUser);

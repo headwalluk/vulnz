@@ -23,6 +23,20 @@ module.exports = [
     },
   },
   {
+    // Role names come from the constants in src/models/role.js
+    files: ['src/**/*.js', 'bin/**/*.js'],
+    ignores: ['src/models/role.js', 'src/migrations/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "Literal[value='administrator']",
+          message: 'Use ROLE_ADMINISTRATOR from src/models/role.js.',
+        },
+      ],
+    },
+  },
+  {
     // Jest test files
     files: ['tests/**/*.js'],
     languageOptions: {

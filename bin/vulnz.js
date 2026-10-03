@@ -35,7 +35,7 @@ BigInt.prototype.toJSON = function () {
 const { Command } = require('commander');
 const user = require('../src/models/user');
 const apiKey = require('../src/models/apiKey');
-const { ROLES, ROLE_ADMINISTRATOR } = require('../src/models/role');
+const { ROLES, ROLE_USER, ROLE_ADMINISTRATOR } = require('../src/models/role');
 const feed = require('../src/models/feed');
 const component = require('../src/models/component');
 const release = require('../src/models/release');
@@ -77,8 +77,8 @@ program
   .description('Create a new user account')
   .option('--admin', 'Grant the administrator role')
   .action(async (email, password, opts) => {
-    const roleNames = ['user'];
-    if (opts.admin) roleNames.push('administrator');
+    const roleNames = [ROLE_USER];
+    if (opts.admin) roleNames.push(ROLE_ADMINISTRATOR);
 
     try {
       const created = await user.createUser(

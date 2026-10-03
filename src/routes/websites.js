@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Website = require('../models/website');
 const User = require('../models/user');
+const { ROLE_ADMINISTRATOR } = require('../models/role');
 const Ecosystem = require('../models/ecosystem');
 const { apiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
@@ -44,7 +45,7 @@ const authoriseWebsite = (findWebsite) => async (req, res, next) => {
   }
 
   const roles = await User.getRoles(req.user.id);
-  if (website.user_id !== req.user.id && !roles.includes('administrator')) {
+  if (website.user_id !== req.user.id && !roles.includes(ROLE_ADMINISTRATOR)) {
     return res.status(401).send('Unauthorized');
   }
 
@@ -396,7 +397,7 @@ router.get('/', apiAuth, logApiCall, async (req, res) => {
     };
 
     const roles = await User.getRoles(req.user.id);
-    const isAdmin = roles.includes('administrator');
+    const isAdmin = roles.includes(ROLE_ADMINISTRATOR);
 
     const total = await Website.countAll(isAdmin ? null : req.user.id, search, onlyVulnerable, options);
     const websites = await Website.findAll(isAdmin ? null : req.user.id, limit, offset, search, onlyVulnerable, options);
@@ -504,7 +505,7 @@ router.get('/', apiAuth, logApiCall, async (req, res) => {
 router.get('/malware', apiAuth, logApiCall, async (req, res) => {
   try {
     const roles = await User.getRoles(req.user.id);
-    const isAdmin = roles.includes('administrator');
+    const isAdmin = roles.includes(ROLE_ADMINISTRATOR);
 
     const rows = await WebsiteMalware.findAffectedWebsites(isAdmin ? null : req.user.id);
 
@@ -717,7 +718,7 @@ router.post('/', apiAuth, logApiCall, async (req, res) => {
     const roles = await User.getRoles(req.user.id);
     let websiteUserId = req.user.id;
 
-    if (roles.includes('administrator') && user_id) {
+    if (roles.includes(ROLE_ADMINISTRATOR) && user_id) {
       websiteUserId = user_id;
     }
 
@@ -731,7 +732,7 @@ router.post('/', apiAuth, logApiCall, async (req, res) => {
       platform_metadata: platform || null,
     });
 
-    if (roles.includes('administrator')) {
+    if (roles.includes(ROLE_ADMINISTRATOR)) {
       res.status(201).json({
         ...website,
         id: parseInt(website.id, 10),
@@ -899,7 +900,7 @@ router.put('/:domain', apiAuth, logApiCall, canAccessWebsite, async (req, res) =
     if (user_id !== undefined) {
       const roles = await User.getRoles(req.user.id);
 
-      if (!roles.includes('administrator')) {
+      if (!roles.includes(ROLE_ADMINISTRATOR)) {
         return res.status(403).json({
           success: false,
           message: 'Only administrators can change website ownership',

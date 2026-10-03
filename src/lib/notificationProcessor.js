@@ -1,6 +1,7 @@
 'use strict';
 
 const user = require('../models/user');
+const { ROLE_USER } = require('../models/role');
 const apiKey = require('../models/apiKey');
 const userSubscription = require('../models/userSubscription');
 const notificationQueue = require('../models/notificationQueue');
@@ -96,7 +97,7 @@ async function processNotification(site, wpUserId, event) {
     localUser = await user.createUser(
       accountEmail,
       password,
-      ['user'],
+      [ROLE_USER],
       false, // blocked
       1, // max_api_keys
       '', // reporting_weekday

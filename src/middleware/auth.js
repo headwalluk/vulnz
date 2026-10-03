@@ -1,5 +1,6 @@
 const db = require('../db');
 const passport = require('passport');
+const { ROLE_ADMINISTRATOR } = require('../models/role');
 
 function apiAuth(req, res, next) {
   passport.authenticate('headerapikey', { session: false }, (err, user) => {
@@ -74,7 +75,7 @@ function apiKeyAdminAuth(req, res, next) {
     try {
       const rows = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [user.id]);
       const roles = rows.map((row) => row.name);
-      if (!roles.includes('administrator')) {
+      if (!roles.includes(ROLE_ADMINISTRATOR)) {
         return res.status(403).send('Forbidden: API key holder is not an administrator.');
       }
       req.user = user;

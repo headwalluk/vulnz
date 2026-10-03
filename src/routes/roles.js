@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { apiAuth, hasRole } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
+const { ROLE_ADMINISTRATOR } = require('../models/role');
 
 /**
  * @swagger
@@ -27,7 +28,7 @@ const { logApiCall } = require('../middleware/logApiCall');
  *               items:
  *                 $ref: '#/components/schemas/Role'
  */
-router.get('/', apiAuth, logApiCall, hasRole('administrator'), async (req, res) => {
+router.get('/', apiAuth, logApiCall, hasRole(ROLE_ADMINISTRATOR), async (req, res) => {
   try {
     const roles = await db.query('SELECT * FROM roles');
     res.json(roles);

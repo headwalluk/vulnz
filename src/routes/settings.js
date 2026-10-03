@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const AppSetting = require('../models/appSetting');
 const User = require('../models/user');
+const { ROLE_ADMINISTRATOR } = require('../models/role');
 const { apiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 
@@ -10,7 +11,7 @@ const { logApiCall } = require('../middleware/logApiCall');
  */
 const requireAdmin = async (req, res, next) => {
   const roles = await User.getRoles(req.user.id);
-  if (!roles.includes('administrator')) {
+  if (!roles.includes(ROLE_ADMINISTRATOR)) {
     return res.status(403).json({
       success: false,
       error: 'Administrator privileges required',

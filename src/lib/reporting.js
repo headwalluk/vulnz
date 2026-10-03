@@ -1,5 +1,6 @@
 const user = require('../models/user');
 const { getRoles } = require('../models/user');
+const { ROLE_ADMINISTRATOR } = require('../models/role');
 const website = require('../models/website');
 const websiteComponent = require('../models/websiteComponent');
 const securityEvent = require('../models/securityEvent');
@@ -76,7 +77,7 @@ function deduplicatePlugins(plugins) {
 
 async function sendSummaryEmail(userToSend) {
   const roles = await getRoles(userToSend.id);
-  const isAdministrator = roles.includes('administrator');
+  const isAdministrator = roles.includes(ROLE_ADMINISTRATOR);
 
   const totalWebsites = await website.countAll(isAdministrator ? null : userToSend.id);
   const vulnerableWebsites = await website.findAll(isAdministrator ? null : userToSend.id, 1000, 0, null, true);

@@ -19,6 +19,7 @@ const componentModel = require('../models/component');
 const Release = require('../models/release');
 const vulnerabilityRange = require('../models/vulnerabilityRange');
 const User = require('../models/user');
+const { ROLE_ADMINISTRATOR } = require('../models/role');
 const WebsiteComponent = require('../models/websiteComponent');
 const { booleanFlag } = require('../lib/queryParams');
 const { versionSortCompare } = require('../lib/versionCompare');
@@ -392,7 +393,7 @@ router.get('/', apiAuth, logApiCall, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Component'
  */
-router.post('/', apiAuth, logApiCall, hasRole('administrator'), async (req, res) => {
+router.post('/', apiAuth, logApiCall, hasRole(ROLE_ADMINISTRATOR), async (req, res) => {
   try {
     let { slug, component_type_slug, title, description } = req.body;
     if (slug) {
@@ -619,7 +620,7 @@ router.get('/:componentTypeSlug/:componentSlug/installs', apiAuth, logApiCall, s
     }
 
     const roles = await User.getRoles(req.user.id);
-    const userId = roles.includes('administrator') ? null : req.user.id;
+    const userId = roles.includes(ROLE_ADMINISTRATOR) ? null : req.user.id;
     const installRows = await WebsiteComponent.findInstallsOfComponent(component.id, { userId, isDev });
     const releaseIds = [...new Set(installRows.map((row) => parseInt(row.release_id, 10)))];
     const urlsByRelease = await WebsiteComponent.findVulnerabilityUrlsByRelease(releaseIds);
@@ -855,7 +856,7 @@ router.get('/:id', apiAuth, logApiCall, async (req, res) => {
  *       404:
  *         description: The component was not found
  */
-router.put('/:id', apiAuth, logApiCall, hasRole('administrator'), async (req, res) => {
+router.put('/:id', apiAuth, logApiCall, hasRole(ROLE_ADMINISTRATOR), async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description, url } = req.body;
@@ -911,7 +912,7 @@ router.put('/:id', apiAuth, logApiCall, hasRole('administrator'), async (req, re
  *       404:
  *         description: The component was not found
  */
-router.delete('/:id', apiAuth, logApiCall, hasRole('administrator'), async (req, res) => {
+router.delete('/:id', apiAuth, logApiCall, hasRole(ROLE_ADMINISTRATOR), async (req, res) => {
   try {
     const { id } = req.params;
     await db.query('DELETE FROM components WHERE id = ?', [id]);
