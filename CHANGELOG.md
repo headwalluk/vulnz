@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.51.0 - 2026-10-03
+
+### Features
+
+- **Preview a client's weekly report.** `POST /api/reports/summary-email` accepts `"preview": true`. The report is built for the named user exactly as their weekly email would be, but it goes only to the caller's own report address, with no CC, and the subject starts `[Preview for <username>]`. It is logged in the caller's email history as `vulnerability_report_preview`, so the user's last-report date is untouched. Previewing another user is administrator-only, as sending their report already was.
+- **Name the user by username.** The same endpoint accepts `username` as an alternative to `user_id`, so an agent can go from an email address to a report in one request. Give one, not both. A non-administrator naming any other username gets 403 whether or not it exists.
+
+### Fixes
+
+- **No report for an account with no websites.** The weekly email went out anyway, headed "All Clear" and saying "Your 0 monitored sites are secure." It is now skipped, and the account is still marked done for the day. On demand, the endpoint answers `Report not sent: no websites on this account` instead of `Report sent`.
+
+### Upgrading
+
+- No migrations and no new environment variables.
+- Anything that reads the text response of `POST /api/reports/summary-email` should allow for the two new messages. The status code is still 200.
+
 ## 1.50.0 - 2026-10-04
 
 ### Features
