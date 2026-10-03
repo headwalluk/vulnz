@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.44.0 - 2026-10-03
+
+### Security
+
+- **`PUT /api/users/me` accepts only `reporting_email`, `reporting_weekday`, `enable_white_label` and `white_label_html`.** Before this, the route passed the whole body to the user update, so an account could change its own roles, status, key limit, username or password. Any other field is now a 400. `reporting_email` and `reporting_weekday` are validated.
+- **`GET /api/logs` is administrator-only.** It holds every account's routes, query strings and source IPs, and was readable by any key. `limit` is capped like other list endpoints.
+- **Website writes are scoped to the authorised row.** Domains are unique per owner only. `PUT` and `DELETE /api/websites/{domain}` matched every row with that domain, and lookups did not prefer the caller's own row. Writes now go by id, and lookups prefer the caller's row. `Website.update()` writes only whitelisted columns.
+- **Another account's website now returns 404,** the same as a missing one, instead of 401, so a key cannot test which domains are monitored.
+- **`POST /api/reports/summary-email`** sends another user's report only for an administrator.
+- **`GET /api/settings` and `GET /api/settings/{key}` are administrator-only.**
+- **`GET /api/wordpress/latest-versions`** is `Cache-Control: private`, so a shared cache cannot serve it to callers without a key.
+- **`GET /api/components/search`** caps `limit` (API_MAX_PAGE_SIZE, default 200). A larger value is a 400.
+- **The notification endpoint's rate limiter** keys on the client IP as resolved by `trust proxy`, not on a raw `X-Forwarded-For` header.
+
+### Bug Fixes
+
+- **The weekly email compared WordPress and PHP versions as strings,** so 6.10 would have counted as older than 6.7. It now compares them as versions, and leaves out versions it cannot parse.
+- **Component GET routes no longer write.** `GET /api/components/{type}/{slug}` and `…/{version}` used to create unknown components and releases. An unknown component is now a 404. A version of a known component that no site has reported is checked against the stored vulnerability ranges and returned with `is_recorded: false`, without being written.
+- **The admin self-block guard** compared ids of different types and never fired.
+
+### Changes
+
+- **`GET /api/users`** no longer includes `white_label_html`. **`GET /api/users/{id}`** now returns `enable_white_label`, `white_label_html` and `website_count`.
+- **Role names come from constants in `src/models/role.js`.** A lint rule rejects a literal `'administrator'` elsewhere.
+
+### Upgrading
+
+- No migrations and no new environment variables.
+- Clients that read `/api/logs` or `/api/settings` with a non-administrator key will now get 403.
+- Clients that relied on a GET creating a component must create it with `POST /api/components` or `POST /api/releases/bulk`.
+- Clients that told "not yours" (401) apart from "missing" (404) on `/api/websites/{domain}` will see 404 for both.
+
 ## 1.43.0 - 2026-10-03
 
 ### Features
