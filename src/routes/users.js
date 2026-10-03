@@ -6,6 +6,12 @@ const { apiKeyAdminAuth, apiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 const { ROLE_USER } = require('../models/role');
 const { sanitizeEmailHtml } = require('../lib/htmlSanitizer');
+const { validateEmailAddress } = require('../lib/emailValidation');
+
+// The only fields a user may change on their own account; roles, limits and status are admin-only.
+const SELF_EDITABLE_FIELDS = ['reporting_email', 'reporting_weekday', 'enable_white_label', 'white_label_html'];
+// An empty string switches the weekly report off.
+const REPORTING_WEEKDAYS = ['', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
 /**
  * @swagger
@@ -367,7 +373,7 @@ router.get('/:id', apiKeyAdminAuth, logApiCall, async (req, res) => {
  *       200:
  *         description: User updated successfully
  *       400:
- *         description: Invalid request (e.g., white_label_html exceeds limit)
+ *         description: Invalid request (a field that is not self-editable, an invalid reporting_email or reporting_weekday, or white_label_html over the limit)
  *       401:
  *         description: Unauthorized
  *       500:
@@ -375,7 +381,26 @@ router.get('/:id', apiKeyAdminAuth, logApiCall, async (req, res) => {
  */
 router.put('/me', apiAuth, logApiCall, async (req, res) => {
   try {
-    const updateData = { ...req.body };
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const unknownFields = Object.keys(body).filter((field) => !SELF_EDITABLE_FIELDS.includes(field));
+    if (unknownFields.length > 0) {
+      return res.status(400).json({
+        error: 'Field not editable',
+        message: `Only ${SELF_EDITABLE_FIELDS.join(', ')} can be changed here. Not editable: ${unknownFields.join(', ')}.`,
+      });
+    }
+    const updateData = { ...body };
+
+    if (updateData.reporting_weekday !== undefined && !REPORTING_WEEKDAYS.includes(updateData.reporting_weekday)) {
+      return res.status(400).send(`reporting_weekday must be one of: ${REPORTING_WEEKDAYS.map((weekday) => `'${weekday}'`).join(', ')}`);
+    }
+
+    if (updateData.reporting_email !== undefined && updateData.reporting_email !== null && updateData.reporting_email !== '') {
+      const emailValidation = typeof updateData.reporting_email === 'string' ? validateEmailAddress(updateData.reporting_email) : { isValid: false };
+      if (!emailValidation.isValid) {
+        return res.status(400).send('reporting_email must be a valid email address');
+      }
+    }
 
     // Validate and sanitize white_label_html if provided
     if (updateData.white_label_html !== undefined) {

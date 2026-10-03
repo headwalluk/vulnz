@@ -254,13 +254,55 @@ describe('Users API', () => {
       expect(users[0].reporting_weekday).toBe('WED');
     });
 
-    test.skip('should reject invalid email in profile update', async () => {
-      // Production doesn't have separate email validation in profile update
+    test('should reject invalid email in profile update', async () => {
       const response = await request(app).put('/api/users/me').set('X-API-Key', regularApiKey).send({
         reporting_email: 'not-an-email',
       });
 
       expect(response.status).toBe(400);
+    });
+
+    test.each([
+      ['roles', { roles: ['user', 'administrator'] }],
+      ['blocked', { blocked: false }],
+      ['paused', { paused: false }],
+      ['max_api_keys', { max_api_keys: 50 }],
+      ['username', { username: 'someone-else@example.com' }],
+      ['password', { password: 'N3w-Passw0rd!xyz' }],
+      ['last_summary_sent_at', { last_summary_sent_at: null }],
+    ])('refuses to let a user change their own %s', async (fieldName, body) => {
+      const rolesBefore = await db.query('SELECT role_id FROM user_roles WHERE user_id = ? ORDER BY role_id', [regularUser.id]);
+      const [userBefore] = await db.query('SELECT * FROM users WHERE id = ?', [regularUser.id]);
+
+      const response = await request(app).put('/api/users/me').set('X-API-Key', regularApiKey).send(body);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Field not editable');
+      expect(response.body.message).toContain(fieldName);
+      expect(await db.query('SELECT role_id FROM user_roles WHERE user_id = ? ORDER BY role_id', [regularUser.id])).toEqual(rolesBefore);
+      expect((await db.query('SELECT * FROM users WHERE id = ?', [regularUser.id]))[0]).toEqual(userBefore);
+    });
+
+    test('a user cannot make themselves an administrator', async () => {
+      await request(app)
+        .put('/api/users/me')
+        .set('X-API-Key', regularApiKey)
+        .send({ roles: ['administrator'], reporting_weekday: 'MON' });
+
+      const response = await request(app).get('/api/users').set('X-API-Key', regularApiKey);
+      expect(response.status).toBe(403);
+    });
+
+    test('rejects an unknown reporting_weekday', async () => {
+      const response = await request(app).put('/api/users/me').set('X-API-Key', regularApiKey).send({ reporting_weekday: 'monday' });
+
+      expect(response.status).toBe(400);
+    });
+
+    test('an empty weekday and email switch reporting off', async () => {
+      const response = await request(app).put('/api/users/me').set('X-API-Key', regularApiKey).send({ reporting_weekday: '', reporting_email: '' });
+
+      expect(response.status).toBe(200);
     });
 
     test('should require authentication', async () => {
