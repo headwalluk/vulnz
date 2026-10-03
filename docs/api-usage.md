@@ -990,8 +990,9 @@ curl "http://localhost:3000/api/websites?component_wporg_status=closed" \
 All of these compose, and all respect ownership: an administrator sees every website, everyone else sees only their own. `user_id` can only narrow that further. `checked_within_days` and `stale_days` cannot be combined, and a malformed `user_id`, `is_dev`, `summary` or day count is a `400`.
 
 ```bash
-# Sites running a specific plugin that also have a known vulnerability,
-# worst first
+# Sites whose copy of this plugin is a vulnerable release, worst first.
+# With component_slug, only_vulnerable applies to that plugin (since v1.47.0),
+# not to anything else installed on the site.
 curl "http://localhost:3000/api/websites?component_slug=foobar&only_vulnerable=true&sort=vulnerabilities" \
   -H "X-API-Key: your-api-key"
 ```

@@ -183,7 +183,12 @@ const websiteFilter = (userId, search, onlyVulnerable, options) => {
   const where = [];
   const params = [];
 
-  if (onlyVulnerable) {
+  const filter = componentFilter(options);
+
+  // With a named component, "vulnerable" means that component's installed release, not anything on the site
+  if (onlyVulnerable && options.componentSlug) {
+    join += 'JOIN vulnerabilities fv ON fr.id = fv.release_id';
+  } else if (onlyVulnerable) {
     join += `
       JOIN website_components wc ON w.id = wc.website_id
       JOIN releases r ON wc.release_id = r.id
@@ -191,8 +196,7 @@ const websiteFilter = (userId, search, onlyVulnerable, options) => {
     `;
   }
 
-  const filter = componentFilter(options);
-  join += filter.join;
+  join = filter.join + join;
   where.push(...filter.where);
   params.push(...filter.params);
 

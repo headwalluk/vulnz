@@ -231,7 +231,11 @@ const resolveListFilters = (query) => {
  *         name: only_vulnerable
  *         schema:
  *           type: boolean
- *         description: If true, only websites with known vulnerabilities will be returned.
+ *         description: >
+ *           If true, only websites with a known vulnerability. With
+ *           component_slug, only websites whose installed release of that
+ *           component is vulnerable (since v1.47.0; before, any vulnerable
+ *           component on the site counted). Otherwise any component.
  *       - in: query
  *         name: component_slug
  *         schema:

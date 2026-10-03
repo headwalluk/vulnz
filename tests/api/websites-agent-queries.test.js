@@ -207,12 +207,25 @@ describe('Websites agent query surface', () => {
       expect(response.body.total).toBe(0);
     });
 
-    test('composes with only_vulnerable', async () => {
+    test('with only_vulnerable, a clean copy of the named component does not match, whatever else the site runs', async () => {
+      // The customer's site runs a clean foobar alongside an unrelated vulnerable plugin.
+      // Before v1.47.0 it matched here, which read as "runs a vulnerable foobar".
       const response = await request(app).get('/api/websites?component_slug=foobar&only_vulnerable=true&limit=50').set('X-API-Key', adminApiKey);
 
-      // Of the three foobar sites only the customer's also carries a
-      // vulnerability.
-      expect(domainsOf(response)).toEqual(['customer.example.com']);
+      expect(response.body.websites).toEqual([]);
+      expect(response.body.total).toBe(0);
+    });
+
+    test('with only_vulnerable, only sites on a vulnerable release of the named component match', async () => {
+      await db.query('INSERT INTO vulnerabilities (release_id, url) VALUES (?, ?)', [releases.foobarTwo, 'https://example.test/vuln/foobar-2']);
+      try {
+        const response = await request(app).get('/api/websites?component_slug=foobar&only_vulnerable=true&limit=50').set('X-API-Key', adminApiKey);
+
+        expect(domainsOf(response)).toEqual(['upgrading.example.com']);
+        expect(response.body.total).toBe(1);
+      } finally {
+        await db.query('DELETE FROM vulnerabilities WHERE release_id = ?', [releases.foobarTwo]);
+      }
     });
   });
 

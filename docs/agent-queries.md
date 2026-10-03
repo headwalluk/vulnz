@@ -110,7 +110,12 @@ GET /api/websites?component_slug=foobar&component_version=1.2.3
 
 # Disambiguate a plugin from a theme sharing the slug
 GET /api/websites?component_slug=foobar&component_type=wordpress-plugin
+
+# Only sites whose installed foobar is a vulnerable release
+GET /api/websites?component_slug=foobar&only_vulnerable=true
 ```
+
+With `component_slug`, `only_vulnerable=true` means **that component's** installed release is vulnerable (since v1.47.0). Before that it meant "the site runs foobar, and something on it is vulnerable", which reads as the same question and is not. For a per-version breakdown, `/installs?vulnerable_only=true` is clearer still.
 
 `total` is the site count. Each entry carries the site's full plugin and theme lists, so the matching version is in `wordpress-plugins[]` alongside everything else installed. To see the versions themselves, grouped, use the `/installs` route above instead.
 
@@ -163,7 +168,7 @@ One call:
 GET /api/websites?component_wporg_status=closed
 ```
 
-Every site carrying any withdrawn component, without needing to know a single slug in advance. Composes with the rest — `&only_vulnerable=true`, `&sort=vulnerabilities`, `&component_type=wordpress-plugin`.
+Every site carrying any withdrawn component, without needing to know a single slug in advance. Composes with the rest — `&only_vulnerable=true`, `&sort=vulnerabilities`, `&component_type=wordpress-plugin`. Here, with no `component_slug`, `only_vulnerable` means anything on the site is vulnerable, not necessarily the withdrawn plugin.
 
 To enumerate the withdrawn components themselves, rather than the sites:
 
