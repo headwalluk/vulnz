@@ -247,6 +247,68 @@ If the send fails, the alert is retried on the site's next sync rather than bein
 
 The recipient is a single operator address for now. Routing alerts to each website's own point of contact needs per-site contact data that does not exist yet.
 
+### Installed Versions of a Component
+
+`GET /api/components/{type}/{slug}/installs` groups the fleet by installed version, newest first. Each version carries its vulnerability URLs and the websites running it, with owner and freshness. Administrators see every website; other users see only their own. `is_dev=false` leaves dev sites out. An unknown component is a `404` and is not created.
+
+```bash
+curl "http://localhost:3000/api/components/wordpress-plugin/foobar/installs?is_dev=false" \
+  -H "X-API-Key: your-api-key"
+```
+
+```json
+{
+  "component": {
+    "id": 12,
+    "slug": "foobar",
+    "component_type_slug": "wordpress-plugin",
+    "title": "Foobar",
+    "latest_version": "2.1.0",
+    "is_malware": false,
+    "malware_summary": null,
+    "wporg_status": "available",
+    "wporg_closure_reason": null,
+    "wporg_closure_is_security_concern": null
+  },
+  "site_count": 3,
+  "version_count": 2,
+  "versions": [
+    {
+      "version": "2.1.0",
+      "is_latest": true,
+      "has_vulnerabilities": false,
+      "vulnerabilities": [],
+      "site_count": 1,
+      "sites": [
+        {
+          "domain": "a.example.com",
+          "title": "A",
+          "url": "https://a.example.com",
+          "user_id": 2,
+          "username": "owner@example.com",
+          "is_dev": false,
+          "versions_last_checked_at": "2026-10-02T09:00:00.000Z"
+        }
+      ]
+    },
+    { "version": "2.0.3", "is_latest": false, "has_vulnerabilities": true, "vulnerabilities": ["https://example.test/advisory"], "site_count": 2, "sites": ["…"] }
+  ]
+}
+```
+
+The top-level `site_count` counts distinct sites. A site reporting two releases of the same component appears under both.
+
+### Website Report Data
+
+`GET /api/websites/{domain}/report?days=7` returns the facts behind the weekly report email for a single website, as JSON: problem components (vulnerable, malware, withdrawn from wordpress.org, behind the latest release), WordPress and PHP against the configured current and minimum versions, file security issues, security events and component changes within the period, and unmaintained or newly published plugins. `days` defaults to 7 and may be at most 90. It sets the period for events and changes only. The report covers every component type, npm included. It holds counts and lists, not recommendations.
+
+```bash
+curl "http://localhost:3000/api/websites/example.com/report?days=30" \
+  -H "X-API-Key: your-api-key"
+```
+
+`GET /api/websites/{domain}` and this route match the domain leniently: scheme, path, port, trailing dot and case are ignored, and `www.` is added or removed if there is no exact match. Write routes match the stored domain exactly.
+
 ### Plugins Withdrawn from wordpress.org
 
 Every component read path reports what wordpress.org currently says about the slug. This is a **separate signal from `is_malware`**: "the directory withdrew this" and "we believe this is malicious" are different statements, and a caller should be able to act on either without inferring it from the other.
@@ -851,8 +913,20 @@ curl "http://localhost:3000/api/components/search?query=jetpack&type=wordpress-p
 ### List Websites
 
 ```bash
-# Search by domain
+# Search by domain or title
 curl "http://localhost:3000/api/websites?q=example" \
+  -H "X-API-Key: your-api-key"
+
+# One owner's websites, as compact rows without the plugin and theme lists
+curl "http://localhost:3000/api/websites?user_id=42&summary=true" \
+  -H "X-API-Key: your-api-key"
+
+# Live sites that have reported their versions in the past week
+curl "http://localhost:3000/api/websites?is_dev=false&checked_within_days=7" \
+  -H "X-API-Key: your-api-key"
+
+# Sites that have gone quiet for a week or more, including those that never reported
+curl "http://localhost:3000/api/websites?stale_days=7" \
   -H "X-API-Key: your-api-key"
 
 # Only vulnerable websites
@@ -889,7 +963,7 @@ curl "http://localhost:3000/api/websites?component_wporg_status=closed" \
   -H "X-API-Key: your-api-key"
 ```
 
-All of these compose, and all respect ownership: an administrator sees every website, everyone else sees only their own.
+All of these compose, and all respect ownership: an administrator sees every website, everyone else sees only their own. `user_id` can only narrow that further. `checked_within_days` and `stale_days` cannot be combined, and a malformed `user_id`, `is_dev`, `summary` or day count is a `400`.
 
 ```bash
 # Sites running a specific plugin that also have a known vulnerability,

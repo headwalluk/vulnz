@@ -13,13 +13,91 @@ source /path/to/agent-settings.conf
 https --ignore-stdin api.vulnz.net/api/websites "X-API-Key: ${VULNZ_API_KEY}"
 ```
 
-**Scope comes from the account, not the key.** A key belonging to an `administrator` sees every website in the database; any other user sees only their own. There is no read-only tier — the same key that answers these questions can also delete users, websites and components, so treat it as a write-capable credential even when only reading.
+**Scope comes from the account, not the key.** A key belonging to an `administrator` sees every website in the database; any other user sees only their own. There is no read-only tier — the same key that answers these questions can also delete users, websites and components, so treat it as a write-capable credential even when only reading. On the server, `bin/vulnz.js key:show <key>` prints a key's owner, roles and access.
 
 All examples below assume an administrator key.
 
 ---
 
 ## The queries
+
+### Find a site
+
+```http
+GET /api/websites?q=acme&summary=true
+```
+
+`q` is a case-insensitive substring match against the **domain or the title**, so a partial domain or a site's name both work. `summary=true` returns one compact row per site (`domain`, `title`, `url`, `user_id`, `username`, `is_dev`, `wordpress_version`, `php_version`, `versions_last_checked_at`, `vulnerability_count`, `malware_count`) without the embedded plugin and theme lists, about a twentieth of the payload. Use it for any "which site did you mean?" step, then fetch the one you want in full.
+
+### Everything about one site
+
+```http
+# The site and its full plugin and theme inventory
+GET /api/websites/{domain}
+
+# Report data: the facts behind the weekly email, for this one site
+GET /api/websites/{domain}/report?days=7
+```
+
+The domain is matched leniently but never fuzzily. A scheme, path, port, trailing dot and letter case are ignored, and if nothing matches exactly, the same host with `www.` added or removed is tried. A full URL must be URL-encoded. The returned `domain` is the stored one. Anything else is a `404`: search with `q` instead of guessing.
+
+The report returns:
+
+| Field                  | What it holds                                                                                                                                                          |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `website`              | identity, owner, versions, `versions_last_checked_at` and `days_since_versions_checked`                                                                                |
+| `summary`              | one count per section below, plus `wordpress_outdated` / `php_outdated`                                                                                                |
+| `software`             | WordPress against the current release and PHP against the configured minimum, each with `is_outdated`                                                                  |
+| `components`           | `vulnerable`, `malware`, `withdrawn` (wordpress.org closed) and `behind_latest`, each entry with `version`, `latest_version`, `vulnerabilities` and the closure fields |
+| `file_security_issues` | totals by severity and the worst files                                                                                                                                 |
+| `security_events`      | events by type and top source countries, within the period                                                                                                             |
+| `component_changes`    | components added, removed or changed on the site, within the period                                                                                                    |
+| `plugins_to_monitor`   | unmaintained and newly published plugins on the site                                                                                                                   |
+
+`days` (default 7, at most 90) sets the period for events and changes only; everything else is current state. The report counts every component type, npm packages included. That differs from `vulnerability_count` on the list endpoints, which covers WordPress plugins and themes only. `is_outdated`, `wordpress_outdated` and `php_outdated` are `null` when the installed version is unknown or cannot be compared, which is not the same as `false`.
+
+### Which sites does a user own?
+
+Two steps: find the user, then list their sites.
+
+```http
+# 1. Find the account
+GET /api/users?q=acme
+# → users[]: { id, username, reporting_email, roles, website_count, … }
+
+# 2. List what they own
+GET /api/websites?user_id=42&summary=true&limit=200
+```
+
+`q` matches the account email (`username`) or the `reporting_email`. Users have no name field, so a person's name only works if it appears in one of those addresses. `website_count` tells you whether step 2 needs paging. `/api/users` requires an administrator key.
+
+### Which versions of a plugin are installed, and where?
+
+```http
+GET /api/components/wordpress-plugin/wpmudev-updates/installs
+```
+
+One entry per installed version, newest first (values illustrative):
+
+```json
+{
+  "component": { "slug": "foobar", "latest_version": "2.1.0", "is_malware": false, "wporg_status": "available" },
+  "site_count": 41,
+  "version_count": 3,
+  "versions": [
+    {
+      "version": "2.0.3",
+      "is_latest": false,
+      "has_vulnerabilities": true,
+      "vulnerabilities": ["https://…"],
+      "site_count": 2,
+      "sites": [{ "domain": "…", "title": "…", "url": "…", "user_id": 2, "username": "…", "is_dev": false, "versions_last_checked_at": "…" }]
+    }
+  ]
+}
+```
+
+`site_count` at the top counts distinct sites. A site that reports two releases of the same plugin, which happens mid-upgrade, appears under both versions but is counted once. `is_dev=false` leaves dev sites out. An unknown slug is a `404`, never an empty answer, and unlike `GET /api/components/{type}/{slug}` it never creates the component. `latest_version` is only as good as its source; see `blind_spots` below for premium plugins.
 
 ### Which sites run a given plugin?
 
@@ -34,7 +112,7 @@ GET /api/websites?component_slug=foobar&component_version=1.2.3
 GET /api/websites?component_slug=foobar&component_type=wordpress-plugin
 ```
 
-`total` is the site count. Each entry carries the site's full plugin and theme lists, so the matching version is in `wordpress-plugins[]` alongside everything else installed.
+`total` is the site count. Each entry carries the site's full plugin and theme lists, so the matching version is in `wordpress-plugins[]` alongside everything else installed. To see the versions themselves, grouped, use the `/installs` route above instead.
 
 ### Which sites are worst affected?
 
@@ -55,9 +133,11 @@ GET /api/wordpress/latest-versions
 # → { wordpress_core: { latest_version }, plugins: [ { slug, latest_version, is_urgent, summary, checked_at } ], blind_spots: [ … ] }
 
 # 2. Who is not on it?
-GET /api/websites?component_slug=<slug>
-# then compare each site's installed version against latest_version
+GET /api/components/wordpress-plugin/<slug>/installs
+# compare each versions[].version against latest_version
 ```
+
+`is_latest` is an exact string match against the component's recorded `latest_version`. `false` is not proof of "behind". When `latest_version` is `null`, every entry is `false` and there is nothing to compare against. A site can also report a release newer than a stale `latest_version`.
 
 `is_urgent` marks releases classified as security fixes rather than routine updates, with a one-line `summary` of what was fixed — prioritise those. `blind_spots` lists watchlist slugs wordpress.org cannot report on (premium plugins like `elementor-pro`, `gp-premium`); their absence from `plugins[]` is a known gap, not a clean bill of health.
 
@@ -114,12 +194,6 @@ GET /api/components/wordpress-plugin/<slug>
 
 There is no fix to recommend for these. The plugin cannot be updated — it must be removed and replaced.
 
-### Everything about one site
-
-```http
-GET /api/websites/{domain}
-```
-
 ---
 
 ## Traps
@@ -142,7 +216,14 @@ The single most likely false positive. A site that has not synced recently repor
 
 That site showed as the only one behind on WooCommerce. It was a laptop VM that had been shut down for eight days.
 
-There is no `is_dev` filter on `/api/websites` — filter client-side on the returned field.
+Filter them out server-side rather than reasoning about them afterwards:
+
+```http
+GET /api/websites?is_dev=false&checked_within_days=7&component_slug=woocommerce
+GET /api/websites?stale_days=7&summary=true
+```
+
+`checked_within_days=N` keeps sites that reported within N days and drops sites that have never reported. `stale_days=N` is the opposite: it selects sites silent for N days or more, never-reported included. They cannot be combined. `is_dev` takes `true` or `false`. The `/installs` route accepts `is_dev` too, and carries `versions_last_checked_at` on every site.
 
 ### `has_vulnerabilities` and `is_malware` are independent
 
@@ -170,7 +251,7 @@ It is the number of installed plugins and themes with at least one recorded vuln
 
 Each site is roughly 5.9 KB of JSON, because the response embeds every plugin and theme. A whole-fleet pull of ~300 sites is around 1.8 MB — on the order of 450k tokens to answer a question that may need three fields.
 
-Server-side cost is not the issue (`limit=50` returns in ~330 ms). Token cost is. Prefer a filter that narrows server-side over pulling the fleet and filtering locally. There is no `fields=` selector yet.
+Server-side cost is not the issue (`limit=50` returns in ~330 ms). Token cost is. Prefer a filter that narrows server-side over pulling the fleet and filtering locally, and add `summary=true` whenever you do not need the component lists. There is no general `fields=` selector.
 
 `limit` is capped at `API_MAX_PAGE_SIZE` (default 200) and a larger value is a `400`, not a silent clamp. Page rather than trying to pull everything at once — and prefer not needing to.
 
@@ -189,17 +270,9 @@ A modifier without the parameter it modifies is a `400`, not a silently wider re
 
 Read `error` and `message` on a 400 — `message` names the valid values.
 
-### `q` searches the domain only
+### `q` searches the domain and title, nothing else
 
-`?q=` is a case-insensitive substring match against the **domain**. It does not search titles, owners or component names — searching for a site by its title returns nothing:
-
-```
-q=leyland    -> 2 sites   (matches the domain)
-q=LEYLAND    -> 2 sites   (case-insensitive)
-q=Local Dev  -> 0 sites   (that string is in the title, not the domain)
-```
-
-The Swagger description said "domain or title" until v1.39.0. It was wrong.
+`?q=` on `/api/websites` is a case-insensitive substring match against the **domain or the title** (domain only before v1.43.0). It does not search owners or component names. Use `user_id` and `component_slug` for those. A short `q` matches broadly, so check `total` before assuming the first row is the site you meant.
 
 ---
 
@@ -209,6 +282,7 @@ Worth knowing so you do not infer it:
 
 - **Severity or CVSS.** The `vulnerabilities` array holds disclosure URLs, nothing more. There is no severity, no CVE field, no description. Ranking by "how bad" is not possible from this data alone.
 - **Whether a site is actually exploited.** Everything here is inventory plus known-bad lists.
+- **A person's name.** Accounts are email addresses. There is no name to search on.
 - **Premium plugin versions.** Anything not on wordpress.org has no `latest_version` unless it arrived via an ingest feed. See `blind_spots`.
 - **Theme closure status.** `wporg_status` is populated for `wordpress-plugin` components; wordpress.org's theme endpoint is not wired up.
 - **Fix availability for a withdrawn plugin.** There is none by definition.

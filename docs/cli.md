@@ -222,6 +222,45 @@ Revoked API key: abc123def456abc123def456abc123def456
 
 ---
 
+### `key:show <key> [--json]`
+
+Show who an API key belongs to and what it can do. Keys carry no permissions of their own. A key's access is exactly its owner's roles: an `administrator` key reads and writes every account's data, and any other key sees only its owner's websites.
+
+```bash
+node bin/vulnz.js key:show abc123def456abc123def456abc123def456
+```
+
+Output:
+
+```
+Key ID: 7
+Owner: agent@example.com (id=3)
+Status: active
+Roles: user, administrator
+Access: every account: read and write, including deletes
+Created: 2026-08-16T10:00:00.000Z
+Keys carry no permissions of their own; change the owner's roles with user:role:add / user:role:remove.
+```
+
+---
+
+### `user:role:add <email> <role>` / `user:role:remove <email> <role>`
+
+Grant or withdraw a role (`user`, `administrator`). This is how to change what a user's API keys can do. An unknown role is an error, and a user's last role cannot be removed.
+
+```bash
+node bin/vulnz.js user:role:add agent@example.com administrator
+node bin/vulnz.js user:role:remove agent@example.com administrator
+```
+
+Output:
+
+```
+Granted 'administrator' to agent@example.com. Roles: user, administrator
+```
+
+---
+
 ## Database Commands
 
 ### `db:migrate [--json]`
