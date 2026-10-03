@@ -169,29 +169,21 @@ const createTable = async () => {
 };
 
 /**
- * @param {number|null} userId  Owner to scope to; null returns every website.
- * @param {number} limit
- * @param {number} offset
- * @param {string|null} search  Matched against the domain.
+ * Build the joins, WHERE clauses and params shared by findAll() and countAll().
+ *
+ * @param {number|null} userId  Caller's own id when they are not an administrator; null for every website.
+ * @param {string|null} search  Substring matched against the domain or the title.
  * @param {boolean} onlyVulnerable
- * @param {object} [options]
- * @param {string} [options.componentSlug]     Only sites carrying this component.
- * @param {string} [options.componentType]     Narrows componentSlug to one component type.
- * @param {string} [options.componentVersion]  Narrows componentSlug to one release.
- * @param {string} [options.sort]              One of SORTS; unknown values fall back to newest.
+ * @param {object} options  See findAll().
+ * @returns {{join: string, where: string[], params: Array, grouped: boolean}}
  */
-const findAll = async (userId, limit, offset, search, onlyVulnerable, options = {}) => {
-  const params = [...COUNTED_COMPONENT_TYPES, ...COUNTED_COMPONENT_TYPES];
-  let query = `
-    SELECT w.*,
-      ${VULNERABILITY_COUNT_SQL} AS vulnerability_count,
-      ${MALWARE_COUNT_SQL} AS malware_count
-    FROM websites w
-  `;
-  const whereClauses = [];
+const websiteFilter = (userId, search, onlyVulnerable, options) => {
+  let join = '';
+  const where = [];
+  const params = [];
 
   if (onlyVulnerable) {
-    query += `
+    join += `
       JOIN website_components wc ON w.id = wc.website_id
       JOIN releases r ON wc.release_id = r.id
       JOIN vulnerabilities v ON r.id = v.release_id
@@ -199,27 +191,79 @@ const findAll = async (userId, limit, offset, search, onlyVulnerable, options = 
   }
 
   const filter = componentFilter(options);
-  query += filter.join;
-  whereClauses.push(...filter.where);
+  join += filter.join;
+  where.push(...filter.where);
   params.push(...filter.params);
 
   if (userId) {
-    whereClauses.push('w.user_id = ?');
+    where.push('w.user_id = ?');
     params.push(userId);
   }
 
-  if (search) {
-    whereClauses.push('w.domain LIKE ?');
-    params.push(`%${search}%`);
+  if (options.ownerId) {
+    where.push('w.user_id = ?');
+    params.push(options.ownerId);
   }
 
-  if (whereClauses.length > 0) {
-    query += ` WHERE ${whereClauses.join(' AND ')}`;
+  if (search) {
+    where.push('(w.domain LIKE ? OR w.title LIKE ?)');
+    params.push(`%${search}%`, `%${search}%`);
+  }
+
+  if (options.isDev === true || options.isDev === false) {
+    where.push('w.is_dev = ?');
+    params.push(options.isDev ? 1 : 0);
+  }
+
+  if (options.checkedWithinDays) {
+    where.push('w.versions_last_checked_at >= NOW() - INTERVAL ? DAY');
+    params.push(options.checkedWithinDays);
+  }
+
+  // A site that has never reported its versions counts as stale.
+  if (options.staleDays) {
+    where.push('(w.versions_last_checked_at IS NULL OR w.versions_last_checked_at < NOW() - INTERVAL ? DAY)');
+    params.push(options.staleDays);
   }
 
   // Either join can multiply a website across rows — one per matching
-  // release — so collapse back to one row per site.
-  if (onlyVulnerable || filter.join) {
+  // release — so callers collapse back to one row per site.
+  return { join, where, params, grouped: onlyVulnerable || Boolean(filter.join) };
+};
+
+/**
+ * @param {number|null} userId  Caller's own id when they are not an administrator; null for every website.
+ * @param {number} limit
+ * @param {number} offset
+ * @param {string|null} search  Substring matched against the domain or the title.
+ * @param {boolean} onlyVulnerable
+ * @param {object} [options]
+ * @param {string} [options.componentSlug]          Only sites carrying this component.
+ * @param {string} [options.componentType]          Narrows componentSlug to one component type.
+ * @param {string} [options.componentVersion]       Narrows componentSlug to one release.
+ * @param {string} [options.componentWporgStatus]   Only sites carrying a component in this directory status.
+ * @param {number} [options.ownerId]                Only sites owned by this user.
+ * @param {boolean} [options.isDev]                 Only dev sites (true) or only live sites (false).
+ * @param {number} [options.checkedWithinDays]      Only sites that reported versions within this many days.
+ * @param {number} [options.staleDays]              Only sites that have not reported versions for this many days.
+ * @param {string} [options.sort]                   One of SORTS; unknown values fall back to newest.
+ */
+const findAll = async (userId, limit, offset, search, onlyVulnerable, options = {}) => {
+  const filter = websiteFilter(userId, search, onlyVulnerable, options);
+  const params = [...COUNTED_COMPONENT_TYPES, ...COUNTED_COMPONENT_TYPES, ...filter.params];
+  let query = `
+    SELECT w.*,
+      ${VULNERABILITY_COUNT_SQL} AS vulnerability_count,
+      ${MALWARE_COUNT_SQL} AS malware_count
+    FROM websites w
+    ${filter.join}
+  `;
+
+  if (filter.where.length > 0) {
+    query += ` WHERE ${filter.where.join(' AND ')}`;
+  }
+
+  if (filter.grouped) {
     query += ' GROUP BY w.id';
   }
 
@@ -229,39 +273,16 @@ const findAll = async (userId, limit, offset, search, onlyVulnerable, options = 
   return Array.isArray(rows) ? rows : [];
 };
 
+/** Count the websites findAll() would return across every page. */
 const countAll = async (userId, search, onlyVulnerable, options = {}) => {
-  let query = 'SELECT COUNT(DISTINCT w.id) as count FROM websites w';
-  const params = [];
-  const whereClauses = [];
+  const filter = websiteFilter(userId, search, onlyVulnerable, options);
+  let query = `SELECT COUNT(DISTINCT w.id) as count FROM websites w ${filter.join}`;
 
-  if (onlyVulnerable) {
-    query += `
-      JOIN website_components wc ON w.id = wc.website_id
-      JOIN releases r ON wc.release_id = r.id
-      JOIN vulnerabilities v ON r.id = v.release_id
-    `;
+  if (filter.where.length > 0) {
+    query += ` WHERE ${filter.where.join(' AND ')}`;
   }
 
-  const filter = componentFilter(options);
-  query += filter.join;
-  whereClauses.push(...filter.where);
-  params.push(...filter.params);
-
-  if (userId) {
-    whereClauses.push('w.user_id = ?');
-    params.push(userId);
-  }
-
-  if (search) {
-    whereClauses.push('w.domain LIKE ?');
-    params.push(`%${search}%`);
-  }
-
-  if (whereClauses.length > 0) {
-    query += ` WHERE ${whereClauses.join(' AND ')}`;
-  }
-
-  const rows = await db.query(query, params);
+  const rows = await db.query(query, filter.params);
   return Number(rows[0].count);
 };
 

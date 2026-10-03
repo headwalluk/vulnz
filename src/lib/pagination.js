@@ -1,4 +1,5 @@
 const { parseIntEnv } = require('./env');
+const { positiveInteger } = require('./queryParams');
 
 /**
  * Shared page/limit handling for list endpoints.
@@ -23,22 +24,6 @@ const { parseIntEnv } = require('./env');
 const DEFAULT_MAX_PAGE_SIZE = 200;
 
 const maxPageSize = () => parseIntEnv('API_MAX_PAGE_SIZE', { min: 1, default: DEFAULT_MAX_PAGE_SIZE });
-
-/**
- * A query parameter is a positive integer, or it is not supplied.
- * Rejects `1.5`, `abc`, `0`, `-3`, and `10x` alike.
- * @returns {number|null|undefined} the value, null when absent, undefined when invalid
- */
-const positiveInteger = (raw) => {
-  if (raw === undefined || raw === null || raw === '') {
-    return null;
-  }
-  if (!/^\d+$/.test(String(raw).trim())) {
-    return undefined;
-  }
-  const value = parseInt(String(raw).trim(), 10);
-  return value >= 1 ? value : undefined;
-};
 
 /**
  * @param {object} query  req.query

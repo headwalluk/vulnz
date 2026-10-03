@@ -360,6 +360,112 @@ describe('Websites agent query surface', () => {
     });
   });
 
+  describe('search, owner, dev, freshness and summary (v1.43.0)', () => {
+    beforeAll(async () => {
+      await db.query("UPDATE websites SET title = 'Brochure Site' WHERE id = ?", [sites.clean.id]);
+      await db.query('UPDATE websites SET is_dev = 1 WHERE id = ?', [sites.upgrading.id]);
+      await db.query("UPDATE websites SET versions_last_checked_at = datetime('now', '-1 days') WHERE id = ?", [sites.worst.id]);
+      await db.query("UPDATE websites SET versions_last_checked_at = datetime('now', '-30 days') WHERE id = ?", [sites.infected.id]);
+    });
+
+    test('q matches the title as well as the domain', async () => {
+      const response = await request(app).get('/api/websites?q=brochure').set('X-API-Key', adminApiKey);
+
+      expect(response.status).toBe(200);
+      expect(domainsOf(response)).toEqual(['clean.example.com']);
+      expect(response.body.total).toBe(1);
+    });
+
+    test('q still matches a partial domain', async () => {
+      const response = await request(app).get('/api/websites?q=infect').set('X-API-Key', adminApiKey);
+
+      expect(domainsOf(response)).toEqual(['infected.example.com']);
+    });
+
+    test('user_id narrows to one owner', async () => {
+      const response = await request(app).get(`/api/websites?user_id=${customerUser.id}&limit=50`).set('X-API-Key', adminApiKey);
+
+      expect(response.status).toBe(200);
+      expect(domainsOf(response)).toEqual(['customer.example.com']);
+      expect(response.body.total).toBe(1);
+    });
+
+    test('user_id cannot widen a non-administrator past their own sites', async () => {
+      const response = await request(app).get(`/api/websites?user_id=${adminUser.id}&limit=50`).set('X-API-Key', customerApiKey);
+
+      expect(response.status).toBe(200);
+      expect(response.body.websites).toEqual([]);
+      expect(response.body.total).toBe(0);
+    });
+
+    test('is_dev=false excludes dev sites and is_dev=true selects them', async () => {
+      const live = await request(app).get('/api/websites?is_dev=false&limit=50').set('X-API-Key', adminApiKey);
+      const dev = await request(app).get('/api/websites?is_dev=true&limit=50').set('X-API-Key', adminApiKey);
+
+      expect(domainsOf(live)).not.toContain('upgrading.example.com');
+      expect(live.body.total).toBe(4);
+      expect(domainsOf(dev)).toEqual(['upgrading.example.com']);
+    });
+
+    test('checked_within_days excludes stale and never-checked sites', async () => {
+      const response = await request(app).get('/api/websites?checked_within_days=7&limit=50').set('X-API-Key', adminApiKey);
+
+      expect(domainsOf(response)).toEqual(['worst.example.com']);
+    });
+
+    test('stale_days includes never-checked sites', async () => {
+      const response = await request(app).get('/api/websites?stale_days=7&limit=50').set('X-API-Key', adminApiKey);
+
+      expect(domainsOf(response).sort()).toEqual(['clean.example.com', 'customer.example.com', 'infected.example.com', 'upgrading.example.com']);
+      expect(response.body.total).toBe(4);
+    });
+
+    test('filters compose with the component filter and the count', async () => {
+      const response = await request(app).get('/api/websites?component_slug=foobar&is_dev=false&limit=50').set('X-API-Key', adminApiKey);
+
+      expect(domainsOf(response).sort()).toEqual(['clean.example.com', 'customer.example.com']);
+      expect(response.body.total).toBe(2);
+    });
+
+    test('summary=true drops the component lists but keeps the counts', async () => {
+      const response = await request(app).get('/api/websites?summary=true&sort=vulnerabilities&limit=1').set('X-API-Key', adminApiKey);
+
+      expect(response.status).toBe(200);
+      const [website] = response.body.websites;
+      expect(website.domain).toBe('worst.example.com');
+      expect(website.vulnerability_count).toBe(3);
+      expect(website.malware_count).toBe(0);
+      expect(website.username).toBe('agent@example.com');
+      expect(website.url).toBe('https://worst.example.com');
+      expect(website).not.toHaveProperty('wordpress-plugins');
+      expect(website).not.toHaveProperty('wordpress-themes');
+      expect(website).not.toHaveProperty('meta');
+    });
+
+    test('summary counts match the full response', async () => {
+      const summary = await request(app).get('/api/websites?summary=true&limit=50').set('X-API-Key', adminApiKey);
+      const full = await request(app).get('/api/websites?limit=50').set('X-API-Key', adminApiKey);
+
+      const countsOf = (response) => response.body.websites.map((website) => [website.domain, website.vulnerability_count, website.malware_count]);
+      expect(countsOf(summary)).toEqual(countsOf(full));
+    });
+
+    test.each([
+      ['user_id=abc', 'Invalid user_id'],
+      ['user_id=0', 'Invalid user_id'],
+      ['is_dev=maybe', 'Invalid is_dev'],
+      ['summary=yes', 'Invalid summary'],
+      ['checked_within_days=-1', 'Invalid checked_within_days'],
+      ['stale_days=1.5', 'Invalid stale_days'],
+      ['checked_within_days=7&stale_days=7', 'Conflicting freshness filters'],
+    ])('rejects %s with 400', async (queryString, expectedError) => {
+      const response = await request(app).get(`/api/websites?${queryString}`).set('X-API-Key', adminApiKey);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe(expectedError);
+    });
+  });
+
   describe('audit logging', () => {
     /**
      * logApiCall fires its INSERT from inside the res.send override without

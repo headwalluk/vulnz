@@ -6,6 +6,7 @@ const Ecosystem = require('../models/ecosystem');
 const { apiAuth } = require('../middleware/auth');
 const { logApiCall } = require('../middleware/logApiCall');
 const { resolvePagination } = require('../lib/pagination');
+const { positiveInteger, booleanFlag } = require('../lib/queryParams');
 const { normaliseReportedVersion } = require('../lib/versionCompare');
 const logger = require('../lib/logger');
 const ComponentType = require('../models/componentType');
@@ -89,6 +90,57 @@ const tidyWebsite = (website) => {
   };
 };
 
+/** Compact row for `summary=true`: identity, owner, versions, freshness and the SQL-side counts. */
+const summariseWebsite = (website) => {
+  addUrl(website);
+  return {
+    id: parseInt(website.id, 10),
+    domain: website.domain,
+    title: website.title,
+    url: website.url,
+    user_id: parseInt(website.user_id, 10),
+    username: website.username,
+    is_dev: Boolean(website.is_dev),
+    wordpress_version: website.wordpress_version || null,
+    php_version: website.php_version || null,
+    versions_last_checked_at: website.versions_last_checked_at || null,
+    vulnerability_count: Number(website.vulnerability_count),
+    malware_count: Number(website.malware_count),
+  };
+};
+
+/**
+ * Parse the owner, dev, freshness and summary filters on GET /api/websites.
+ * @returns {{ownerId: number|null, isDev: boolean|null, checkedWithinDays: number|null, staleDays: number|null, summary: boolean}|{error: {error: string, message: string}}}
+ */
+const resolveListFilters = (query) => {
+  const ownerId = positiveInteger(query.user_id);
+  const isDev = booleanFlag(query.is_dev);
+  const checkedWithinDays = positiveInteger(query.checked_within_days);
+  const staleDays = positiveInteger(query.stale_days);
+  const summary = booleanFlag(query.summary);
+
+  let error = null;
+  if (ownerId === undefined) {
+    error = { error: 'Invalid user_id', message: 'user_id must be a positive integer.' };
+  } else if (isDev === undefined) {
+    error = { error: 'Invalid is_dev', message: 'is_dev must be true, false, 1 or 0.' };
+  } else if (summary === undefined) {
+    error = { error: 'Invalid summary', message: 'summary must be true, false, 1 or 0.' };
+  } else if (checkedWithinDays === undefined) {
+    error = { error: 'Invalid checked_within_days', message: 'checked_within_days must be a positive integer.' };
+  } else if (staleDays === undefined) {
+    error = { error: 'Invalid stale_days', message: 'stale_days must be a positive integer.' };
+  } else if (checkedWithinDays && staleDays) {
+    error = {
+      error: 'Conflicting freshness filters',
+      message: 'checked_within_days selects fresh sites and stale_days selects stale ones. Supply one or the other.',
+    };
+  }
+
+  return error ? { error } : { ownerId, isDev, checkedWithinDays, staleDays, summary: summary === true };
+};
+
 /**
  * @swagger
  * /api/websites:
@@ -117,9 +169,48 @@ const tidyWebsite = (website) => {
  *         schema:
  *           type: string
  *         description: >
- *           Case-insensitive substring match against the domain. It does not
- *           search titles, owners or component names (this description
- *           incorrectly said "domain or title" before v1.39.1).
+ *           Case-insensitive substring match against the domain or the title
+ *           (domain only before v1.43.0). It does not search owners or
+ *           component names; use user_id and component_slug for those.
+ *       - in: query
+ *         name: user_id
+ *         schema:
+ *           type: integer
+ *         description: >
+ *           Only return websites owned by this user. Find the id with
+ *           `GET /api/users?q=`. For a non-administrator it can only narrow
+ *           their own websites further.
+ *       - in: query
+ *         name: is_dev
+ *         schema:
+ *           type: boolean
+ *         description: >
+ *           `false` returns live sites only, `true` dev sites only. Omit for
+ *           both. Anything other than true/false/1/0 is rejected with 400.
+ *       - in: query
+ *         name: checked_within_days
+ *         schema:
+ *           type: integer
+ *         description: >
+ *           Only sites that reported their versions within this many days
+ *           (versions_last_checked_at). Excludes sites that have never
+ *           reported. Cannot be combined with stale_days.
+ *       - in: query
+ *         name: stale_days
+ *         schema:
+ *           type: integer
+ *         description: >
+ *           Only sites that have not reported their versions for this many
+ *           days, including sites that have never reported. Cannot be
+ *           combined with checked_within_days.
+ *       - in: query
+ *         name: summary
+ *         schema:
+ *           type: boolean
+ *         description: >
+ *           Return one compact row per site (identity, owner, versions,
+ *           freshness and the two counts) without the embedded plugin and
+ *           theme lists. Roughly a twentieth of the payload.
  *       - in: query
  *         name: only_vulnerable
  *         schema:
@@ -194,9 +285,11 @@ const tidyWebsite = (website) => {
  *                   type: integer
  *       400:
  *         description: >
- *           Invalid pagination, an unknown sort order or component_type, or a
+ *           Invalid pagination, an unknown sort order or component_type, a
  *           component filter modifier supplied without the parameter it
- *           modifies. The body carries `error` and `message`.
+ *           modifies, a malformed user_id, is_dev, summary or day count, or
+ *           both freshness filters at once. The body carries `error` and
+ *           `message`.
  *       500:
  *         description: Server error
  */
@@ -220,6 +313,11 @@ router.get('/', apiAuth, logApiCall, async (req, res) => {
         error: 'Unknown sort order',
         message: `sort must be one of: ${Website.SORTS.join(', ')}`,
       });
+    }
+
+    const listFilters = resolveListFilters(req.query);
+    if (listFilters.error) {
+      return res.status(400).json(listFilters.error);
     }
 
     const componentSlug = req.query.component_slug || null;
@@ -272,6 +370,10 @@ router.get('/', apiAuth, logApiCall, async (req, res) => {
       componentType,
       componentVersion,
       componentWporgStatus,
+      ownerId: listFilters.ownerId,
+      isDev: listFilters.isDev,
+      checkedWithinDays: listFilters.checkedWithinDays,
+      staleDays: listFilters.staleDays,
       sort,
     };
 
@@ -281,10 +383,15 @@ router.get('/', apiAuth, logApiCall, async (req, res) => {
     const total = await Website.countAll(isAdmin ? null : req.user.id, search, onlyVulnerable, options);
     const websites = await Website.findAll(isAdmin ? null : req.user.id, limit, offset, search, onlyVulnerable, options);
 
+    const usernames = new Map();
     for (const website of websites) {
-      const user = await User.findUserById(website.user_id);
-      if (user) {
-        website.username = user.username;
+      if (!usernames.has(website.user_id)) {
+        const user = await User.findUserById(website.user_id);
+        usernames.set(website.user_id, user ? user.username : null);
+      }
+      website.username = usernames.get(website.user_id);
+      if (listFilters.summary) {
+        continue;
       }
       const { wordpressPlugins, wordpressThemes } = await getWebsiteComponents(website);
       website['wordpress-plugins'] = wordpressPlugins;
@@ -295,7 +402,7 @@ router.get('/', apiAuth, logApiCall, async (req, res) => {
     }
 
     res.json({
-      websites: websites.map(tidyWebsite) || [],
+      websites: websites.map(listFilters.summary ? summariseWebsite : tidyWebsite),
       total,
       page,
       limit,
