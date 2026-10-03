@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.43.0 - 2026-10-03
+
+### Features
+
+- **Installed versions of a component across the fleet.** `GET /api/components/{type}/{slug}/installs` returns one entry per installed version, newest first. Each entry carries `is_latest`, `has_vulnerabilities`, the vulnerability URLs and `sites[]` (domain, title, url, owner, `is_dev`, `versions_last_checked_at`). It answers "which versions of this plugin are installed, and where" without pulling every site's inventory. `is_dev` narrows it to live or dev sites. An unknown component is a 404 and is never created.
+- **Report data for one website.** `GET /api/websites/{domain}/report?days=7` returns the facts behind the weekly email for a single site, as JSON:
+  - vulnerable, malware, withdrawn and behind-latest components
+  - WordPress and PHP against the configured current and minimum versions
+  - file security issues
+  - security events and component changes within the period
+  - unmaintained and newly published plugins
+
+  `days` may be up to 90. The settings lookups the email and the report share now live in `src/lib/reportThresholds.js`.
+
+- **More filters on `GET /api/websites`:**
+  - `q` matches the title as well as the domain.
+  - `user_id` lists one owner's sites.
+  - `is_dev` selects live or dev sites.
+  - `checked_within_days` and `stale_days` select by when a site last reported its versions. Never-reported sites count as stale.
+  - `summary=true` returns compact rows without the plugin and theme lists.
+
+  Malformed values are a 400, as are both freshness filters at once.
+
+- **Lenient domain lookup on reads.** `GET /api/websites/{domain}` and the new report route ignore a scheme, path, port, trailing dot and letter case. If nothing matches exactly, they try the same host with `www.` added or removed. Matching is exact only, never fuzzy. Write routes still need the stored domain.
+- **User search covers the reporting email.** `GET /api/users?q=` matches `reporting_email` as well as the username, and each user carries `website_count`.
+- **CLI: `key:show <key>`** prints a key's owner, roles and resulting access. **`user:role:add` / `user:role:remove`** change a user's roles and refuse to remove the last one. Keys still carry no permissions of their own.
+
+### Changes
+
+- **The users, settings, wordpress and reports routes are now written to `api_call_logs`,** like every other authenticated route. Previously an agent's calls to `/api/users` and `/api/wordpress/latest-versions` left no audit trail.
+- `docs/agent-queries.md` now covers finding a site, an owner's sites, installed versions and site reports. A test checks every request in it against the OpenAPI spec.
+
+### Upgrading
+
+- No migrations, and no new environment variables. All changes are additions. The one behaviour change is that `q` on `/api/websites` can now return extra sites whose title matches.
+
 ## 1.42.0 - 2026-09-21
 
 ### Features
