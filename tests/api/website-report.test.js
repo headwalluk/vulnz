@@ -219,7 +219,7 @@ describe('GET /api/websites/:domain/report', () => {
   test("a non-administrator cannot read someone else's report", async () => {
     const response = await getReport('other.example.com', '', customerApiKey);
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(404);
   });
 
   test.each(['?days=0', '?days=abc', '?days=91'])('rejects %s with 400', async (queryString) => {

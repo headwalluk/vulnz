@@ -287,8 +287,12 @@ const countAll = async (userId, search, onlyVulnerable, options = {}) => {
   return Number(rows[0].count);
 };
 
-const findByDomain = async (domain) => {
-  const rows = await db.query('SELECT * FROM websites WHERE domain = ?', [domain]);
+/**
+ * Find a website by domain. Domains are unique per owner only, so when several accounts hold
+ * the same domain, `preferredUserId`'s row wins, then the oldest.
+ */
+const findByDomain = async (domain, preferredUserId = null) => {
+  const rows = await db.query('SELECT * FROM websites WHERE domain = ? ORDER BY CASE WHEN user_id = ? THEN 0 ELSE 1 END, id ASC LIMIT 1', [domain, preferredUserId]);
   return Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
 };
 
@@ -307,7 +311,13 @@ const create = async (website) => {
   return { id: insertId, ...website };
 };
 
-const update = async (domain, website) => {
+/** Update one website by id. Throws for a column outside UPDATABLE_COLUMNS. */
+const update = async (websiteId, website) => {
+  const unknownColumns = Object.keys(website).filter((column) => !UPDATABLE_COLUMNS.includes(column));
+  if (unknownColumns.length > 0) {
+    throw new Error(`Website.update() cannot write: ${unknownColumns.join(', ')}`);
+  }
+
   if (typeof website.title === 'string') {
     website.title = cleanTitle(website.title);
   }
@@ -328,8 +338,8 @@ const update = async (domain, website) => {
     return false;
   }
 
-  const query = `UPDATE websites SET ${setClause} WHERE domain = ?`;
-  const params = [...values, domain];
+  const query = `UPDATE websites SET ${setClause} WHERE id = ?`;
+  const params = [...values, websiteId];
 
   // Diagnostics
   // console.log( query, params );
@@ -338,8 +348,9 @@ const update = async (domain, website) => {
   return result.affectedRows > 0;
 };
 
-const remove = async (domain) => {
-  const result = await db.query('DELETE FROM websites WHERE domain = ?', [domain]);
+/** Delete one website by id. */
+const remove = async (websiteId) => {
+  const result = await db.query('DELETE FROM websites WHERE id = ?', [websiteId]);
   return result.affectedRows > 0;
 };
 
@@ -368,6 +379,9 @@ const PLATFORM_KEY_TO_VERSION = {
   databaseEngine: 'db_server_type',
   databaseVersion: 'db_server_version',
 };
+
+// The only columns update() writes; each name is interpolated into the SET clause.
+const UPDATABLE_COLUMNS = ['title', 'is_dev', 'meta', 'ecosystem_id', 'platform_metadata', 'user_id', ...Object.values(PLATFORM_KEY_TO_VERSION)];
 
 const updateVersions = async (websiteId, versions) => {
   const fields = [];

@@ -486,7 +486,7 @@ describe('Websites agent query surface', () => {
     test('ownership is still enforced on a lenient match', async () => {
       const response = await request(app).get('/api/websites/www.worst.example.com').set('X-API-Key', customerApiKey);
 
-      expect(response.status).toBe(401);
+      expect(response.status).toBe(404);
     });
 
     test('writes do not accept the lenient form', async () => {
@@ -495,6 +495,56 @@ describe('Websites agent query surface', () => {
       expect(response.status).toBe(404);
       const [website] = await db.query('SELECT id FROM websites WHERE domain = ?', ['worst.example.com']);
       expect(website).toBeDefined();
+    });
+  });
+
+  describe('a domain held by two accounts (v1.44.0)', () => {
+    let squatterApiKey;
+    let victimApiKey;
+    let squatterSite;
+    let victimSite;
+
+    beforeAll(async () => {
+      const squatter = await createTestUser(db, { username: 'squatter@example.com', role: 'user' });
+      squatterApiKey = await createTestApiKey(db, squatter.id);
+      const victim = await createTestUser(db, { username: 'victim@example.com', role: 'user' });
+      victimApiKey = await createTestApiKey(db, victim.id);
+      // The squatter registers first, so theirs is the older row.
+      squatterSite = await createTestWebsite(db, { domain: 'shared.example.com', title: 'Squatter', user_id: squatter.id });
+      victimSite = await createTestWebsite(db, { domain: 'shared.example.com', title: 'Victim', user_id: victim.id });
+    });
+
+    const titleOf = async (websiteId) => (await db.query('SELECT title FROM websites WHERE id = ?', [websiteId]))[0].title;
+
+    test('each owner reads their own row, whoever registered first', async () => {
+      const victimView = await request(app).get('/api/websites/shared.example.com').set('X-API-Key', victimApiKey);
+      const squatterView = await request(app).get('/api/websites/shared.example.com').set('X-API-Key', squatterApiKey);
+
+      expect(victimView.status).toBe(200);
+      expect(victimView.body.title).toBe('Victim');
+      expect(squatterView.body.title).toBe('Squatter');
+    });
+
+    test("an update touches only the caller's row", async () => {
+      const response = await request(app).put('/api/websites/shared.example.com').set('X-API-Key', squatterApiKey).send({ title: 'Overwritten' });
+
+      expect(response.status).toBe(200);
+      expect(await titleOf(squatterSite.id)).toBe('Overwritten');
+      expect(await titleOf(victimSite.id)).toBe('Victim');
+    });
+
+    test("a delete removes only the caller's row", async () => {
+      const response = await request(app).delete('/api/websites/shared.example.com').set('X-API-Key', squatterApiKey);
+
+      expect(response.status).toBeLessThan(300);
+      expect(await db.query('SELECT id FROM websites WHERE id = ?', [squatterSite.id])).toHaveLength(0);
+      expect(await titleOf(victimSite.id)).toBe('Victim');
+    });
+
+    test("someone else's site reads as missing, not forbidden", async () => {
+      const response = await request(app).get('/api/websites/worst.example.com').set('X-API-Key', victimApiKey);
+
+      expect(response.status).toBe(404);
     });
   });
 
@@ -541,7 +591,7 @@ describe('Websites agent query surface', () => {
       const row = await waitForLogRow('/api/websites/worst.example.com', 'GET');
       expect(row).not.toBeNull();
       expect(row.username).toBe('customer@example.com');
-      expect(row.status_code).toBe(401);
+      expect(row.status_code).toBe(404);
     });
   });
 });

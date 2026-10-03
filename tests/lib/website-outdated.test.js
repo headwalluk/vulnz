@@ -69,3 +69,9 @@ describe('outdated WordPress and PHP', () => {
     expect(domainsOf(outdated)).not.toContain('never-reported.example.com');
   });
 });
+
+describe('Website.update()', () => {
+  test('refuses a column outside the whitelist', async () => {
+    await expect(Website.update(1, { 'title = title, user_id': 1 })).rejects.toThrow(/cannot write/);
+  });
+});

@@ -71,7 +71,7 @@ describe('Websites API - Version Updates', () => {
       return websites[0] || null;
     });
 
-    Website.update = jest.fn().mockImplementation(async (domain, data) => {
+    Website.update = jest.fn().mockImplementation(async (websiteId, data) => {
       if (data.meta && typeof data.meta === 'object') {
         data.meta = JSON.stringify(data.meta);
       }
@@ -87,8 +87,8 @@ describe('Websites API - Version Updates', () => {
         return false;
       }
 
-      const query = `UPDATE websites SET ${setClause} WHERE domain = ?`;
-      const params = [...values, domain];
+      const query = `UPDATE websites SET ${setClause} WHERE id = ?`;
+      const params = [...values, websiteId];
       await db.query(query, params);
       return true;
     });

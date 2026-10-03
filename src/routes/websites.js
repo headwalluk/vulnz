@@ -38,15 +38,12 @@ const getWebsiteComponents = async (website) => {
 
 /** Build middleware that loads `req.params.domain` with `findWebsite` and checks the caller may see it. */
 const authoriseWebsite = (findWebsite) => async (req, res, next) => {
-  const website = await findWebsite(req.params.domain);
+  const website = await findWebsite(req.params.domain, req.user.id);
 
-  if (!website) {
+  // Someone else's site is reported exactly like a missing one, so a key cannot probe which domains are monitored.
+  const roles = website ? await User.getRoles(req.user.id) : [];
+  if (!website || (String(website.user_id) !== String(req.user.id) && !roles.includes(ROLE_ADMINISTRATOR))) {
     return res.status(404).send('Website not found');
-  }
-
-  const roles = await User.getRoles(req.user.id);
-  if (website.user_id !== req.user.id && !roles.includes(ROLE_ADMINISTRATOR)) {
-    return res.status(401).send('Unauthorized');
   }
 
   req.website = website;
@@ -54,10 +51,10 @@ const authoriseWebsite = (findWebsite) => async (req, res, next) => {
 };
 
 /** Resolve a loosely written domain to a website by trying each exact candidate in turn. */
-const findWebsiteLeniently = async (rawDomain) => {
+const findWebsiteLeniently = async (rawDomain, preferredUserId) => {
   let website;
   for (const candidate of domainCandidates(rawDomain)) {
-    website = await Website.findByDomain(candidate);
+    website = await Website.findByDomain(candidate, preferredUserId);
     if (website) {
       break;
     }
@@ -66,7 +63,7 @@ const findWebsiteLeniently = async (rawDomain) => {
 };
 
 // Writes match the stored domain exactly; only reads accept a scheme, path, port, case or www. difference.
-const canAccessWebsite = authoriseWebsite((domain) => Website.findByDomain(domain));
+const canAccessWebsite = authoriseWebsite((domain, preferredUserId) => Website.findByDomain(domain, preferredUserId));
 const canReadWebsite = authoriseWebsite(findWebsiteLeniently);
 
 const addVulnerabilityCount = (website) => {
@@ -570,7 +567,7 @@ router.get('/malware', apiAuth, logApiCall, async (req, res) => {
  *       401:
  *         description: Unauthorized
  *       404:
- *         description: Website not found
+ *         description: Website not found, or owned by another account (reported identically since v1.44.0)
  *       500:
  *         description: Server error
  */
@@ -635,7 +632,7 @@ router.get('/:domain', apiAuth, logApiCall, canReadWebsite, async (req, res) => 
  *       401:
  *         description: Unauthorized
  *       404:
- *         description: Website not found
+ *         description: Website not found, or owned by another account (reported identically since v1.44.0)
  */
 router.get('/:domain/report', apiAuth, logApiCall, canReadWebsite, async (req, res) => {
   try {
@@ -931,7 +928,7 @@ router.put('/:domain', apiAuth, logApiCall, canAccessWebsite, async (req, res) =
     // console.log(websiteData);
 
     if (Object.keys(websiteData).length > 0) {
-      await Website.update(req.params.domain, websiteData);
+      await Website.update(req.website.id, websiteData);
     }
 
     // Validate components array if provided
@@ -1089,13 +1086,13 @@ router.put('/:domain', apiAuth, logApiCall, canAccessWebsite, async (req, res) =
  *       401:
  *         description: Unauthorized
  *       404:
- *         description: Website not found
+ *         description: Website not found, or owned by another account (reported identically since v1.44.0)
  *       500:
  *         description: Server error
  */
 router.delete('/:domain', apiAuth, logApiCall, canAccessWebsite, async (req, res) => {
   try {
-    await Website.remove(req.params.domain);
+    await Website.remove(req.website.id);
     res.send('Website deleted');
   } catch (err) {
     console.error(err);
@@ -1161,7 +1158,7 @@ router.delete('/:domain', apiAuth, logApiCall, canAccessWebsite, async (req, res
  *       401:
  *         description: Unauthorized
  *       404:
- *         description: Website not found
+ *         description: Website not found, or owned by another account (reported identically since v1.44.0)
  *       500:
  *         description: Server error
  */
@@ -1300,7 +1297,7 @@ router.post('/:domain/security-events', apiAuth, logApiCall, canAccessWebsite, a
  *       401:
  *         description: Unauthorized
  *       404:
- *         description: Website not found
+ *         description: Website not found, or owned by another account (reported identically since v1.44.0)
  *       500:
  *         description: Server error
  */
@@ -1408,7 +1405,7 @@ router.put('/:domain/versions', apiAuth, logApiCall, canAccessWebsite, async (re
  *       401:
  *         description: Unauthorized
  *       404:
- *         description: Website not found
+ *         description: Website not found, or owned by another account (reported identically since v1.44.0)
  *       500:
  *         description: Server error
  */
