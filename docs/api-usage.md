@@ -245,13 +245,19 @@ MALWARE_ALERT_ENABLED=true
 MALWARE_ALERT_EMAIL='security@example.com'
 ```
 
-Both default to off, so the feature ships inert.
+Both default to off, so the feature ships inert. `MALWARE_ALERT_EMAIL` is the operator's address; leave it unset to alert only the CC lists described below.
 
 **Alerts are deduplicated per (website, component).** The first sighting emails; later syncs stay quiet. This matters because hosts sync continuously — without it, the same alert would repeat until it was filtered away as noise, which is exactly the email that must not be missed. If a component is cleaned off a site and later reappears, that counts as a fresh infection and alerts again.
 
 If the send fails, the alert is retried on the site's next sync rather than being silently dropped, and a mail failure never fails the host's update. Detections are recorded whether or not alerting is enabled, so `GET /api/websites/malware` is accurate either way.
 
-The recipient is a single operator address for now. Routing alerts to each website's own point of contact needs per-site contact data that does not exist yet.
+**Who gets the alert:**
+
+- **The operator**, at `MALWARE_ALERT_EMAIL`, for every site.
+- **The owning account's `reporting_cc` list**, such as the site's designer or agency, as a **separate** email with the same content, so the operator's address is never shown to them.
+- **Not the account owner.**
+
+If any of those sends fails, the alert stays unsent and the next sync retries all of them; a repeated alert is preferred to a missed one. Each send is logged against the owning account (`GET /api/users/{id}/emails`, `email_type: malware_alert`).
 
 ### Installed Versions of a Component
 

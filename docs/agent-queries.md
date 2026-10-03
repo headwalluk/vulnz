@@ -99,7 +99,7 @@ Both carry `report_delivery`, computed by the same function the sender uses:
 | `last_summary_sent_at`     | when a report last went out                                                                                                                                                                             |
 | `last_logged_report`       | the latest logged send: `recipient_email`, `cc_emails`, `status` (`sent` or `error`) and `sent_at`. `null` if none has been logged since v1.48.0, which is when sends started being linked to accounts. |
 
-That distinguishes "who **would** receive it" (`to` and `cc`) from "who **did**" (`last_logged_report`). An account's full history is at `GET /api/users/{id}/emails`. Malware alerts are separate: they go to a single operator address, never to the client.
+That distinguishes "who **would** receive it" (`to` and `cc`) from "who **did**" (`last_logged_report`). An account's full history is at `GET /api/users/{id}/emails`. Malware alerts are separate from the weekly report. They go to the operator, and also, as a separate email, to the owning account's `cc` list (its designer or agency). They never go to the account owner. They are logged against the account, so they show in its email history with `email_type: malware_alert`.
 
 ### Which versions of a plugin are installed, and where?
 

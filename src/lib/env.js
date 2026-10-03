@@ -251,7 +251,7 @@ function normalizeEnv() {
   // Warn early rather than at detection time — the alert is the one email
   // that must not be silently dropped.
   if (process.env.MALWARE_ALERT_ENABLED === 'true' && parseStr('MALWARE_ALERT_EMAIL', '') === '') {
-    console.warn('MALWARE_ALERT_ENABLED is true but MALWARE_ALERT_EMAIL is not set; malware alerts will not be sent.');
+    console.warn('MALWARE_ALERT_ENABLED is true but MALWARE_ALERT_EMAIL is not set; malware alerts will reach only the owning accounts\' CC lists, not the operator.');
   }
 }
 
