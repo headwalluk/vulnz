@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.46.0 - 2026-10-03
+
+### Security
+
+- **Writing shared vulnerability data needs the new `ingest` role, or `administrator`.** This covers `POST /api/vulnerabilities/bulk`, `POST /api/releases/bulk` and `POST /api/components/{type}/{slug}/{version}`. Previously any account's key could post vulnerabilities, ranges and releases for any component. That would mark every site running it as vulnerable and put the poster's link in every client's weekly email. Other keys now get `403`. The `ingest` role is for a feed importer: it adds those writes to an ordinary account and grants nothing else.
+- **nodemailer 10.0.13.** It fixes advisories affecting nodemailer up to 10.0.8, including SMTP credential disclosure across transports and a recipient-validation bypass. Nodemailer 10's only breaking change is that it needs Node.js 20 or later.
+
+### Changes
+
+- **`npm run dev` uses Node's built-in `node --watch` in place of nodemon.** This removes nodemon, chokidar and braces; braces had an unpatched advisory. It also restarts when an email template changes. `npm audit` reports no vulnerabilities.
+- **`user:role:add` can grant a role introduced in a new release before the server has restarted on it.**
+
+### Upgrading
+
+- **Grant `ingest` to the account your feed importer's key belongs to before restarting on this release,** or its writes will get `403`. Deploy the code, run `bin/vulnz.js user:role:add <email> ingest`, then restart. Use `bin/vulnz.js key:show <key>` to find the account and confirm the role.
+- Run `npm install` (or `npm ci`) after deploying: nodemailer has a new major version, and nodemon has been removed.
+- No migrations and no new environment variables.
+
 ## 1.45.0 - 2026-10-03
 
 ### Security
