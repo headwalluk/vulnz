@@ -309,4 +309,14 @@ function checkEnvFilePermissions() {
   }
 }
 
-module.exports = { loadEnvFile, getPasswordPolicy, normalizeEnv, checkEnvFilePermissions, parseBool, parseIntEnv, parseEnum, parseStr };
+/** The normalised NODE_ENV: 'production' or 'development' once normalizeEnv() has run. */
+function nodeEnv() {
+  return process.env.NODE_ENV || 'development';
+}
+
+/** Whether the app is running in production mode. */
+function isProduction() {
+  return nodeEnv() === 'production';
+}
+
+module.exports = { loadEnvFile, getPasswordPolicy, normalizeEnv, checkEnvFilePermissions, parseBool, parseIntEnv, parseEnum, parseStr, nodeEnv, isProduction };

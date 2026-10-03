@@ -6,7 +6,7 @@
 // correctness, not a preference — do not make it configurable.
 process.env.TZ = 'UTC';
 
-const { loadEnvFile, normalizeEnv, checkEnvFilePermissions } = require('./lib/env');
+const { loadEnvFile, normalizeEnv, checkEnvFilePermissions, nodeEnv, isProduction } = require('./lib/env');
 loadEnvFile();
 normalizeEnv();
 checkEnvFilePermissions();
@@ -18,9 +18,9 @@ const logger = require('./lib/logger');
   const BOLD = '\x1b[1m';
   const CYAN = '\x1b[36m';
   const GREEN = '\x1b[32m';
-  const color = process.env.NODE_ENV === 'production' ? GREEN : CYAN;
+  const color = isProduction() ? GREEN : CYAN;
   const instance = process.env.NODE_APP_INSTANCE;
-  const env = process.env.NODE_ENV;
+  const env = nodeEnv();
   logger.info(`${BOLD}${color}[vulnz] ${env} instance ${instance}${RESET}`);
 })();
 
@@ -55,6 +55,7 @@ const release = require('./models/release');
 const vulnerability = require('./models/vulnerability');
 const vulnerabilityRange = require('./models/vulnerabilityRange');
 const passport = require('./config/passport');
+const { apiKeyAdminAuth } = require('./middleware/auth');
 const apiKeyRoutes = require('./routes/apiKeys');
 const componentRoutes = require('./routes/components');
 const componentTypeRoutes = require('./routes/componentTypes');
@@ -128,26 +129,9 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 app.set('trust proxy', 1);
 
-// Swagger UI
-app.use(
-  '/doc',
-  swaggerUi.serve,
-  swaggerUi.setup(swaggerSpec, {
-    customSiteTitle: 'VULNZ API Documentation',
-    customCss: '.swagger-ui .topbar { display: none }',
-    customCssUrl: null,
-  })
-);
-
-// OpenAPI JSON endpoint
-app.get('/openapi.json', (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.send(swaggerSpec);
-});
-
 app.use(
   helmet({
-    contentSecurityPolicy: process.env.NODE_ENV !== 'production' ? { directives: { upgradeInsecureRequests: null } } : undefined,
+    contentSecurityPolicy: !isProduction() ? { directives: { upgradeInsecureRequests: null } } : undefined,
   })
 );
 
@@ -189,6 +173,27 @@ const jsonBodyLimitOpts = process.env.JSON_BODY_LIMIT ? { limit: process.env.JSO
 app.use(express.json(jsonBodyLimitOpts));
 
 app.use(passport.initialize());
+
+// API documentation is public in development and needs an administrator key in production
+const docsAuth = isProduction() ? [apiKeyAdminAuth] : [];
+
+// Swagger UI
+app.use(
+  '/doc',
+  ...docsAuth,
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, {
+    customSiteTitle: 'VULNZ API Documentation',
+    customCss: '.swagger-ui .topbar { display: none }',
+    customCssUrl: null,
+  })
+);
+
+// OpenAPI JSON endpoint
+app.get('/openapi.json', ...docsAuth, (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
 
 // Diagnostic middleware to confirm if the /api path is being hit
 if (logger.isLevelEnabled('debug')) {
@@ -274,12 +279,14 @@ async function startServer() {
     if (process.env.CRON_ENABLE !== 'true') {
       console.warn('Cron jobs are disabled in .env (CRON_ENABLE).');
     } else {
-      if (process.env.NODE_ENV === 'production' && process.env.NODE_APP_INSTANCE && process.env.NODE_APP_INSTANCE !== '0') {
-        logger.info(`Not scheduling cron jobs on this instance (${process.env.NODE_APP_INSTANCE})`);
+      // Only the first PM2 instance schedules cron, whatever NODE_ENV says; unclustered runs count as instance 0
+      const appInstance = process.env.NODE_APP_INSTANCE === undefined ? '0' : String(process.env.NODE_APP_INSTANCE);
+      if (appInstance !== '0') {
+        logger.info(`Not scheduling cron jobs on this instance (${appInstance})`);
         return;
       }
 
-      logger.info(`Scheduling cron jobs for instance ${process.env.NODE_APP_INSTANCE}`);
+      logger.info(`Scheduling cron jobs for instance ${appInstance}`);
 
       cron.schedule('0 0 * * *', () => {
         logger.debug('Running cron job to purge old API call logs...');
@@ -463,7 +470,7 @@ async function startServer() {
     }
 
     app.listen(port, () => {
-      logger.info(`Server accessible at ${process.env.BASE_URL} in ${process.env.NODE_ENV || 'development'} mode`);
+      logger.info(`Server accessible at ${process.env.BASE_URL} in ${nodeEnv()} mode`);
     });
   } catch (err) {
     console.error('Failed to initialize the database or start the server:', err);

@@ -233,10 +233,11 @@ NODE_ENV=production
   - **Set to `true`**: Only on Windows or special cases
   - **Security Risk**: Others may read your .env file
 
-- **NODE_ENV**: Application environment
-  - `production`: Production mode
-  - `development`: Development mode
-  - **Auto-detected**: Based on pm2/process environment
+- **NODE_ENV**: Application environment. Set it in `.env`.
+  - `production`: `/doc` and `/openapi.json` require an administrator API key, and the stricter security headers apply
+  - `development`: the API documentation is public
+  - **Default**: `development`, with a startup warning, when unset or unrecognised
+  - A value in the real environment (PM2 ecosystem file, shell export) overrides `.env`
 
 ---
 
@@ -421,7 +422,7 @@ bash scripts/generate-session-secret.sh
 
 ## PM2 Ecosystem File
 
-When using PM2, you can also set environment variables in `ecosystem.config.js`:
+Keep every application setting in `.env`, including `NODE_ENV` and `HTTP_LISTEN_PORT`. The ecosystem file should describe only how PM2 runs the process:
 
 ```javascript
 module.exports = {
@@ -431,16 +432,12 @@ module.exports = {
       script: 'src/index.js',
       instances: 4,
       exec_mode: 'cluster',
-      env: {
-        NODE_ENV: 'production',
-        HTTP_LISTEN_PORT: 3000,
-      },
     },
   ],
 };
 ```
 
-Note: Sensitive values (passwords, secrets) should still be in `.env`, not the ecosystem file.
+A variable already present in the real environment always wins over `.env`, so a value left in the ecosystem file's `env` block silently overrides the one in `.env`. PM2 sets `NODE_APP_INSTANCE` for each cluster instance itself; only instance `0` schedules cron jobs, and an unclustered process counts as instance `0`.
 
 ---
 

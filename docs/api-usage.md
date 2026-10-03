@@ -31,6 +31,12 @@ Or download the OpenAPI specification:
 curl http://your-vulnz-server:3000/openapi.json > vulnz-api.json
 ```
 
+With `NODE_ENV=production`, both routes require an administrator API key. A browser cannot send the `X-API-Key` header, so on a production server fetch the spec with it and load it into a local Swagger UI or editor, or browse `/doc` on a development instance:
+
+```bash
+curl -H "X-API-Key: ${VULNZ_ADMIN_API_KEY}" https://your-vulnz-server/openapi.json > vulnz-api.json
+```
+
 ---
 
 ## Authentication

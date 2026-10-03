@@ -91,10 +91,9 @@ For development:
 npm run dev
 ```
 
-For production:
+For production, set `NODE_ENV=production` in `.env` (there is no build step):
 
 ```bash
-npm run build
 npm start
 ```
 
@@ -240,13 +239,12 @@ mysql -u vulnz -p vulnz -e "SELECT * FROM migrations ORDER BY created_at;"
 VULNZ is headless — there is no UI to log in to. Navigate to `http://localhost:3000` and verify:
 
 - The status landing page responds (it content-negotiates, so `Accept: application/json` returns JSON)
-- API documentation at `/doc` is available
-- The OpenAPI spec at `/openapi.json` parses
+- API documentation at `/doc` is available, and the OpenAPI spec at `/openapi.json` parses. With `NODE_ENV=production` both need an administrator API key in the `X-API-Key` header.
 
 ### Test API
 
 ```bash
-# Get OpenAPI spec
+# Get OpenAPI spec (add -H "X-API-Key: ..." with an administrator key in production)
 curl http://localhost:3000/openapi.json
 
 # Search for components (no auth required)

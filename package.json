@@ -16,7 +16,7 @@
     "dev": "nodemon src/index.js",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "start": "NODE_ENV=production node src/index.js"
+    "start": "node src/index.js"
   },
   "repository": {
     "type": "git",
