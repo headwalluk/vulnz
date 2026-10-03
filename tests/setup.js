@@ -202,6 +202,7 @@ async function initializeSchema(db) {
       username VARCHAR(255) NOT NULL UNIQUE,
       password VARCHAR(255) NOT NULL,
       reporting_email VARCHAR(255),
+      reporting_cc VARCHAR(1000),
       reporting_weekday INTEGER,
       max_api_keys INTEGER NOT NULL DEFAULT 1,
       blocked INTEGER NOT NULL DEFAULT 0,
@@ -254,7 +255,9 @@ async function initializeSchema(db) {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS email_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
       recipient_email VARCHAR(255) NOT NULL,
+      cc_emails VARCHAR(1000),
       email_type VARCHAR(255) NOT NULL,
       status VARCHAR(255) NOT NULL,
       sent_at DATETIME NOT NULL

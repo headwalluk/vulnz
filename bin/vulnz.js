@@ -53,6 +53,7 @@ const { findPhantomReleaseCandidates } = require('../src/lib/phantomReleases');
 const { sanitizeComponentSlug, stripAll, isUrl } = require('../src/lib/sanitizer');
 const { classifyRelease, classifyPendingReleases, countPendingReleases, findStoredRelease, saveVerdict } = require('../src/lib/urgency');
 const { llmConfig } = require('../src/lib/llm/client');
+const { resolveReportDelivery } = require('../src/lib/reportRecipients');
 const { listTasks } = require('../src/lib/llm/tasks');
 const { buildWatchlist, getBlindSpots, getStaticWatchlist, addStaticWatchlistEntry, removeStaticWatchlistEntry } = require('../src/lib/watchlist');
 const migrations = require('../src/migrations');
@@ -273,6 +274,7 @@ program
       const subs = await userSubscription.findByUserId(userId);
 
       const status = found.blocked ? 'BLOCKED' : found.paused ? 'paused' : 'active';
+      const delivery = resolveReportDelivery(found);
 
       if (opts.json) {
         console.log(
@@ -286,7 +288,9 @@ program
               roles,
               max_api_keys: parseInt(found.max_api_keys, 10),
               reporting_email: found.reporting_email || null,
+              reporting_cc: found.reporting_cc || null,
               reporting_weekday: found.reporting_weekday || null,
+              report_delivery: delivery,
               enable_white_label: Boolean(found.enable_white_label),
               api_keys: keys.map((k) => ({
                 id: parseInt(k.id, 10),
@@ -312,7 +316,12 @@ program
         console.log(`Roles: ${roles.join(', ')}`);
         console.log(`Max API Keys: ${found.max_api_keys}`);
         console.log(`Reporting Email: ${found.reporting_email || '-'}`);
+        console.log(`Reporting CC: ${found.reporting_cc || '-'}`);
         console.log(`Reporting Day: ${found.reporting_weekday || '-'}`);
+        console.log(`Report Goes To: ${delivery.to} (${delivery.to_source})${delivery.cc.length > 0 ? `, cc ${delivery.cc.join(', ')}` : ''}`);
+        if (delivery.reporting_email_rejected || delivery.cc_rejected.length > 0) {
+          console.log(`Unusable Addresses: ${[delivery.reporting_email_rejected ? found.reporting_email : null, ...delivery.cc_rejected].filter(Boolean).join(', ')}`);
+        }
         console.log(`White Label: ${found.enable_white_label ? 'yes' : 'no'}`);
         console.log('');
 

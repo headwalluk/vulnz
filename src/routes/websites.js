@@ -631,7 +631,9 @@ router.get('/:domain', apiAuth, logApiCall, canReadWebsite, async (req, res) => 
  *           `website`, `generated_at`, `period`, `summary`, `software`,
  *           `components` (vulnerable, malware, withdrawn, behind_latest),
  *           `file_security_issues`, `security_events`, `component_changes`
- *           and `plugins_to_monitor`. `software.*.is_outdated` and
+ *           and `plugins_to_monitor`. `website.report_delivery` says who
+ *           receives the owning account's weekly email, as on
+ *           GET /api/users/{id}. `software.*.is_outdated` and
  *           `summary.wordpress_outdated` / `php_outdated` are null when the
  *           installed version is unknown or cannot be compared.
  *       400:
@@ -650,7 +652,7 @@ router.get('/:domain/report', apiAuth, logApiCall, canReadWebsite, async (req, r
 
     const owner = await User.findUserById(req.website.user_id);
     const report = await buildSiteReport(req.website, {
-      username: owner ? owner.username : null,
+      owner: owner || null,
       days: requestedDays || DEFAULT_REPORT_DAYS,
     });
     res.json(report);

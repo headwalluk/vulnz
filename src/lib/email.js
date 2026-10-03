@@ -50,7 +50,13 @@ handlebars.registerHelper('gt', function (a, b) {
   return a > b;
 });
 
-async function sendVulnerabilityReport(to, data) {
+/**
+ * Send the weekly vulnerability report.
+ * @param {string} to
+ * @param {object} data  Template data.
+ * @param {string[]} [cc]  Copied in on the same message, so each recipient can see the others were told.
+ */
+async function sendVulnerabilityReport(to, data, cc = []) {
   const templatePath = path.join(__dirname, '../emails/vulnerability-report.hbs');
   const template = fs.readFileSync(templatePath, 'utf8');
   const compiledTemplate = handlebars.compile(template);
@@ -77,6 +83,9 @@ async function sendVulnerabilityReport(to, data) {
     subject: subject,
     html: html,
   };
+  if (cc.length > 0) {
+    mailOptions.cc = cc;
+  }
 
   await transporter.sendMail(mailOptions);
 }

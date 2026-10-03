@@ -317,7 +317,7 @@ curl "http://localhost:3000/api/websites/example.com/report?days=30" \
 
 ### Finding a User and Their Websites
 
-Administrator keys only. `GET /api/users?q=` is a case-insensitive substring match against the account email (`username`) or the `reporting_email`. Accounts have no name field. Each user carries `website_count`; list those sites with `user_id` on `GET /api/websites`:
+Administrator keys only. `GET /api/users?q=` is a case-insensitive substring match against the account email (`username`), the `reporting_email` or the `reporting_cc` list. Each result then carries `matched_on`, naming the fields that matched, so an owner can be told apart from an address that is only copied in. Accounts have no name field. Each user carries `website_count`; list those sites with `user_id` on `GET /api/websites`:
 
 ```bash
 # 1. Find the account
@@ -329,7 +329,35 @@ curl "http://localhost:3000/api/websites?user_id=42&summary=true&limit=200" \
   -H "X-API-Key: your-admin-api-key"
 ```
 
-The list leaves out `white_label_html`. `GET /api/users/{id}` returns a single account, including `enable_white_label`, `white_label_html` and `website_count`.
+The list leaves out `white_label_html`. `GET /api/users/{id}` returns a single account, including `enable_white_label`, `white_label_html`, `website_count` and `report_delivery` (see below). `GET /api/users/{id}/emails` lists the account's logged emails, newest first.
+
+### Report Recipients and CC
+
+The weekly report is sent per account. It goes to `reporting_email` when that is a valid address, otherwise to the account email. `reporting_cc` holds a comma-separated list of extra addresses, such as the site's designer or agency, copied in on the **same message** with a real `Cc:` header, so every recipient can see who else was told.
+
+```bash
+# A user sets their own CC
+curl -X PUT "http://localhost:3000/api/users/me" \
+  -H "X-API-Key: your-api-key" -H "Content-Type: application/json" \
+  -d '{"reporting_cc": "studio@agency.example, alerts@agency.example"}'
+
+# An administrator sets it for any account, and gets the stored user back
+curl -X PUT "http://localhost:3000/api/users/42" \
+  -H "X-API-Key: your-admin-api-key" -H "Content-Type: application/json" \
+  -d '{"reporting_cc": "studio@agency.example"}'
+```
+
+The list is validated when written. One invalid address rejects the whole update with a `400` that names it, and nothing is stored. It holds at most 10 addresses and 1000 characters; an empty string clears it.
+
+`PUT /api/users/{id}` (administrators) accepts `reporting_email`, `reporting_cc`, `reporting_weekday`, `enable_white_label`, `white_label_html` and `max_api_keys`. Any other field is a `400` naming the allowed set. Passwords, roles and usernames are changed with the CLI. The reply is the stored user as JSON.
+
+`report_delivery`, on `GET /api/users/{id}` and in the `website` block of `GET /api/websites/{domain}/report`, is the server's own answer to "who receives this report". It has these fields:
+
+- `to` and `to_source` (`reporting_email` or `username`)
+- `reporting_email_rejected`
+- `cc` and `cc_rejected`
+- `weekday`, `paused`, `blocked` and `last_summary_sent_at`
+- `last_logged_report`, the latest logged send
 
 ### Plugins Withdrawn from wordpress.org
 

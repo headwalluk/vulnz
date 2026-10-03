@@ -8,9 +8,9 @@ const fileSecurityIssue = require('../models/fileSecurityIssue');
 const componentChange = require('../models/componentChange');
 const component = require('../models/component');
 const { loadReportThresholds } = require('./reportThresholds');
+const { resolveReportDelivery } = require('./reportRecipients');
 const emailer = require('../lib/email');
 const emailLog = require('../models/emailLog');
-const { validateEmailAddress } = require('../lib/emailValidation');
 const logger = require('./logger');
 
 /**
@@ -263,19 +263,19 @@ async function sendSummaryEmail(userToSend) {
     },
   };
 
-  let targetEmail = userToSend.username;
-  if (userToSend.reporting_email) {
-    const validation = validateEmailAddress(userToSend.reporting_email);
-    if (validation.isValid) {
-      targetEmail = userToSend.reporting_email;
-    }
+  const delivery = resolveReportDelivery(userToSend);
+  if (delivery.reporting_email_rejected || delivery.cc_rejected.length > 0) {
+    logger.warn(
+      `Report for user ${userToSend.id}: unusable reporting addresses skipped (reporting_email rejected: ${delivery.reporting_email_rejected}; cc rejected: ${delivery.cc_rejected.join(', ') || 'none'})`
+    );
   }
+  const logContext = { userId: parseInt(userToSend.id, 10), ccEmails: delivery.cc };
 
   try {
-    await emailer.sendVulnerabilityReport(targetEmail, emailData);
-    await emailLog.logEmail(targetEmail, 'vulnerability_report', 'sent');
+    await emailer.sendVulnerabilityReport(delivery.to, emailData, delivery.cc);
+    await emailLog.logEmail(delivery.to, emailLog.EMAIL_TYPE_VULNERABILITY_REPORT, 'sent', logContext);
   } catch (emailError) {
-    await emailLog.logEmail(targetEmail, 'vulnerability_report', 'error');
+    await emailLog.logEmail(delivery.to, emailLog.EMAIL_TYPE_VULNERABILITY_REPORT, 'error', logContext);
     throw emailError;
   }
 }

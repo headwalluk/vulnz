@@ -133,7 +133,7 @@ Password reset for user: alice@example.com (id=2)
 
 ### `user:info <email> [--json]`
 
-Show full account details including status, roles, reporting preferences, API keys, and subscription state.
+Show full account details including status, roles, reporting preferences, API keys, and subscription state. `Report Goes To` shows where the weekly report is actually sent, including any CC addresses, using the same rules as the sender. Any stored address the sender cannot use is listed under `Unusable Addresses`.
 
 ```bash
 # Table view

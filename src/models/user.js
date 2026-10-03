@@ -110,7 +110,7 @@ async function updatePassword(userId, newPassword) {
 
 async function updateUser(
   userId,
-  { username, password, roles, blocked, paused, max_api_keys, reporting_weekday, reporting_email, last_summary_sent_at, enable_white_label, white_label_html }
+  { username, password, roles, blocked, paused, max_api_keys, reporting_weekday, reporting_email, reporting_cc, last_summary_sent_at, enable_white_label, white_label_html }
 ) {
   if (password) {
     const passwordValidation = validatePassword(password);
@@ -151,6 +151,10 @@ async function updateUser(
 
   if (reporting_email !== undefined) {
     await db.query('UPDATE users SET reporting_email = ? WHERE id = ?', [reporting_email, userId]);
+  }
+
+  if (reporting_cc !== undefined) {
+    await db.query('UPDATE users SET reporting_cc = ? WHERE id = ?', [reporting_cc === '' ? null : reporting_cc, userId]);
   }
 
   if (last_summary_sent_at !== undefined) {

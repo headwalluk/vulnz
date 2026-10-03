@@ -47,7 +47,7 @@ The report returns:
 
 | Field                  | What it holds                                                                                                                                                          |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `website`              | identity, owner, `server`, versions, `versions_last_checked_at` and `days_since_versions_checked`                                                                      |
+| `website`              | identity, owner, `server`, `report_delivery`, versions, `versions_last_checked_at` and `days_since_versions_checked`                                                   |
 | `summary`              | one count per section below, plus `wordpress_outdated` / `php_outdated`                                                                                                |
 | `software`             | WordPress against the current release and PHP against the configured minimum, each with `is_outdated`                                                                  |
 | `components`           | `vulnerable`, `malware`, `withdrawn` (wordpress.org closed) and `behind_latest`, each entry with `version`, `latest_version`, `vulnerabilities` and the closure fields |
@@ -65,13 +65,41 @@ Two steps: find the user, then list their sites.
 ```http
 # 1. Find the account
 GET /api/users?q=acme
-# → users[]: { id, username, reporting_email, roles, website_count, … }
+# → users[]: { id, username, reporting_email, reporting_cc, roles, website_count, matched_on, … }
 
 # 2. List what they own
 GET /api/websites?user_id=42&summary=true&limit=200
 ```
 
-`q` matches the account email (`username`) or the `reporting_email`. Users have no name field, so a person's name only works if it appears in one of those addresses. `website_count` tells you whether step 2 needs paging. `/api/users` requires an administrator key.
+`q` matches the account email (`username`), the `reporting_email` or the `reporting_cc` list. Users have no name field, so a person's name only works if it appears in one of those addresses. `website_count` tells you whether step 2 needs paging. `/api/users` requires an administrator key.
+
+**Read `matched_on` before you say how someone is linked.** It names the fields that matched. `username` or `reporting_email` means the address belongs to the **account owner**. `reporting_cc` alone means it is someone **copied in** on that account's reports, typically the client's designer or agency, who is not the owner. An agency address can be CC'd on many accounts.
+
+### Who receives a site's report emails?
+
+Reports are sent **per account, not per site**. Every site an account owns is covered by that account's one weekly email. Ask the server rather than re-deriving its rules:
+
+```http
+# Site-first: the owning account's delivery is in the report's website block
+GET /api/websites/{domain}/report
+
+# Account-first
+GET /api/users/42
+```
+
+Both carry `report_delivery`, computed by the same function the sender uses:
+
+| Field                      | Meaning                                                                                                                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `to`, `to_source`          | the main recipient, and whether it came from `reporting_email` or fell back to the account `username`                                                                                                   |
+| `reporting_email_rejected` | `true` when a `reporting_email` is set but unusable, so the report silently went to the username instead                                                                                                |
+| `cc`, `cc_rejected`        | the addresses copied in on the same message, and any stored entries that are not valid addresses                                                                                                        |
+| `weekday`                  | the reporting day (`MON`…`SUN`), or `null` when reports are off                                                                                                                                         |
+| `paused`, `blocked`        | either one means nothing is being sent at all                                                                                                                                                           |
+| `last_summary_sent_at`     | when a report last went out                                                                                                                                                                             |
+| `last_logged_report`       | the latest logged send: `recipient_email`, `cc_emails`, `status` (`sent` or `error`) and `sent_at`. `null` if none has been logged since v1.48.0, which is when sends started being linked to accounts. |
+
+That distinguishes "who **would** receive it" (`to` and `cc`) from "who **did**" (`last_logged_report`). An account's full history is at `GET /api/users/{id}/emails`. Malware alerts are separate: they go to a single operator address, never to the client.
 
 ### Which versions of a plugin are installed, and where?
 

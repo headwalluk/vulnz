@@ -141,6 +141,12 @@ describe('GET /api/websites/:domain/report', () => {
     expect(response.body.period.days).toBe(7);
   });
 
+  test("says who receives the owning account's weekly report", async () => {
+    const response = await getReport('reported.example.com');
+
+    expect(response.body.website.report_delivery).toMatchObject({ to: 'customer@example.com', to_source: 'username', cc: [], last_logged_report: null });
+  });
+
   test('summarises every section', async () => {
     const response = await getReport('reported.example.com');
 

@@ -7,9 +7,16 @@ const { logApiCall } = require('../middleware/logApiCall');
 const { ROLE_USER } = require('../models/role');
 const { sanitizeEmailHtml } = require('../lib/htmlSanitizer');
 const { validateEmailAddress } = require('../lib/emailValidation');
+const { normaliseReportingCcForStorage, resolveReportDelivery } = require('../lib/reportRecipients');
+const emailLog = require('../models/emailLog');
+const { resolvePagination } = require('../lib/pagination');
+
+const DEFAULT_EMAIL_LOG_PAGE_SIZE = 20;
+// Fields user search matches, reported back as matched_on
+const SEARCHABLE_USER_FIELDS = ['username', 'reporting_email', 'reporting_cc'];
 
 // The only fields a user may change on their own account; roles, limits and status are admin-only.
-const SELF_EDITABLE_FIELDS = ['reporting_email', 'reporting_weekday', 'enable_white_label', 'white_label_html'];
+const SELF_EDITABLE_FIELDS = ['reporting_email', 'reporting_cc', 'reporting_weekday', 'enable_white_label', 'white_label_html'];
 // An empty string switches the weekly report off.
 const REPORTING_WEEKDAYS = ['', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 // What an administrator may change through the API; credentials and roles are CLI-only, status has its own routes.
@@ -46,6 +53,15 @@ function validateAccountUpdate(body, allowedFields) {
     error = { error: 'Invalid max_api_keys', message: 'max_api_keys must be a non-negative integer.' };
   }
 
+  if (!error && updateData.reporting_cc !== undefined) {
+    const normalisedCc = normaliseReportingCcForStorage(updateData.reporting_cc);
+    if (normalisedCc.error) {
+      error = normalisedCc.error;
+    } else {
+      updateData.reporting_cc = normalisedCc.value;
+    }
+  }
+
   if (!error && updateData.white_label_html !== undefined) {
     updateData.white_label_html = sanitizeEmailHtml(updateData.white_label_html);
   }
@@ -56,20 +72,23 @@ function validateAccountUpdate(body, allowedFields) {
 /** Load one account in its API shape, or undefined when the id does not exist. */
 async function findAccountForResponse(userId) {
   const [account] = await db.query(
-    'SELECT id, username, blocked, paused, max_api_keys, reporting_weekday, reporting_email, enable_white_label, white_label_html, (SELECT COUNT(*) FROM websites w WHERE w.user_id = users.id) AS website_count FROM users WHERE id = ?',
+    'SELECT id, username, blocked, paused, max_api_keys, reporting_weekday, reporting_email, reporting_cc, last_summary_sent_at, enable_white_label, white_label_html, (SELECT COUNT(*) FROM websites w WHERE w.user_id = users.id) AS website_count FROM users WHERE id = ?',
     [userId]
   );
   let response;
   if (account) {
     const roles = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [account.id]);
+    const [lastLoggedReport] = await emailLog.findForUser(parseInt(account.id, 10), { emailType: emailLog.EMAIL_TYPE_VULNERABILITY_REPORT, limit: 1 });
     response = {
       ...account,
       id: parseInt(account.id, 10),
       blocked: Boolean(account.blocked),
       paused: Boolean(account.paused),
+      reporting_cc: account.reporting_cc || '',
       enable_white_label: Boolean(account.enable_white_label),
       website_count: Number(account.website_count),
       roles: roles.map((role) => role.name),
+      report_delivery: { ...resolveReportDelivery(account), last_logged_report: lastLoggedReport || null },
     };
   }
   return response;
@@ -108,7 +127,9 @@ async function findAccountForResponse(userId) {
  *           type: string
  *         description: >
  *           Case-insensitive substring match against the username (the
- *           account email) or the reporting email. Users have no name field.
+ *           account email), the reporting email or the reporting CC list.
+ *           Each result then carries `matched_on`, naming the fields that
+ *           matched. Users have no name field.
  *     responses:
  *       200:
  *         description: A list of users
@@ -142,6 +163,15 @@ async function findAccountForResponse(userId) {
  *                         type: array
  *                         items:
  *                           type: string
+ *                       reporting_cc:
+ *                         type: string
+ *                         description: Comma-separated CC addresses for the weekly report, or empty
+ *                       matched_on:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                           enum: [username, reporting_email, reporting_cc]
+ *                         description: Present when q is given. An owner (username / reporting_email) is a different link from a CC'd agency (reporting_cc).
  *                       website_count:
  *                         type: integer
  *                         description: Websites this user owns. List them with `GET /api/websites?user_id=`.
@@ -166,13 +196,15 @@ router.get('/', apiKeyAdminAuth, logApiCall, async (req, res) => {
     const queryParams = [];
 
     let baseQuery =
-      'SELECT id, username, blocked, paused, max_api_keys, reporting_weekday, reporting_email, enable_white_label, (SELECT COUNT(*) FROM websites w WHERE w.user_id = users.id) AS website_count FROM users';
+      'SELECT id, username, blocked, paused, max_api_keys, reporting_weekday, reporting_email, reporting_cc, enable_white_label, (SELECT COUNT(*) FROM websites w WHERE w.user_id = users.id) AS website_count FROM users';
     let countQuery = 'SELECT COUNT(*) as count FROM users';
 
+    const searchClause = ` WHERE ${SEARCHABLE_USER_FIELDS.map((field) => `${field} LIKE ?`).join(' OR ')}`;
+    const searchParams = SEARCHABLE_USER_FIELDS.map(() => `%${searchQuery}%`);
     if (searchQuery) {
-      baseQuery += ' WHERE username LIKE ? OR reporting_email LIKE ?';
-      countQuery += ' WHERE username LIKE ? OR reporting_email LIKE ?';
-      queryParams.push(`%${searchQuery}%`, `%${searchQuery}%`);
+      baseQuery += searchClause;
+      countQuery += searchClause;
+      queryParams.push(...searchParams);
     }
 
     baseQuery += ' LIMIT ? OFFSET ?';
@@ -185,7 +217,7 @@ router.get('/', apiKeyAdminAuth, logApiCall, async (req, res) => {
       u.roles = roles.map((r) => r.name);
     }
 
-    const countParams = searchQuery ? [`%${searchQuery}%`, `%${searchQuery}%`] : [];
+    const countParams = searchQuery ? searchParams : [];
     totalUsers = await db.query(countQuery, countParams);
     const total = parseInt(totalUsers[0].count, 10);
 
@@ -194,7 +226,10 @@ router.get('/', apiKeyAdminAuth, logApiCall, async (req, res) => {
       id: parseInt(u.id, 10),
       blocked: Boolean(u.blocked),
       paused: Boolean(u.paused),
+      reporting_cc: u.reporting_cc || '',
       website_count: Number(u.website_count),
+      // Which fields the search matched: an owner (username / reporting_email) is a different link from a CC'd agency
+      ...(searchQuery ? { matched_on: SEARCHABLE_USER_FIELDS.filter((field) => typeof u[field] === 'string' && u[field].toLowerCase().includes(searchQuery.toLowerCase())) } : {}),
     }));
 
     const totalPages = Math.ceil(total / limit);
@@ -288,6 +323,15 @@ router.post('/', apiKeyAdminAuth, logApiCall, async (req, res) => {
  * /api/users/{id}:
  *   get:
  *     summary: Get a single user by ID (admin only)
+ *     description: >
+ *       Includes `report_delivery`, the server's own answer to "who gets
+ *       this account's weekly report": `to` and `to_source`
+ *       (`reporting_email`, or `username` when none is set or it is
+ *       unusable), `reporting_email_rejected`, `cc[]`, `cc_rejected[]`,
+ *       `weekday`, `paused`, `blocked`, `last_summary_sent_at`, and
+ *       `last_logged_report` (the latest logged send: recipient,
+ *       `cc_emails`, status and time; null before v1.48.0 or if none).
+ *       It is computed by the same function the sender uses.
  *     tags: [Users]
  *     parameters:
  *       - in: path
@@ -339,6 +383,67 @@ router.get('/:id', apiKeyAdminAuth, logApiCall, async (req, res) => {
 
 /**
  * @swagger
+ * /api/users/{id}/emails:
+ *   get:
+ *     summary: An account's logged emails (admin only)
+ *     description: >
+ *       Weekly reports and other emails recorded for this account, newest
+ *       first, with the recipient, who was CC'd and whether the send
+ *       succeeded. Emails logged before v1.48.0 carry no account and do not
+ *       appear here. Entries older than the email-log retention are purged.
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           example: vulnerability_report
+ *         description: Only emails of this type.
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: "`emails[]` (recipient_email, cc_emails[], email_type, status, sent_at), `total`, `page`, `limit`"
+ *       400:
+ *         description: Invalid pagination
+ *       404:
+ *         description: No user with that id
+ */
+router.get('/:id/emails', apiKeyAdminAuth, logApiCall, async (req, res) => {
+  try {
+    const pagination = resolvePagination(req.query, DEFAULT_EMAIL_LOG_PAGE_SIZE);
+    if (pagination.error) {
+      return res.status(400).json(pagination.error);
+    }
+    const [account] = await db.query('SELECT id FROM users WHERE id = ?', [req.params.id]);
+    if (!account) {
+      return res.status(404).json({ error: 'User not found', message: `No user with id ${req.params.id}.` });
+    }
+    const userId = parseInt(account.id, 10);
+    const emailType = req.query.type || null;
+    const emails = await emailLog.findForUser(userId, { emailType, limit: pagination.limit, offset: pagination.offset });
+    const total = await emailLog.countForUser(userId, emailType);
+    res.json({ emails, total, page: pagination.page, limit: pagination.limit });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+/**
+ * @swagger
  * /api/users/{id}:
  *   put:
  *     summary: Update a user (admin only)
@@ -371,6 +476,13 @@ router.get('/:id', apiKeyAdminAuth, logApiCall, async (req, res) => {
  *               reporting_email:
  *                 type: string
  *                 format: email
+ *               reporting_cc:
+ *                 type: string
+ *                 description: >
+ *                   Comma-separated addresses copied in on the weekly report
+ *                   (same message, real Cc header). Each address is validated;
+ *                   one invalid address rejects the whole update. At most 10
+ *                   addresses and 1000 characters. Empty clears it.
  *               enable_white_label:
  *                 type: boolean
  *               white_label_html:
@@ -407,6 +519,13 @@ router.get('/:id', apiKeyAdminAuth, logApiCall, async (req, res) => {
  *                 type: string
  *                 format: email
  *                 description: Alternative email for reports (uses username if not provided)
+ *               reporting_cc:
+ *                 type: string
+ *                 description: >
+ *                   Comma-separated addresses copied in on the weekly report,
+ *                   such as the site's designer or agency. Each address is
+ *                   validated; one invalid address rejects the whole update.
+ *                   At most 10 addresses. Empty clears it.
  *               enable_white_label:
  *                 type: boolean
  *                 description: Enable custom branding in email reports

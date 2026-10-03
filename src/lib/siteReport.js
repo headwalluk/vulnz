@@ -6,6 +6,8 @@ const componentChange = require('../models/componentChange');
 const component = require('../models/component');
 const { loadReportThresholds } = require('./reportThresholds');
 const { compareVersions } = require('./versionCompare');
+const { resolveReportDelivery } = require('./reportRecipients');
+const emailLog = require('../models/emailLog');
 
 const DEFAULT_REPORT_DAYS = 7;
 const MAX_REPORT_DAYS = 90;
@@ -30,6 +32,12 @@ const isOlderThan = (installed, reference) => {
 /** Whole days since a timestamp, or null when there is none. */
 const daysSince = (timestamp, now) => (timestamp ? Math.floor((now - new Date(timestamp)) / MILLISECONDS_PER_DAY) : null);
 
+/** The account's report delivery, with its latest logged weekly report. */
+const reportDeliveryFor = async (owner) => {
+  const [lastLoggedReport] = await emailLog.findForUser(parseInt(owner.id, 10), { emailType: emailLog.EMAIL_TYPE_VULNERABILITY_REPORT, limit: 1 });
+  return { ...resolveReportDelivery(owner), last_logged_report: lastLoggedReport || null };
+};
+
 /** Shape one installed component for the report's component lists. */
 const reportComponent = (installed) => ({
   slug: installed.slug,
@@ -50,11 +58,11 @@ const reportComponent = (installed) => ({
  *
  * @param {object} website  Row from the websites table.
  * @param {object} options
- * @param {string|null} options.username  The owner's username.
+ * @param {object|null} options.owner  The owner's users row, or null if it no longer exists.
  * @param {number} options.days  Length of the reporting period for events and changes.
  * @param {Date} [options.now]
  */
-async function buildSiteReport(website, { username, days, now = new Date() }) {
+async function buildSiteReport(website, { owner, days, now = new Date() }) {
   const websiteId = parseInt(website.id, 10);
   const periodStart = new Date(now.getTime() - days * MILLISECONDS_PER_DAY);
   const thresholds = await loadReportThresholds();
@@ -91,7 +99,9 @@ async function buildSiteReport(website, { username, days, now = new Date() }) {
       title: website.title,
       url: `${website.is_ssl ? 'https' : 'http'}://${website.domain}`,
       user_id: parseInt(website.user_id, 10),
-      username,
+      username: owner ? owner.username : null,
+      // Reports go to the owning account, not the site: this is who receives the weekly email covering it
+      report_delivery: owner ? await reportDeliveryFor(owner) : null,
       is_dev: Boolean(website.is_dev),
       server: Website.serverFromMeta(website.meta),
       wordpress_version: website.wordpress_version || null,

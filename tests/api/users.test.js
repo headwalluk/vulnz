@@ -356,7 +356,7 @@ describe('Users API', () => {
     });
 
     test.each([
-      ['an unknown field', { reporting_cc: 'agency@example.com' }],
+      ['an unknown field', { reporting_bcc: 'agency@example.com' }],
       ['a misspelt field', { reporting_emial: 'x@example.com' }],
       ['password', { password: 'N3w-Passw0rd!xyz' }],
       ['roles', { roles: ['administrator'] }],
@@ -497,6 +497,95 @@ describe('Users API', () => {
       const response = await request(app).put(`/api/users/${adminUser.id}/unblock`).set('X-API-Key', regularApiKey);
 
       expect(response.status).toBe(403);
+    });
+  });
+
+  describe('report CC and delivery (v1.48.0)', () => {
+    let ccUser;
+    let ccApiKey;
+
+    beforeAll(async () => {
+      ccUser = await createTestUser(db, { username: 'cc-owner@example.com', role: 'user' });
+      ccApiKey = await createTestApiKey(db, ccUser.id);
+    });
+
+    const storedCc = async () => (await db.query('SELECT reporting_cc FROM users WHERE id = ?', [ccUser.id]))[0].reporting_cc;
+
+    test('a user sets their own CC list, stored normalised', async () => {
+      const response = await request(app).put('/api/users/me').set('X-API-Key', ccApiKey).send({ reporting_cc: 'agency@example.net,  second@example.org' });
+
+      expect(response.status).toBe(200);
+      expect(await storedCc()).toBe('agency@example.net, second@example.org');
+    });
+
+    test('one invalid address is a 400 and leaves the stored list alone', async () => {
+      const response = await request(app).put('/api/users/me').set('X-API-Key', ccApiKey).send({ reporting_cc: 'agency@example.net, typo@@example' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Invalid reporting_cc');
+      expect(response.body.message).toContain('typo@@example');
+      expect(await storedCc()).toBe('agency@example.net, second@example.org');
+    });
+
+    test('an administrator sets the CC and reads back the delivery', async () => {
+      const response = await request(app)
+        .put(`/api/users/${ccUser.id}`)
+        .set('X-API-Key', adminApiKey)
+        .send({ reporting_cc: 'agency@example.net', reporting_email: 'billing@example.com' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.reporting_cc).toBe('agency@example.net');
+      expect(response.body.report_delivery).toMatchObject({
+        to: 'billing@example.com',
+        to_source: 'reporting_email',
+        reporting_email_rejected: false,
+        cc: ['agency@example.net'],
+        cc_rejected: [],
+        last_logged_report: null,
+      });
+    });
+
+    test('an empty string clears the CC', async () => {
+      await request(app).put(`/api/users/${ccUser.id}`).set('X-API-Key', adminApiKey).send({ reporting_cc: '' });
+
+      expect(await storedCc()).toBeNull();
+      await request(app).put(`/api/users/${ccUser.id}`).set('X-API-Key', adminApiKey).send({ reporting_cc: 'agency@example.net' });
+    });
+
+    test('search matches the CC and says so', async () => {
+      const response = await request(app).get('/api/users?q=agency@example.net').set('X-API-Key', adminApiKey);
+
+      const match = response.body.users.find((listed) => listed.username === 'cc-owner@example.com');
+      expect(match).toBeDefined();
+      expect(match.matched_on).toEqual(['reporting_cc']);
+      expect(match.reporting_cc).toBe('agency@example.net');
+    });
+
+    test('an owner match is reported as such', async () => {
+      const response = await request(app).get('/api/users?q=cc-owner').set('X-API-Key', adminApiKey);
+
+      expect(response.body.users.find((listed) => listed.username === 'cc-owner@example.com').matched_on).toEqual(['username']);
+    });
+
+    test('the email history lists logged sends for the account, newest first', async () => {
+      const emailLog = require('../../src/models/emailLog');
+      await emailLog.logEmail('billing@example.com', emailLog.EMAIL_TYPE_VULNERABILITY_REPORT, 'sent', { userId: ccUser.id, ccEmails: ['agency@example.net'] });
+
+      const history = await request(app).get(`/api/users/${ccUser.id}/emails`).set('X-API-Key', adminApiKey);
+      const account = await request(app).get(`/api/users/${ccUser.id}`).set('X-API-Key', adminApiKey);
+
+      expect(history.status).toBe(200);
+      expect(history.body.total).toBe(1);
+      expect(history.body.emails[0]).toMatchObject({ recipient_email: 'billing@example.com', cc_emails: ['agency@example.net'], status: 'sent' });
+      expect(account.body.report_delivery.last_logged_report).toMatchObject({ recipient_email: 'billing@example.com', cc_emails: ['agency@example.net'] });
+    });
+
+    test('the email history is admin-only and 404s an unknown account', async () => {
+      const forbidden = await request(app).get(`/api/users/${ccUser.id}/emails`).set('X-API-Key', ccApiKey);
+      const missing = await request(app).get('/api/users/999999/emails').set('X-API-Key', adminApiKey);
+
+      expect(forbidden.status).toBe(403);
+      expect(missing.status).toBe(404);
     });
   });
 
