@@ -78,10 +78,11 @@ function deduplicatePlugins(plugins) {
 
 /**
  * Build and send the summary report for one user; returns false without sending when they have no websites.
- * @param {object} userToSend
+ * @param {object} userToSend  The account the report is about.
+ * @param {{previewRecipient?: object|null}} [options]  Send the report to this account alone instead, uncopied.
  * @returns {Promise<boolean>} Whether a report was sent.
  */
-async function sendSummaryEmail(userToSend) {
+async function sendSummaryEmail(userToSend, { previewRecipient = null } = {}) {
   const roles = await getRoles(userToSend.id);
   const isAdministrator = roles.includes(ROLE_ADMINISTRATOR);
 
@@ -280,19 +281,36 @@ async function sendSummaryEmail(userToSend) {
     },
   };
 
-  const delivery = resolveReportDelivery(userToSend);
-  if (delivery.reporting_email_rejected || delivery.cc_rejected.length > 0) {
-    logger.warn(
-      `Report for user ${userToSend.id}: unusable reporting addresses skipped (reporting_email rejected: ${delivery.reporting_email_rejected}; cc rejected: ${delivery.cc_rejected.join(', ') || 'none'})`
-    );
+  let to;
+  let cc;
+  let emailType;
+  let logContext;
+  let subjectPrefix = '';
+  if (previewRecipient) {
+    // Logged against the requester, so the previewed account's last-report history is untouched
+    to = resolveReportDelivery(previewRecipient).to;
+    cc = [];
+    emailType = emailLog.EMAIL_TYPE_VULNERABILITY_REPORT_PREVIEW;
+    logContext = { userId: parseInt(previewRecipient.id, 10) };
+    subjectPrefix = `[Preview for ${userToSend.username}] `;
+  } else {
+    const delivery = resolveReportDelivery(userToSend);
+    if (delivery.reporting_email_rejected || delivery.cc_rejected.length > 0) {
+      logger.warn(
+        `Report for user ${userToSend.id}: unusable reporting addresses skipped (reporting_email rejected: ${delivery.reporting_email_rejected}; cc rejected: ${delivery.cc_rejected.join(', ') || 'none'})`
+      );
+    }
+    to = delivery.to;
+    cc = delivery.cc;
+    emailType = emailLog.EMAIL_TYPE_VULNERABILITY_REPORT;
+    logContext = { userId: parseInt(userToSend.id, 10), ccEmails: cc };
   }
-  const logContext = { userId: parseInt(userToSend.id, 10), ccEmails: delivery.cc };
 
   try {
-    await emailer.sendVulnerabilityReport(delivery.to, emailData, delivery.cc);
-    await emailLog.logEmail(delivery.to, emailLog.EMAIL_TYPE_VULNERABILITY_REPORT, 'sent', logContext);
+    await emailer.sendVulnerabilityReport(to, emailData, cc, { subjectPrefix });
+    await emailLog.logEmail(to, emailType, 'sent', logContext);
   } catch (emailError) {
-    await emailLog.logEmail(delivery.to, emailLog.EMAIL_TYPE_VULNERABILITY_REPORT, 'error', logContext);
+    await emailLog.logEmail(to, emailType, 'error', logContext);
     throw emailError;
   }
 

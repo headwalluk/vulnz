@@ -1,6 +1,6 @@
 /**
  * The weekly report goes to the resolved recipient with the CC list on the same message, and the log records both.
- * An account with no websites is skipped without sending.
+ * An account with no websites is skipped without sending; a preview goes only to the requesting account.
  * Runs the real sendSummaryEmail() against the SQLite test database; only the mail transport is replaced.
  */
 
@@ -61,6 +61,28 @@ describe('sendSummaryEmail with a CC list', () => {
     expect(logged).toMatchObject({ user_id: accountId, status: 'error', cc_emails: 'agency@example.net, client@example.com' });
   });
 
+  test('a preview goes only to the requester, marked as a preview and logged against them', async () => {
+    mockEmailer.sendVulnerabilityReport.mockClear();
+    const adminId = (await createTestUser(db, { username: 'admin@example.com', role: 'administrator' })).id;
+    const [account] = await db.query('SELECT * FROM users WHERE id = ?', [accountId]);
+    const [admin] = await db.query('SELECT * FROM users WHERE id = ?', [adminId]);
+    const [clientLogsBefore] = await db.query('SELECT COUNT(*) AS count FROM email_logs WHERE user_id = ?', [accountId]);
+
+    await expect(sendSummaryEmail(account, { previewRecipient: admin })).resolves.toBe(true);
+
+    const [to, data, cc, options] = mockEmailer.sendVulnerabilityReport.mock.calls[0];
+    expect(to).toBe('admin@example.com');
+    expect(cc).toEqual([]);
+    expect(options.subjectPrefix).toBe('[Preview for client@example.com] ');
+    // The body is the client's report, white-label and all
+    expect(data.user.username).toBe('client@example.com');
+    expect(data.allWebsites.map((site) => site.domain)).toEqual(['client-site.example.com']);
+
+    const [logged] = await db.query('SELECT * FROM email_logs ORDER BY id DESC LIMIT 1');
+    expect(logged).toMatchObject({ user_id: adminId, recipient_email: 'admin@example.com', cc_emails: null, email_type: 'vulnerability_report_preview', status: 'sent' });
+    const [clientLogsAfter] = await db.query('SELECT COUNT(*) AS count FROM email_logs WHERE user_id = ?', [accountId]);
+    expect(Number(clientLogsAfter.count)).toBe(Number(clientLogsBefore.count));
+  });
 });
 
 describe('sendSummaryEmail for an account with no websites', () => {

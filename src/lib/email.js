@@ -55,8 +55,9 @@ handlebars.registerHelper('gt', function (a, b) {
  * @param {string} to
  * @param {object} data  Template data.
  * @param {string[]} [cc]  Copied in on the same message, so each recipient can see the others were told.
+ * @param {{subjectPrefix?: string}} [options]  Prepended to the subject line.
  */
-async function sendVulnerabilityReport(to, data, cc = []) {
+async function sendVulnerabilityReport(to, data, cc = [], { subjectPrefix = '' } = {}) {
   const templatePath = path.join(__dirname, '../emails/vulnerability-report.hbs');
   const template = fs.readFileSync(templatePath, 'utf8');
   const compiledTemplate = handlebars.compile(template);
@@ -79,7 +80,7 @@ async function sendVulnerabilityReport(to, data, cc = []) {
   if (criticalWebsites > 0) {
     subjectStatus = `${criticalWebsites} site(s) with critical vulnerabilities`;
   }
-  const subject = `Weekly Vulnerability Report: ${subjectStatus}`;
+  const subject = `${subjectPrefix}Weekly Vulnerability Report: ${subjectStatus}`;
 
   const mailOptions = {
     from: process.env.SMTP_FROM,

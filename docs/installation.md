@@ -178,7 +178,18 @@ curl -X POST "http://localhost:3000/api/reports/summary-email" \
   -d '{}'
 ```
 
-With an empty body the report goes to the key holder's own account. An administrator may pass `{"user_id": 3}` to send another user's report. A `Report sent` response means SMTP accepted it. An account with no websites gets no report, weekly or on demand: the response is `Report not sent: no websites on this account`.
+With an empty body the report goes to the key holder's own account. An administrator may pass `{"user_id": 3}` or `{"username": "client@example.com"}` to send another user's report. A `Report sent` response means SMTP accepted it. An account with no websites gets no report, weekly or on demand: the response is `Report not sent: no websites on this account`.
+
+To see what a client will receive without emailing them, an administrator can add `"preview": true`:
+
+```bash
+curl -X POST "http://localhost:3000/api/reports/summary-email" \
+  -H "X-API-Key: your-admin-api-key" \
+  -H 'Content-Type: application/json' \
+  -d '{"username": "client@example.com", "preview": true}'
+```
+
+`username` and `user_id` are interchangeable ways to name the account; give one, not both. The report is built for that user exactly as their weekly email would be, but it goes only to your own report address, with no CC, and the subject starts `[Preview for <username>]`. It is logged in your email history, not theirs.
 
 ### Configure WordPress.org Sync (Optional)
 

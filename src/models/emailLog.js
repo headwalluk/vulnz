@@ -2,6 +2,7 @@ const db = require('../db');
 const logger = require('../lib/logger');
 
 const EMAIL_TYPE_VULNERABILITY_REPORT = 'vulnerability_report';
+const EMAIL_TYPE_VULNERABILITY_REPORT_PREVIEW = 'vulnerability_report_preview';
 
 async function createTable() {
   const sql = `
@@ -93,5 +94,6 @@ module.exports = {
   findForUser,
   countForUser,
   EMAIL_TYPE_VULNERABILITY_REPORT,
+  EMAIL_TYPE_VULNERABILITY_REPORT_PREVIEW,
   purgeOldLogs,
 };
