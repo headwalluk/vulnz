@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.47.0 - 2026-10-03
+
+### Security
+
+- **Admin `PUT /api/users/{id}` accepts only `reporting_email`, `reporting_weekday`, `enable_white_label`, `white_label_html` and `max_api_keys`.** Before this, it passed the whole body to the user update, which ignored fields it didn't recognise and still answered `200 User updated`. So a misspelt or not-yet-supported field reported success while changing nothing, and an id that doesn't exist "succeeded" too. Now:
+  - any other field is a `400` that names the allowed set;
+  - an unknown id is a `404`;
+  - `reporting_email` and `reporting_weekday` are validated when written;
+  - the reply is the stored user as JSON.
+- **Passwords, roles and usernames can no longer be changed through the API.** Use the CLI: `user:reset-password`, `user:role:add`, `user:role:remove`. Block and pause keep their own routes.
+
+### Changes
+
+- **With `component_slug`, `only_vulnerable=true` now means that component's installed release is vulnerable.** Previously it matched any vulnerable component on the site, so `?component_slug=foobar&only_vulnerable=true` returned sites running a clean foobar next to some other vulnerable plugin. Without `component_slug`, the meaning is unchanged.
+- **`server` on `summary=true` rows, `/installs` sites and the `/report` website block.** It is the site's self-reported `meta.Server` (or `meta.server`), or `null`, and the only part of `meta` these compact responses carry.
+- **`/installs` takes `vulnerable_only` and `checked_within_days`.** With `vulnerable_only`, `site_count` and `version_count` count only the vulnerable versions.
+- **`wporg_closure_reason` on `GET /api/components` is validated.** An unknown reason is now a `400` listing the valid ones, instead of an empty result.
+- **`GET /api/components` list entries no longer carry `releases`.** It was always an empty array. Use `GET /api/components/{type}/{slug}` for releases.
+- **Component `404`s are JSON** (`error`, `message`), like every filter error.
+- **Docs:** corrected the pagination example in API Usage, which showed a `pages` field that `/api/websites` has never returned. The agent query guide covers `server`, the new `/installs` filters, and the narrower `only_vulnerable`.
+
+### Upgrading
+
+- No migrations and no new environment variables.
+- **Clients that change a user's password, roles or username through `PUT /api/users/{id}`** must use the CLI instead.
+- **Clients that relied on `component_slug` combined with `only_vulnerable`** matching any vulnerable component on the site will now get fewer sites.
+- **Clients that read `releases` from the component list, or parse component 404s as text,** need updating.
+
 ## 1.46.0 - 2026-10-03
 
 ### Security
