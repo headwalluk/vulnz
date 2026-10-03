@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { apiAuth } = require('../middleware/auth');
+const { logApiCall } = require('../middleware/logApiCall');
 const { getWordPressVersionInfo } = require('../lib/wpcore');
 const { getBlindSpots } = require('../lib/watchlist');
 
@@ -136,7 +137,7 @@ function isNewer(candidate, current) {
  *       500:
  *         description: Server error
  */
-router.get('/latest-versions', apiAuth, async (req, res) => {
+router.get('/latest-versions', apiAuth, logApiCall, async (req, res) => {
   try {
     const versionInfo = await getWordPressVersionInfo();
 
