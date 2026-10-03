@@ -87,7 +87,7 @@ Customer-facing admin features (password management, subscription status, etc.) 
 ## Development Workflow
 
 ```bash
-npm run dev    # Start with nodemon (development)
+npm run dev    # Start with node --watch (development)
 npm test       # Run Jest test suite
 npm run lint   # ESLint
 npm run format # Prettier

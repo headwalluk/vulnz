@@ -15,7 +15,7 @@ source .env && mysql -u "${DB_USER}" -p"${DB_PASSWORD}" "${DB_NAME}" -e "SELECT 
 ```
 
 ```bash
-npm run dev           # Start dev server with nodemon
+npm run dev           # Start dev server with node --watch
 npm test              # Run all Jest tests (837 tests, in-memory SQLite; Node 24.9+)
 npm test -- landing   # Run a single test file by name match
 npm run test:watch    # Jest watch mode

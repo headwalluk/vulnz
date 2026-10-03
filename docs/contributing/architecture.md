@@ -373,7 +373,7 @@ Database Storage (parameterized queries)
 ```
 Developer Workstation
   ↓
-npm run dev (nodemon)
+npm run dev (node --watch)
   ↓
 Node.js (single process)
   ↓
