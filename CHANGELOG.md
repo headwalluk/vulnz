@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.50.0 - 2026-10-04
+
+### Features
+
+- **Severity across the fleet.** Building on the advisories added in 1.49.0, every place that lists vulnerable plugins and themes now says how bad they are.
+  - `GET /api/websites?min_severity=critical|high|medium|low` returns sites whose worst rated advisory is at least that level.
+  - `sort=severity` ranks sites by their worst rating.
+  - `summary=true` rows carry `max_cvss_rating`, `severity_counts` and `unrated_vulnerabilities`. `severity_counts` counts each vulnerable component once, at its worst advisory, so it adds up to `vulnerability_count`.
+  - Summary rows also carry the owner's `reporting_cc`, so a "who do I call" list takes one request.
+  - Full website records carry the same severity, and each plugin and theme gets `max_cvss_score`, `max_cvss_rating` and `unrated_vulnerabilities`.
+  - `/installs` gives each version its severity and advisories, and accepts `min_severity`.
+  - `/report` adds the site's severity to `summary` and lists vulnerable components worst first, with their advisories.
+- **Unrated is never treated as low.** A vulnerability with no rated advisory counts in `unrated_vulnerabilities`, and any maximum rating beside it is a lower bound. With `min_severity`, responses count what the filter could not rule out: `severity_unknown_sites` and `severity_unknown_versions`. Informational advisories rate `none`.
+
+### Changes
+
+- **The weekly report no longer calls every vulnerability critical.** Its headline said "N site(s) have critical vulnerabilities" whatever the severity. It now says "N site(s) have known vulnerabilities". Only when an advisory is actually rated critical does it name those sites, in the body and in the subject: "Weekly Vulnerability Report: N site(s) with critical vulnerabilities".
+
+### Upgrading
+
+- No migrations and no new environment variables.
+- Severity is only as complete as the advisory data. Until a feed importer has re-sent every advisory with its details, expect most vulnerabilities to read as unrated.
+
 ## 1.49.0 - 2026-10-04
 
 ### Features
