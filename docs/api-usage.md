@@ -315,6 +315,22 @@ curl "http://localhost:3000/api/websites/example.com/report?days=30" \
 
 `GET /api/websites/{domain}` and this route match the domain leniently: scheme, path, port, trailing dot and case are ignored, and `www.` is added or removed if there is no exact match. Write routes match the stored domain exactly.
 
+### Finding a User and Their Websites
+
+Administrator keys only. `GET /api/users?q=` is a case-insensitive substring match against the account email (`username`) or the `reporting_email`. Accounts have no name field. Each user carries `website_count`; list those sites with `user_id` on `GET /api/websites`:
+
+```bash
+# 1. Find the account
+curl "http://localhost:3000/api/users?q=acme" \
+  -H "X-API-Key: your-admin-api-key"
+
+# 2. List the sites it owns, as compact rows
+curl "http://localhost:3000/api/websites?user_id=42&summary=true&limit=200" \
+  -H "X-API-Key: your-admin-api-key"
+```
+
+The list leaves out `white_label_html`. `GET /api/users/{id}` returns a single account, including `enable_white_label`, `white_label_html` and `website_count`.
+
 ### Plugins Withdrawn from wordpress.org
 
 Every component read path reports what wordpress.org currently says about the slug. This is a **separate signal from `is_malware`**: "the directory withdrew this" and "we believe this is malicious" are different statements, and a caller should be able to act on either without inferring it from the other.
