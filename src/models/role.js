@@ -1,5 +1,9 @@
 const db = require('../db');
 
+const ROLE_USER = 'user';
+const ROLE_ADMINISTRATOR = 'administrator';
+const ROLES = [ROLE_USER, ROLE_ADMINISTRATOR];
+
 async function createTable() {
   const sql = `
     CREATE TABLE IF NOT EXISTS roles (
@@ -11,8 +15,7 @@ async function createTable() {
 }
 
 async function seedData() {
-  const roles = ['user', 'administrator'];
-  for (const role of roles) {
+  for (const role of ROLES) {
     await db.query('INSERT IGNORE INTO roles (name) VALUES (?)', [role]);
   }
 }
@@ -20,4 +23,7 @@ async function seedData() {
 module.exports = {
   createTable,
   seedData,
+  ROLE_USER,
+  ROLE_ADMINISTRATOR,
+  ROLES,
 };

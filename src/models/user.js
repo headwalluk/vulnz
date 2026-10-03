@@ -182,6 +182,41 @@ const getRoles = async (userId) => {
   return Array.isArray(rows) ? rows.map((row) => row.name) : [];
 };
 
+/**
+ * Grant a role to a user. Throws for an unknown role.
+ * @returns {Promise<boolean>} false when the user already held it
+ */
+async function addRole(userId, roleName) {
+  const [role] = await db.query('SELECT id FROM roles WHERE name = ?', [roleName]);
+  if (!role) {
+    throw new Error(`Unknown role '${roleName}'.`);
+  }
+  const existing = await getRoles(userId);
+  let added = false;
+  if (!existing.includes(roleName)) {
+    await db.query('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [userId, role.id]);
+    added = true;
+  }
+  return added;
+}
+
+/**
+ * Withdraw a role from a user. Refuses to remove the user's last role.
+ * @returns {Promise<boolean>} false when the user did not hold it
+ */
+async function removeRole(userId, roleName) {
+  const existing = await getRoles(userId);
+  let removed = false;
+  if (existing.includes(roleName)) {
+    if (existing.length === 1) {
+      throw new Error(`'${roleName}' is the user's only role; add another role first.`);
+    }
+    await db.query('DELETE FROM user_roles WHERE user_id = ? AND role_id = (SELECT id FROM roles WHERE name = ?)', [userId, roleName]);
+    removed = true;
+  }
+  return removed;
+}
+
 async function updateLastSummarySentAt(userId) {
   await db.query('UPDATE users SET last_summary_sent_at = ? WHERE id = ?', [new Date(), userId]);
 }
@@ -235,6 +270,8 @@ async function listAll() {
 module.exports = {
   createTable,
   createUser,
+  addRole,
+  removeRole,
   deleteUser,
   getRoles,
   findUserByUsername,

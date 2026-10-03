@@ -35,6 +35,7 @@ BigInt.prototype.toJSON = function () {
 const { Command } = require('commander');
 const user = require('../src/models/user');
 const apiKey = require('../src/models/apiKey');
+const { ROLES, ROLE_ADMINISTRATOR } = require('../src/models/role');
 const feed = require('../src/models/feed');
 const component = require('../src/models/component');
 const release = require('../src/models/release');
@@ -441,6 +442,104 @@ program
 
       await apiKey.revokeByKey(key);
       console.log(`Revoked API key: ${key}`);
+      await db.end();
+      await exitAfterOutput(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      await exitAfterOutput(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// key:show <key> [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('key:show <key>')
+  .description("Show an API key's owner and roles; a key's access is exactly its owner's roles")
+  .option('--json', 'Output as JSON')
+  .action(async (key, opts) => {
+    try {
+      const found = await apiKey.findByKey(key);
+      const owner = found ? await user.findUserById(found.user_id) : null;
+      if (!found || !owner) {
+        process.stderr.write('Error: API key not found.\n');
+        await db.end();
+        await exitAfterOutput(1);
+        return;
+      }
+
+      const ownerId = parseInt(owner.id, 10);
+      const roles = await user.getRoles(ownerId);
+      const status = owner.blocked ? 'BLOCKED' : owner.paused ? 'paused' : 'active';
+      const created = found.createdAt instanceof Date ? found.createdAt.toISOString() : String(found.createdAt);
+      const access = roles.includes(ROLE_ADMINISTRATOR) ? 'every account: read and write, including deletes' : 'own websites only';
+
+      if (opts.json) {
+        console.log(JSON.stringify({ id: parseInt(found.id, 10), user_id: ownerId, username: owner.username, status, roles, access, created_at: created }, null, 2));
+      } else {
+        console.log(`Key ID: ${found.id}`);
+        console.log(`Owner: ${owner.username} (id=${ownerId})`);
+        console.log(`Status: ${status}`);
+        console.log(`Roles: ${roles.join(', ') || '-'}`);
+        console.log(`Access: ${access}`);
+        console.log(`Created: ${created}`);
+        console.log("Keys carry no permissions of their own; change the owner's roles with user:role:add / user:role:remove.");
+      }
+
+      await db.end();
+      await exitAfterOutput(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      await exitAfterOutput(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// user:role:add <email> <role>  /  user:role:remove <email> <role>
+// ---------------------------------------------------------------------------
+program
+  .command('user:role:add <email> <role>')
+  .description(`Grant a role to a user (${ROLES.join(', ')})`)
+  .action(async (email, roleName) => {
+    try {
+      const found = await user.findUserByUsername(email);
+      if (!found) {
+        process.stderr.write(`Error: User '${email}' not found.\n`);
+        await db.end();
+        await exitAfterOutput(1);
+        return;
+      }
+
+      const added = await user.addRole(parseInt(found.id, 10), roleName);
+      const roles = await user.getRoles(parseInt(found.id, 10));
+      console.log(added ? `Granted '${roleName}' to ${email}. Roles: ${roles.join(', ')}` : `${email} already has '${roleName}'. Roles: ${roles.join(', ')}`);
+      await db.end();
+      await exitAfterOutput(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      await exitAfterOutput(1);
+    }
+  });
+
+program
+  .command('user:role:remove <email> <role>')
+  .description("Withdraw a role from a user; a user's last role cannot be removed")
+  .action(async (email, roleName) => {
+    try {
+      const found = await user.findUserByUsername(email);
+      if (!found) {
+        process.stderr.write(`Error: User '${email}' not found.\n`);
+        await db.end();
+        await exitAfterOutput(1);
+        return;
+      }
+
+      const removed = await user.removeRole(parseInt(found.id, 10), roleName);
+      const roles = await user.getRoles(parseInt(found.id, 10));
+      console.log(removed ? `Removed '${roleName}' from ${email}. Roles: ${roles.join(', ')}` : `${email} does not have '${roleName}'. Roles: ${roles.join(', ')}`);
       await db.end();
       await exitAfterOutput(0);
     } catch (err) {

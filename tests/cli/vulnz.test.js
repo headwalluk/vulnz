@@ -23,6 +23,10 @@ const mockUser = {
   deleteUser: jest.fn(),
   updateUser: jest.fn(),
   updatePassword: jest.fn(),
+  findUserById: jest.fn(),
+  getRoles: jest.fn(),
+  addRole: jest.fn(),
+  removeRole: jest.fn(),
 };
 
 const mockApiKey = {
@@ -534,6 +538,111 @@ describe('CLI: key:revoke', () => {
 });
 
 // ─── feed:status ──────────────────────────────────────────────────────────────
+
+describe('CLI: key:show', () => {
+  const SAMPLE_KEY = 'ddeeff1122334455ddeeff1122334455ddeeff1122334455ddeeff1122334455';
+
+  test("shows the owner, roles and access of an administrator's key", async () => {
+    mockApiKey.findByKey.mockResolvedValue({ id: 7, api_key: SAMPLE_KEY, user_id: 3, createdAt: new Date('2026-08-16T10:00:00Z') });
+    mockUser.findUserById.mockResolvedValue({ id: 3, username: 'agent@example.com', blocked: 0, paused: 0 });
+    mockUser.getRoles.mockResolvedValue(['user', 'administrator']);
+
+    const result = await runCli(['key:show', SAMPLE_KEY]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/Owner: agent@example.com \(id=3\)/);
+    expect(result.stdout).toMatch(/Roles: user, administrator/);
+    expect(result.stdout).toMatch(/Access: every account/);
+    expect(result.stdout).toMatch(/2026-08-16T10:00:00.000Z/);
+  });
+
+  test('--json describes a user key as own-websites-only', async () => {
+    mockApiKey.findByKey.mockResolvedValue({ id: 8, api_key: SAMPLE_KEY, user_id: 4, createdAt: '2026-09-01 00:00:00' });
+    mockUser.findUserById.mockResolvedValue({ id: 4, username: 'customer@example.com', blocked: 0, paused: 1 });
+    mockUser.getRoles.mockResolvedValue(['user']);
+
+    const result = await runCli(['key:show', SAMPLE_KEY, '--json']);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({ id: 8, user_id: 4, username: 'customer@example.com', status: 'paused', roles: ['user'], access: 'own websites only' });
+  });
+
+  test('exits 1 for an unknown key', async () => {
+    mockApiKey.findByKey.mockResolvedValue(null);
+
+    const result = await runCli(['key:show', 'nope']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/not found/i);
+  });
+});
+
+describe('CLI: user:role:add / user:role:remove', () => {
+  test('grants a role', async () => {
+    mockUser.findUserByUsername.mockResolvedValue({ id: 5, username: 'agent@example.com' });
+    mockUser.addRole.mockResolvedValue(true);
+    mockUser.getRoles.mockResolvedValue(['user', 'administrator']);
+
+    const result = await runCli(['user:role:add', 'agent@example.com', 'administrator']);
+
+    expect(result.exitCode).toBe(0);
+    expect(mockUser.addRole).toHaveBeenCalledWith(5, 'administrator');
+    expect(result.stdout).toMatch(/Granted 'administrator'/);
+  });
+
+  test('reports a role the user already has', async () => {
+    mockUser.findUserByUsername.mockResolvedValue({ id: 5, username: 'agent@example.com' });
+    mockUser.addRole.mockResolvedValue(false);
+    mockUser.getRoles.mockResolvedValue(['user']);
+
+    const result = await runCli(['user:role:add', 'agent@example.com', 'user']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/already has 'user'/);
+  });
+
+  test('exits 1 for an unknown role', async () => {
+    mockUser.findUserByUsername.mockResolvedValue({ id: 5, username: 'agent@example.com' });
+    mockUser.addRole.mockRejectedValue(new Error("Unknown role 'superuser'."));
+
+    const result = await runCli(['user:role:add', 'agent@example.com', 'superuser']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/Unknown role 'superuser'/);
+  });
+
+  test('removes a role', async () => {
+    mockUser.findUserByUsername.mockResolvedValue({ id: 5, username: 'agent@example.com' });
+    mockUser.removeRole.mockResolvedValue(true);
+    mockUser.getRoles.mockResolvedValue(['user']);
+
+    const result = await runCli(['user:role:remove', 'agent@example.com', 'administrator']);
+
+    expect(result.exitCode).toBe(0);
+    expect(mockUser.removeRole).toHaveBeenCalledWith(5, 'administrator');
+    expect(result.stdout).toMatch(/Removed 'administrator'.*Roles: user/);
+  });
+
+  test('exits 1 when removing the last role', async () => {
+    mockUser.findUserByUsername.mockResolvedValue({ id: 5, username: 'agent@example.com' });
+    mockUser.removeRole.mockRejectedValue(new Error("'user' is the user's only role; add another role first."));
+
+    const result = await runCli(['user:role:remove', 'agent@example.com', 'user']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/only role/);
+  });
+
+  test('exits 1 for an unknown user', async () => {
+    mockUser.findUserByUsername.mockResolvedValue(undefined);
+
+    const result = await runCli(['user:role:remove', 'nobody@example.com', 'user']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/not found/);
+    expect(mockUser.removeRole).not.toHaveBeenCalled();
+  });
+});
 
 describe('CLI: feed:status', () => {
   const sampleStatus = {
