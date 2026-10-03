@@ -19,6 +19,9 @@ const { sanitizeEmailHtml } = require('../lib/htmlSanitizer');
  * /api/users:
  *   get:
  *     summary: Get all users
+ *     description: >
+ *       Administrator only. `white_label_html` is not included in the list
+ *       (since v1.44.0); read it from `GET /api/users/{id}`.
  *     tags: [Users]
  *     parameters:
  *       - in: query
@@ -67,8 +70,6 @@ const { sanitizeEmailHtml } = require('../lib/htmlSanitizer');
  *                         type: string
  *                       enable_white_label:
  *                         type: boolean
- *                       white_label_html:
- *                         type: string
  *                       roles:
  *                         type: array
  *                         items:
@@ -97,7 +98,7 @@ router.get('/', apiKeyAdminAuth, logApiCall, async (req, res) => {
     const queryParams = [];
 
     let baseQuery =
-      'SELECT id, username, blocked, paused, max_api_keys, reporting_weekday, reporting_email, enable_white_label, white_label_html, (SELECT COUNT(*) FROM websites w WHERE w.user_id = users.id) AS website_count FROM users';
+      'SELECT id, username, blocked, paused, max_api_keys, reporting_weekday, reporting_email, enable_white_label, (SELECT COUNT(*) FROM websites w WHERE w.user_id = users.id) AS website_count FROM users';
     let countQuery = 'SELECT COUNT(*) as count FROM users';
 
     if (searchQuery) {
@@ -257,14 +258,24 @@ router.post('/', apiKeyAdminAuth, logApiCall, async (req, res) => {
  */
 router.get('/:id', apiKeyAdminAuth, logApiCall, async (req, res) => {
   try {
-    const u = await db.query('SELECT id, username, blocked, paused, max_api_keys, reporting_weekday, reporting_email FROM users WHERE id = ?', [req.params.id]);
+    const u = await db.query(
+      'SELECT id, username, blocked, paused, max_api_keys, reporting_weekday, reporting_email, enable_white_label, white_label_html, (SELECT COUNT(*) FROM websites w WHERE w.user_id = users.id) AS website_count FROM users WHERE id = ?',
+      [req.params.id]
+    );
     if (!u || u.length === 0) {
       return res.status(404).send('User not found');
     }
     const userResult = u[0];
     const roles = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [userResult.id]);
-    userResult.roles = roles.map((r) => r.name);
-    res.json(userResult);
+    res.json({
+      ...userResult,
+      id: parseInt(userResult.id, 10),
+      blocked: Boolean(userResult.blocked),
+      paused: Boolean(userResult.paused),
+      enable_white_label: Boolean(userResult.enable_white_label),
+      website_count: Number(userResult.website_count),
+      roles: roles.map((r) => r.name),
+    });
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');

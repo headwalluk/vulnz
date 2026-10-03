@@ -91,6 +91,7 @@ describe('Users API', () => {
       expect(user).toHaveProperty('id');
       expect(user).toHaveProperty('username');
       expect(user).not.toHaveProperty('password');
+      expect(user).not.toHaveProperty('white_label_html');
     });
 
     test('should reject non-admin users', async () => {
@@ -220,6 +221,9 @@ describe('Users API', () => {
       expect(response.body.id).toBe(regularUser.id);
       expect(response.body.username).toBe('regularuser@example.com');
       expect(response.body).not.toHaveProperty('password');
+      expect(response.body).toHaveProperty('white_label_html');
+      expect(response.body.enable_white_label).toBe(false);
+      expect(response.body.website_count).toBe(0);
     });
 
     test('should reject non-admin users', async () => {
