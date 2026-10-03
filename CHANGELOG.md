@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.49.0 - 2026-10-04
+
+### Features
+
+- **Advisories, with their CVSS severity.** A vulnerability has so far been a release plus a URL, with no way to tell a critical unauthenticated flaw from a minor one. VULNZ now stores the **advisory** behind each URL, with its title, CVE, CWE and CVSS score, rating and vector, and links it to every URL it is known by.
+  - `POST /api/vulnerabilities/bulk` items accept an optional `advisory` object (see [API Usage](docs/api-usage.md#reporting-an-advisorys-severity)). It is upserted by `source` and `external_id`; re-posting replaces its details.
+  - `GET /api/components/{type}/{slug}`: each release carries `max_cvss_score`, `max_cvss_rating` and `unrated_vulnerabilities`.
+  - `GET /api/components/{type}/{slug}/{version}`: also lists the `advisories`, worst first.
+  - **Unrated is never low.** `unrated_vulnerabilities` counts vulnerabilities no rated advisory accounts for, and while it is above zero the maximum rating is a lower bound. Advisories the source marks informational rate `none`.
+  - Severity is filled in as a feed importer re-sends each advisory with its details. Until then most vulnerabilities read as unrated.
+
+### Changes
+
+- **Both bulk endpoints reject unknown item fields** with the new `UNKNOWN_FIELD` code, instead of ignoring them. A client sending a field this version cannot store now gets an error, not a success that stored nothing. The other new code is `UNKNOWN_ADVISORY_SOURCE`.
+
+### Upgrading
+
+- **One migration, applied automatically at startup.** It adds `advisory_sources`, `cvss_ratings`, `advisories` and `advisory_urls`. `vulnerabilities` is unchanged.
+- **Bulk clients that send extra fields on items now get `UNKNOWN_FIELD` for those items.** Check before upgrading; the reference importer sends none.
+- No new environment variables.
+
 ## 1.48.0 - 2026-10-03
 
 ### Features
