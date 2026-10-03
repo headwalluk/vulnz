@@ -6,10 +6,10 @@ A task-oriented guide to asking VULNZ questions about the whole fleet. [`api-usa
 
 ## Setup
 
-Authenticate with `X-API-Key` on every request.
+Authenticate with `X-API-Key` on every request. Keep the key in the environment rather than in commands or files you share:
 
 ```bash
-source /path/to/agent-settings.conf
+# VULNZ_API_KEY is set by the agent's own environment
 https --ignore-stdin api.vulnz.net/api/websites "X-API-Key: ${VULNZ_API_KEY}"
 ```
 
