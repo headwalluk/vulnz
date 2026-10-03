@@ -648,13 +648,13 @@ describe('Components API', () => {
       await db.query('UPDATE components SET malware_url = NULL WHERE id = ?', [malwareComponent.id]);
     });
 
-    test('a version auto-created on lookup inherits the flag', async () => {
-      // The lookup route creates unknown releases on the fly — a fake plugin
-      // reappearing with a new version string must still read as malware.
+    test('an unrecorded version inherits the flag', async () => {
+      // A fake plugin reappearing with a new version string must still read as malware.
       const response = await request(app).get(`/api/components/${testComponentType.slug}/${malwareComponent.slug}/9.9.9`).set('X-API-Key', regularApiKey);
 
       expect(response.status).toBe(200);
       expect(response.body.version).toBe('9.9.9');
+      expect(response.body.is_recorded).toBe(false);
       expect(response.body.is_malware).toBe(true);
       expect(response.body.has_vulnerabilities).toBe(false);
     });
@@ -778,6 +778,61 @@ describe('Components API', () => {
     });
   });
 
+  describe('component reads never write (v1.44.0)', () => {
+    const countRows = async (sql, params) => (await db.query(sql, params))[0].count;
+
+    test('an unknown component is a 404 and is not created', async () => {
+      const response = await request(app).get(`/api/components/${testComponentType.slug}/no-such-plugin-anywhere`).set('X-API-Key', regularApiKey);
+
+      expect(response.status).toBe(404);
+      expect(await countRows('SELECT COUNT(*) AS count FROM components WHERE slug = ?', ['no-such-plugin-anywhere'])).toBe(0);
+    });
+
+    test('an unknown component on the version route is a 404 and nothing is created', async () => {
+      const response = await request(app).get(`/api/components/${testComponentType.slug}/no-such-plugin-anywhere/1.0.0`).set('X-API-Key', regularApiKey);
+
+      expect(response.status).toBe(404);
+      expect(await countRows('SELECT COUNT(*) AS count FROM components WHERE slug = ?', ['no-such-plugin-anywhere'])).toBe(0);
+    });
+
+    test('an unrecorded version is judged against the stored ranges without being written', async () => {
+      const rangedComponent = await db.query('INSERT INTO components (title, slug, component_type_slug) VALUES (?, ?, ?)', ['Ranged', 'ranged-plugin', testComponentType.slug]);
+      const componentId = rangedComponent.insertId;
+      await db.query('INSERT INTO vulnerability_ranges (component_id, url, from_version, from_inclusive, to_version, to_inclusive, range_hash) VALUES (?, ?, ?, ?, ?, ?, ?)', [
+        componentId,
+        'https://example.test/advisory/ranged',
+        null,
+        1,
+        '2.0.0',
+        0,
+        'ranged-hash',
+      ]);
+
+      const affected = await request(app).get(`/api/components/${testComponentType.slug}/ranged-plugin/1.5.0`).set('X-API-Key', regularApiKey);
+      const fixed = await request(app).get(`/api/components/${testComponentType.slug}/ranged-plugin/2.0.0`).set('X-API-Key', regularApiKey);
+
+      expect(affected.status).toBe(200);
+      expect(affected.body).toMatchObject({ id: null, version: '1.5.0', is_recorded: false, has_vulnerabilities: true });
+      expect(affected.body.vulnerabilities.map((vulnerability) => vulnerability.url)).toEqual(['https://example.test/advisory/ranged']);
+      expect(fixed.body.has_vulnerabilities).toBe(false);
+      expect(await countRows('SELECT COUNT(*) AS count FROM releases WHERE component_id = ?', [componentId])).toBe(0);
+    });
+
+    test('a recorded version reports its stored vulnerabilities', async () => {
+      const recordedComponent = await db.query('INSERT INTO components (title, slug, component_type_slug) VALUES (?, ?, ?)', [
+        'Recorded',
+        'recorded-plugin',
+        testComponentType.slug,
+      ]);
+      const release = await db.query('INSERT INTO releases (component_id, version) VALUES (?, ?)', [recordedComponent.insertId, '3.1.0']);
+      await db.query('INSERT INTO vulnerabilities (release_id, url) VALUES (?, ?)', [release.insertId, 'https://example.test/advisory/recorded']);
+
+      const response = await request(app).get(`/api/components/${testComponentType.slug}/recorded-plugin/3.1.0`).set('X-API-Key', regularApiKey);
+
+      expect(response.body).toMatchObject({ id: release.insertId, is_recorded: true, has_vulnerabilities: true });
+    });
+  });
+
   describe('Component Release Management', () => {
     test('should track multiple releases for a component', async () => {
       // Create a fresh component for this test
@@ -804,7 +859,8 @@ describe('Components API', () => {
     });
 
     test('should order releases by version number descending', async () => {
-      const response = await request(app).get(`/api/components/${testComponentType.slug}/${testComponent.slug}`).set('X-API-Key', regularApiKey);
+      // testComponent is deleted above; the GET used to recreate it silently
+      const response = await request(app).get(`/api/components/${testComponentType.slug}/release-test-plugin`).set('X-API-Key', regularApiKey);
 
       expect(response.status).toBe(200);
       const versions = response.body.releases.map((r) => r.version);

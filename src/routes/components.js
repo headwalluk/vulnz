@@ -17,6 +17,7 @@ const Website = require('../models/website');
 // a local `component` for the row they are working on.
 const componentModel = require('../models/component');
 const Release = require('../models/release');
+const vulnerabilityRange = require('../models/vulnerabilityRange');
 const User = require('../models/user');
 const WebsiteComponent = require('../models/websiteComponent');
 const { booleanFlag } = require('../lib/queryParams');
@@ -672,11 +673,19 @@ router.get('/:componentTypeSlug/:componentSlug/installs', apiAuth, logApiCall, s
  *           type: string
  *         required: true
  *         description: The release version
+ *     description: >
+ *       Read-only. An unknown component is a 404. A version of a known
+ *       component that no site has reported is not recorded: it is judged
+ *       against the component's stored vulnerability ranges and returned with
+ *       `is_recorded: false` and `id: null`. Before v1.44.0 this route created
+ *       the component and release on lookup.
  *     responses:
  *       200:
- *         description: The release.
+ *         description: The release, with `is_recorded`, `vulnerabilities` and `has_vulnerabilities`.
+ *       400:
+ *         description: No usable version supplied
  *       404:
- *         description: The release was not found
+ *         description: Component type or component not found
  */
 router.get('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, sanitiseComponentSlugMiddleware, async (req, res) => {
   try {
@@ -691,26 +700,45 @@ router.get('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, s
       return res.status(404).send('Component type not found');
     }
 
-    let component = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
-    if (component.length === 0) {
-      await db.query('INSERT INTO components (slug, component_type_slug, title, description) VALUES (?, ?, ?, ?)', [componentSlug, componentTypeSlug, componentSlug, '']);
-      component = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
+    const [component] = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
+    if (!component) {
+      return res.status(404).send('Component not found');
     }
-    const release = await Release.findOrCreate(component[0].id, version);
-    const vulnerabilities = await db.query('SELECT id, release_id, url FROM vulnerabilities WHERE release_id = ?', [release.id]);
+    const componentId = parseInt(component.id, 10);
+    const malwareFields = {
+      is_malware: !!component.is_malware,
+      malware_summary: component.malware_summary || null,
+      malware_url: component.malware_url || null,
+    };
+
+    const [release] = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [componentId, version]);
+    if (release) {
+      const vulnerabilities = await db.query('SELECT id, release_id, url FROM vulnerabilities WHERE release_id = ?', [release.id]);
+      return res.json({
+        ...release,
+        id: parseInt(release.id, 10),
+        component_id: componentId,
+        is_recorded: true,
+        ...malwareFields,
+        vulnerabilities: vulnerabilities.map((v) => ({
+          ...v,
+          id: parseInt(v.id, 10),
+          release_id: parseInt(v.release_id, 10),
+        })),
+        has_vulnerabilities: vulnerabilities.length > 0,
+      });
+    }
+
+    // A version nobody has reported is judged against the stored ranges without being written.
+    const affectingUrls = await vulnerabilityRange.findAffectingUrls(componentId, version);
     res.json({
-      ...release,
-      id: parseInt(release.id, 10),
-      component_id: parseInt(release.component_id, 10),
-      is_malware: !!component[0].is_malware,
-      malware_summary: component[0].malware_summary || null,
-      malware_url: component[0].malware_url || null,
-      vulnerabilities: vulnerabilities.map((v) => ({
-        ...v,
-        id: parseInt(v.id, 10),
-        release_id: parseInt(v.release_id, 10),
-      })),
-      has_vulnerabilities: vulnerabilities.length > 0,
+      id: null,
+      component_id: componentId,
+      version,
+      is_recorded: false,
+      ...malwareFields,
+      vulnerabilities: affectingUrls.map((url) => ({ id: null, release_id: null, url })),
+      has_vulnerabilities: affectingUrls.length > 0,
     });
   } catch (err) {
     console.error(err);
@@ -737,11 +765,12 @@ router.get('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, s
  *           type: string
  *         required: true
  *         description: The component slug
+ *     description: Read-only. An unknown component is a 404; before v1.44.0 this route created it on lookup.
  *     responses:
  *       200:
  *         description: The component.
  *       404:
- *         description: The component was not found
+ *         description: Component type or component not found
  */
 router.get('/:componentTypeSlug/:componentSlug', apiAuth, logApiCall, sanitiseComponentSlugMiddleware, async (req, res) => {
   try {
@@ -752,10 +781,9 @@ router.get('/:componentTypeSlug/:componentSlug', apiAuth, logApiCall, sanitiseCo
       return res.status(404).send('Component type not found');
     }
 
-    let component = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
+    const component = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
     if (component.length === 0) {
-      await db.query('INSERT INTO components (slug, component_type_slug, title, description) VALUES (?, ?, ?, ?)', [componentSlug, componentTypeSlug, componentSlug, '']);
-      component = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
+      return res.status(404).send('Component not found');
     }
     const releases = await db.query(
       `

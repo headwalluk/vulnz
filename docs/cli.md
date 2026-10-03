@@ -494,7 +494,7 @@ node bin/vulnz.js releases:phantoms
 
 Mark a component as known malware. The verdict applies to **every version** of that component — past, present, and any version ingested in future — because malware is a property of the artefact, not of a release.
 
-These are CLI-only by design. There is no API write path for the malware flag: `GET /api/components/:type/:slug` auto-creates components and the vulnerability POST route is open to any authenticated key, so a fleet key must not be able to set (or clear) a verdict that is actioned across every site at once. Reads are on the API as normal — see the [API usage guide](api-usage.md#known-malware).
+These are CLI-only by design. There is no API write path for the malware flag: `POST /api/components/:type/:slug/:version` creates components and releases and is open to any authenticated key, so a fleet key must not be able to set (or clear) a verdict that is actioned across every site at once. Reads are on the API as normal — see the [API usage guide](api-usage.md#known-malware).
 
 ### `component:malware:add <type> <slug> [--summary <text>] [--url <url>] [--force]`
 

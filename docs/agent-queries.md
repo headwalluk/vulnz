@@ -97,7 +97,7 @@ One entry per installed version, newest first (values illustrative):
 }
 ```
 
-`site_count` at the top counts distinct sites. A site that reports two releases of the same plugin, which happens mid-upgrade, appears under both versions but is counted once. `is_dev=false` leaves dev sites out. An unknown slug is a `404`, never an empty answer, and unlike `GET /api/components/{type}/{slug}` it never creates the component. `latest_version` is only as good as its source; see `blind_spots` below for premium plugins.
+`site_count` at the top counts distinct sites. A site that reports two releases of the same plugin, which happens mid-upgrade, appears under both versions but is counted once. `is_dev=false` leaves dev sites out. An unknown slug is a `404`, never an empty answer. No component read creates anything (since v1.44.0), so a mistyped slug leaves no trace in the catalogue. `latest_version` is only as good as its source; see `blind_spots` below for premium plugins.
 
 ### Which sites run a given plugin?
 
