@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.48.0 - 2026-10-03
+
+### Features
+
+- **A CC list for the weekly report.** Each account has a new `reporting_cc` field: a comma-separated list of addresses, such as the site's designer or agency, copied in on the **same message** with a real `Cc:` header.
+  - **Who can set it:** users through `PUT /api/users/me`, administrators through `PUT /api/users/{id}`.
+  - **Validation:** every address is checked when written. One invalid address rejects the update with a `400` that names it, and nothing is stored. At most 10 addresses; an empty string clears it.
+  - **No duplicate copy:** the main recipient is never also copied in.
+- **Who receives a report, from the server itself.** `report_delivery` appears on `GET /api/users/{id}`, and in the `website` block of `GET /api/websites/{domain}/report`, so "who gets the emails for this site?" takes one call. It is built by the same function the sender uses:
+  - `to` and `to_source` (`reporting_email`, or `username` when none is set or it is unusable)
+  - `reporting_email_rejected` (previously an unusable address fell back to the username silently)
+  - `cc` and `cc_rejected`
+  - `weekday`, `paused`, `blocked` and `last_summary_sent_at`
+  - `last_logged_report`, the latest logged send
+- **User search matches the CC list.** `GET /api/users?q=` now also matches `reporting_cc`, and each result carries `matched_on`, so an account owner can be told apart from an agency that is only copied in.
+- **Email history per account.** The email log now records the account and the CC addresses of each send. `GET /api/users/{id}/emails` (administrators) lists an account's emails, newest first, with recipient, CC, type, status and time.
+- **CLI:** `user:info` shows the CC list and where the report actually goes.
+
+### Upgrading
+
+- **One migration, applied automatically at startup.** It adds `users.reporting_cc`, and `email_logs.user_id` and `email_logs.cc_emails`. Emails logged before this release are not linked to an account, so they don't appear in an account's history.
+- No new environment variables.
+
 ## 1.47.0 - 2026-10-03
 
 ### Security
