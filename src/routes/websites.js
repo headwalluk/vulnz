@@ -21,6 +21,7 @@ const WebsiteMalware = require('../models/websiteMalware');
 const { checkWebsiteForMalware } = require('../lib/malwareAlert');
 const { lookupIp } = require('../lib/geoip');
 const { domainCandidates } = require('../lib/domain');
+const { buildSiteReport, DEFAULT_REPORT_DAYS, MAX_REPORT_DAYS } = require('../lib/siteReport');
 
 // Preserved from the original inline `|| 10`; callers that send no limit
 // must keep getting the page size they always got.
@@ -585,6 +586,69 @@ router.get('/:domain', apiAuth, logApiCall, canReadWebsite, async (req, res) => 
       ...tidyWebsite(req.website),
       username: user.username,
     });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+/**
+ * @swagger
+ * /api/websites/{domain}/report:
+ *   get:
+ *     summary: Report data for one website
+ *     description: >
+ *       The facts the weekly report draws on, scoped to one website and
+ *       returned as JSON: vulnerable, malware, withdrawn and out-of-date
+ *       components (every component type, npm included); WordPress and PHP
+ *       against the configured current and minimum versions; file security
+ *       issues; security events and component changes within the period; and
+ *       unmaintained or newly published plugins. Counts only, no
+ *       recommendations. The domain is matched as on `GET /api/websites/{domain}`.
+ *     tags:
+ *       - Websites
+ *     parameters:
+ *       - in: path
+ *         name: domain
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: days
+ *         schema:
+ *           type: integer
+ *           default: 7
+ *           maximum: 90
+ *         description: Period for security events and component changes, ending now.
+ *     responses:
+ *       200:
+ *         description: >
+ *           `website`, `generated_at`, `period`, `summary`, `software`,
+ *           `components` (vulnerable, malware, withdrawn, behind_latest),
+ *           `file_security_issues`, `security_events`, `component_changes`
+ *           and `plugins_to_monitor`. `software.*.is_outdated` and
+ *           `summary.wordpress_outdated` / `php_outdated` are null when the
+ *           installed version is unknown or cannot be compared.
+ *       400:
+ *         description: Invalid days
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Website not found
+ */
+router.get('/:domain/report', apiAuth, logApiCall, canReadWebsite, async (req, res) => {
+  try {
+    const requestedDays = positiveInteger(req.query.days);
+    if (requestedDays === undefined || requestedDays > MAX_REPORT_DAYS) {
+      return res.status(400).json({ error: 'Invalid days', message: `days must be a positive integer no greater than ${MAX_REPORT_DAYS}.` });
+    }
+
+    const owner = await User.findUserById(req.website.user_id);
+    const report = await buildSiteReport(req.website, {
+      username: owner ? owner.username : null,
+      days: requestedDays || DEFAULT_REPORT_DAYS,
+    });
+    res.json(report);
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');

@@ -539,6 +539,45 @@ async function initializeSchema(db) {
     )
   `);
 
+  // Create security event and file issue tables (site reports)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS security_event_types (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug VARCHAR(100) NOT NULL UNIQUE,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      severity TEXT DEFAULT 'warning',
+      enabled INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS security_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      website_id INTEGER NOT NULL,
+      event_type_id INTEGER NOT NULL,
+      source_ip VARCHAR(45) NOT NULL,
+      event_datetime DATETIME NOT NULL,
+      continent_code CHAR(2),
+      country_code CHAR(2),
+      details TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE,
+      FOREIGN KEY (event_type_id) REFERENCES security_event_types(id)
+    );
+    CREATE TABLE IF NOT EXISTS file_security_issues (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      website_id INTEGER NOT NULL,
+      file_path VARCHAR(500) NOT NULL,
+      line_number INTEGER,
+      issue_type VARCHAR(100) NOT NULL,
+      severity TEXT DEFAULT 'warning',
+      message TEXT,
+      last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE
+    )
+  `);
+
   // Create app_settings table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS app_settings (

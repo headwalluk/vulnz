@@ -146,6 +146,54 @@ const findVulnerabilityUrlsByRelease = async (releaseIds) => {
   return urlsByRelease;
 };
 
+/**
+ * Every component installed on one website, of any type, one entry per installed release.
+ * Carries latest_version, malware and wordpress.org closure detail alongside the vulnerability URLs.
+ * @param {number} websiteId
+ */
+const getInventoryForReport = async (websiteId) => {
+  const query = `
+    SELECT r.id AS release_id, r.version,
+           c.slug, c.title, c.component_type_slug, c.latest_version,
+           c.is_malware, c.malware_summary, c.malware_url,
+           c.wporg_status_slug, c.wporg_closure_reason_slug, wcr.is_security_concern,
+           v.url AS vulnerability_url
+    FROM website_components wc
+    JOIN releases r ON wc.release_id = r.id
+    JOIN components c ON r.component_id = c.id
+    LEFT JOIN wporg_closure_reasons wcr ON c.wporg_closure_reason_slug = wcr.slug
+    LEFT JOIN vulnerabilities v ON r.id = v.release_id
+    WHERE wc.website_id = ?
+    ORDER BY c.component_type_slug ASC, c.slug ASC, v.url ASC
+  `;
+  const rows = await db.query(query, [websiteId]);
+  const components = new Map();
+  for (const row of rows) {
+    const releaseId = parseInt(row.release_id, 10);
+    if (!components.has(releaseId)) {
+      components.set(releaseId, {
+        slug: row.slug,
+        title: row.title,
+        component_type_slug: row.component_type_slug,
+        version: row.version,
+        latest_version: row.latest_version || null,
+        vulnerabilities: [],
+        is_malware: !!row.is_malware,
+        malware_summary: row.malware_summary || null,
+        malware_url: row.malware_url || null,
+        wporg_status: row.wporg_status_slug || null,
+        wporg_closure_reason: row.wporg_closure_reason_slug || null,
+        // null means the closure reason exists but nobody has classified it
+        wporg_closure_is_security_concern: row.is_security_concern === null || row.is_security_concern === undefined ? null : !!row.is_security_concern,
+      });
+    }
+    if (row.vulnerability_url) {
+      components.get(releaseId).vulnerabilities.push(row.vulnerability_url);
+    }
+  }
+  return [...components.values()].map((component) => ({ ...component, has_vulnerabilities: component.vulnerabilities.length > 0 }));
+};
+
 module.exports = {
   createTable,
   create,
@@ -155,4 +203,5 @@ module.exports = {
   getComponentsForChangeTracking,
   findInstallsOfComponent,
   findVulnerabilityUrlsByRelease,
+  getInventoryForReport,
 };

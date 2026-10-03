@@ -6,7 +6,7 @@ const securityEvent = require('../models/securityEvent');
 const fileSecurityIssue = require('../models/fileSecurityIssue');
 const componentChange = require('../models/componentChange');
 const component = require('../models/component');
-const appSetting = require('../models/appSetting');
+const { loadReportThresholds } = require('./reportThresholds');
 const emailer = require('../lib/email');
 const emailLog = require('../models/emailLog');
 const { validateEmailAddress } = require('../lib/emailValidation');
@@ -100,9 +100,9 @@ async function sendSummaryEmail(userToSend) {
   const securityEventsSummary = await securityEvent.getSummaryByDateRange(startDate, endDate, websiteIds);
   const topAttackCountries = await securityEvent.getTopCountries(startDate, endDate, 5, websiteIds);
 
+  const { wordpressCurrentVersion, phpMinimumVersion, unmaintainedThresholdMonths, newlyPublishedThresholdMonths } = await loadReportThresholds();
+
   // Get outdated software websites
-  const wordpressCurrentVersion = await appSetting.getWithFallback('wordpress.current_version', 'WORDPRESS_STABLE_VERSION', '6.7.1');
-  const phpMinimumVersion = await appSetting.getWithFallback('php.minimum_version', 'PHP_MINIMUM_VERSION', '8.0');
 
   const outdatedWordPress = await website.findOutdatedWordPress(wordpressCurrentVersion, isAdministrator ? null : userToSend.id);
   const outdatedPhp = await website.findOutdatedPhp(phpMinimumVersion, isAdministrator ? null : userToSend.id);
@@ -115,11 +115,8 @@ async function sendSummaryEmail(userToSend) {
   const componentChangesSummary = await componentChange.getChangeSummary(startDate, endDate, isAdministrator ? null : userToSend.id);
 
   // Get plugins to monitor (unmaintained and newly published)
-  const unmaintainedThresholdMonths = await appSetting.getWithFallback('plugin.unmaintained_threshold_months', 'PLUGIN_UNMAINTAINED_THRESHOLD_MONTHS', '6');
-  const newlyPublishedThresholdMonths = await appSetting.getWithFallback('plugin.newly_published_threshold_months', 'PLUGIN_NEWLY_PUBLISHED_THRESHOLD_MONTHS', '3');
-
-  const unmaintainedPlugins = await component.findUnmaintainedPlugins(parseInt(unmaintainedThresholdMonths, 10), isAdministrator ? null : userToSend.id);
-  const newlyPublishedPlugins = await component.findNewlyPublishedPlugins(parseInt(newlyPublishedThresholdMonths, 10), isAdministrator ? null : userToSend.id);
+  const unmaintainedPlugins = await component.findUnmaintainedPlugins(unmaintainedThresholdMonths, isAdministrator ? null : userToSend.id);
+  const newlyPublishedPlugins = await component.findNewlyPublishedPlugins(newlyPublishedThresholdMonths, isAdministrator ? null : userToSend.id);
 
   // Deduplicate plugins
   const deduplicatedUnmaintained = deduplicatePlugins(
@@ -260,8 +257,8 @@ async function sendSummaryEmail(userToSend) {
         ...p,
         added: formatHumanDate(p.added),
       })),
-      unmaintainedThresholdMonths: parseInt(unmaintainedThresholdMonths, 10),
-      newlyPublishedThresholdMonths: parseInt(newlyPublishedThresholdMonths, 10),
+      unmaintainedThresholdMonths,
+      newlyPublishedThresholdMonths,
     },
   };
 

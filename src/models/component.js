@@ -171,9 +171,9 @@ const findOrCreate = async (slug, componentTypeSlug, title) => {
 /**
  * Find plugins that haven't been updated in X months
  * Only considers WordPress.org plugins (where last_updated IS NOT NULL)
- * Returns plugins used by specified user's websites
+ * Returns plugins used by the specified user's websites, or by one website
  */
-async function findUnmaintainedPlugins(monthsThreshold = 6, userId = null) {
+async function findUnmaintainedPlugins(monthsThreshold = 6, userId = null, websiteId = null) {
   let sql = `
     SELECT DISTINCT
       c.id,
@@ -199,6 +199,11 @@ async function findUnmaintainedPlugins(monthsThreshold = 6, userId = null) {
     params.push(userId);
   }
 
+  if (websiteId !== null) {
+    sql += ' AND w.id = ?';
+    params.push(websiteId);
+  }
+
   sql += ' ORDER BY c.last_updated ASC, c.title ASC';
 
   return await db.query(sql, params);
@@ -207,9 +212,9 @@ async function findUnmaintainedPlugins(monthsThreshold = 6, userId = null) {
 /**
  * Find plugins that were recently published (within X months)
  * Only considers WordPress.org plugins (where added IS NOT NULL)
- * Returns plugins used by specified user's websites
+ * Returns plugins used by the specified user's websites, or by one website
  */
-async function findNewlyPublishedPlugins(monthsThreshold = 3, userId = null) {
+async function findNewlyPublishedPlugins(monthsThreshold = 3, userId = null, websiteId = null) {
   let sql = `
     SELECT DISTINCT
       c.id,
@@ -233,6 +238,11 @@ async function findNewlyPublishedPlugins(monthsThreshold = 3, userId = null) {
   if (userId !== null) {
     sql += ' AND w.user_id = ?';
     params.push(userId);
+  }
+
+  if (websiteId !== null) {
+    sql += ' AND w.id = ?';
+    params.push(websiteId);
   }
 
   sql += ' ORDER BY c.added DESC, c.title ASC';

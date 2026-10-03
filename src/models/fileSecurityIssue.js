@@ -168,6 +168,28 @@ async function getTopFilesByIssueCount(userId = null, limit = 10) {
   return await db.query(sql, params);
 }
 
+/**
+ * Per-file issue counts for one website, worst files first.
+ * @param {number} websiteId
+ * @returns {Promise<Array<{file_path: string, issue_count: number, error_count: number, warning_count: number, info_count: number}>>}
+ */
+async function getFileCountsForWebsite(websiteId) {
+  const sql = `
+    SELECT
+      file_path,
+      COUNT(*) as issue_count,
+      SUM(CASE WHEN severity = 'error' THEN 1 ELSE 0 END) as error_count,
+      SUM(CASE WHEN severity = 'warning' THEN 1 ELSE 0 END) as warning_count,
+      SUM(CASE WHEN severity = 'info' THEN 1 ELSE 0 END) as info_count
+    FROM file_security_issues
+    WHERE website_id = ?
+    GROUP BY file_path
+    ORDER BY error_count DESC, warning_count DESC, issue_count DESC, file_path ASC
+  `;
+
+  return await db.query(sql, [websiteId]);
+}
+
 async function removeStaleIssues(retentionDays = 30) {
   const sql = `
     DELETE FROM file_security_issues 
@@ -206,6 +228,7 @@ module.exports = {
   getSummaryByWebsite,
   getSummaryByDateRange,
   getTopFilesByIssueCount,
+  getFileCountsForWebsite,
   removeStaleIssues,
   getTotalCount,
 };
