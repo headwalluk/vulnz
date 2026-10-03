@@ -8,6 +8,59 @@ const sqlite3 = require('sqlite3');
 const { promisify } = require('util');
 const bcrypt = require('bcrypt');
 
+const SQLITE_INTERVAL_UNITS = { DAY: 'days', MONTH: 'months', HOUR: 'hours' };
+const AVERAGE_DAYS_PER_MONTH = 30.44;
+
+/** Format a Date as the UTC 'YYYY-MM-DD HH:MM:SS' text SQLite's CURRENT_TIMESTAMP produces. */
+function toSqliteDateTime(date) {
+  return date.toISOString().replace('T', ' ').slice(0, 19);
+}
+
+/** Replace each `?` bound to an array with one placeholder per element, skipping quoted literals. */
+function expandArrayParams(sql, params) {
+  if (!params.some(Array.isArray)) {
+    return { sql, params };
+  }
+
+  let expandedSql = '';
+  const expandedParams = [];
+  let paramIndex = 0;
+  let inQuote = false;
+  for (const character of sql) {
+    if (character === "'") {
+      inQuote = !inQuote;
+    }
+    if (character !== '?' || inQuote) {
+      expandedSql += character;
+      continue;
+    }
+    const param = params[paramIndex];
+    paramIndex++;
+    if (Array.isArray(param)) {
+      // An empty list matches nothing, as `IN (NULL)` does in MariaDB
+      expandedSql += param.length > 0 ? param.map(() => '?').join(', ') : 'NULL';
+      expandedParams.push(...param);
+    } else {
+      expandedSql += '?';
+      expandedParams.push(param);
+    }
+  }
+  return { sql: expandedSql, params: expandedParams };
+}
+
+/** Rewrite the MariaDB date functions the models use into their SQLite equivalents. */
+function convertDateFunctions(sql) {
+  return sql
+    .replace(/DATE_SUB\(\s*NOW\(\)\s*,\s*INTERVAL\s+\?\s+(DAY|MONTH|HOUR)\s*\)/gi, (match, unit) => `datetime('now', '-' || ? || ' ${SQLITE_INTERVAL_UNITS[unit.toUpperCase()]}')`)
+    .replace(/NOW\(\)\s*-\s*INTERVAL\s+\?\s+(DAY|MONTH|HOUR)/gi, (match, unit) => `datetime('now', '-' || ? || ' ${SQLITE_INTERVAL_UNITS[unit.toUpperCase()]}')`)
+    .replace(
+      /TIMESTAMPDIFF\(\s*MONTH\s*,\s*([\w.]+)\s*,\s*NOW\(\)\s*\)/gi,
+      (match, column) => `CAST((julianday('now') - julianday(${column})) / ${AVERAGE_DAYS_PER_MONTH} AS INTEGER)`
+    )
+    .replace(/NOW\(\)/gi, "datetime('now')")
+    .replace(/CURDATE\(\)/gi, "date('now')");
+}
+
 /**
  * Create an in-memory SQLite database for testing
  * @returns {Promise<Object>} Database connection with promisified methods
@@ -43,13 +96,22 @@ async function createTestDatabase() {
     // Convert MySQL syntax to SQLite
     let convertedSql = sql;
 
-    // Convert boolean values to integers for SQLite
-    const convertedParams = params.map((param) => {
+    // The mariadb driver expands an array bound to `IN (?)`; SQLite binds one value per placeholder.
+    const expanded = expandArrayParams(convertedSql, params);
+    convertedSql = expanded.sql;
+
+    // Convert boolean values to integers, and dates to the text CURRENT_TIMESTAMP stores
+    const convertedParams = expanded.params.map((param) => {
       if (typeof param === 'boolean') {
         return param ? 1 : 0;
       }
+      if (param instanceof Date) {
+        return toSqliteDateTime(param);
+      }
       return param;
     });
+
+    convertedSql = convertDateFunctions(convertedSql);
 
     // Handle INSERT IGNORE -> INSERT OR IGNORE
     if (convertedSql.match(/INSERT\s+IGNORE/i)) {
