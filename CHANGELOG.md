@@ -313,7 +313,7 @@ No action required; the new defaults are more permissive for legitimate use and 
 
 ### Changed
 
-- **`is_malware` and `has_vulnerabilities` are now independent signals (M16)**. A component flagged as known malware no longer forces `has_vulnerabilities: true` on its releases. That coupling shipped in v1.34.0 as a deliberate, documented shortcut so existing clients would react without a code change; it is removed because the signal was simply wrong. A consumer seeing `has_vulnerabilities: true` could not distinguish a CVE in WooCommerce from a backdoor dropper, and the two call for very different responses. `has_vulnerabilities` again means recorded vulnerabilities and nothing else. See [`dev-notes/15-known-malware.md`](dev-notes/15-known-malware.md#10-honest-signals-v1360).
+- **`is_malware` and `has_vulnerabilities` are now independent signals (M16)**. A component flagged as known malware no longer forces `has_vulnerabilities: true` on its releases. That coupling shipped in v1.34.0 as a deliberate, documented shortcut so existing clients would react without a code change; it is removed because the signal was simply wrong. A consumer seeing `has_vulnerabilities: true` could not distinguish a CVE in WooCommerce from a backdoor dropper, and the two call for very different responses. `has_vulnerabilities` again means recorded vulnerabilities and nothing else. See [API Usage](docs/api-usage.md#known-malware).
   - **Migration note for API consumers:** anything relying on `has_vulnerabilities` to detect malware must switch to `is_malware`. Nothing else about the flag has changed.
 
 ### Features
@@ -335,7 +335,7 @@ No action required; the new defaults are more permissive for legitimate use and 
 
 ### Upgrading
 
-The migration runs on startup (or via `vulnz db:migrate`) and needs no configuration. The only behavioural change to watch for is the `has_vulnerabilities` decoupling above — check any consumer that inferred malware from it, in particular the `vulnz-woo` plugin and fleet scripts.
+The migration runs on startup (or via `vulnz db:migrate`) and needs no configuration. The only behavioural change to watch for is the `has_vulnerabilities` decoupling above — check any consumer that inferred malware from it, in particular separate integrations such as WordPress plugins and fleet scripts.
 
 ---
 
@@ -343,7 +343,7 @@ The migration runs on startup (or via `vulnz db:migrate`) and needs no configura
 
 ### Features
 
-- **Malware detection on websites (M15)**: M14 answered "is this component malware?"; this answers the operational question — **which of my sites are carrying it?** Two routes to that answer, one push and one pull, so missing the first does not mean missing the problem. See [`dev-notes/15-known-malware.md`](dev-notes/15-known-malware.md#8-m15--detection-on-websites-v1350).
+- **Malware detection on websites (M15)**: M14 answered "is this component malware?"; this answers the operational question — **which of my sites are carrying it?** Two routes to that answer, one push and one pull, so missing the first does not mean missing the problem. See [API Usage](docs/api-usage.md#malware-on-a-website).
   - **`GET /api/websites/malware`**: every website with one or more known-malware components, and which components those are. Administrators see all websites; other users see only their own. Computed live from the component flags, so flagging a component makes every site already carrying it appear immediately — no re-sync from any host required. An empty list is the healthy response.
   - **Immediate email alert**: when a website sync reports a flagged component, VULNZ emails straight away rather than waiting for the weekly report. Enabled with `MALWARE_ALERT_ENABLED=true` and `MALWARE_ALERT_EMAIL`; both default to off, so the feature ships inert.
   - **Alerts are deduplicated per (website, component)**: the first sighting emails, later syncs stay quiet. Hosts sync continuously, so without this the same alert would repeat until it was filtered away as noise — which is exactly the email that must not be missed. A component cleaned off a site and later reappearing counts as a fresh infection and alerts again.
@@ -374,7 +374,7 @@ MALWARE_ALERT_EMAIL='security@example.com'
 
 ### Features
 
-- **Known malware flagging (M14)**: a component can now be marked as known malware, covering **every version** of it — past, present, and any version ingested in future. Fake plugins dropped by an attacker are ingested by the normal fleet path and, appearing in neither wordpress.org nor Wordfence, read back completely clean; there was previously no way to state that something is malicious at all. See [`dev-notes/15-known-malware.md`](dev-notes/15-known-malware.md) for the design.
+- **Known malware flagging (M14)**: a component can now be marked as known malware, covering **every version** of it — past, present, and any version ingested in future. Fake plugins dropped by an attacker are ingested by the normal fleet path and, appearing in neither wordpress.org nor Wordfence, read back completely clean; there was previously no way to state that something is malicious at all. See [API Usage](docs/api-usage.md#known-malware) and the [CLI reference](docs/cli.md#known-malware-commands).
   - **`is_malware` and `malware_summary` on the component read paths**: `GET /api/components/search`, `GET /api/components/{type}/{slug}`, `GET /api/components/{id}`, and `GET /api/components/{type}/{slug}/{version}`. Search was the priority — vulnz.net's browser search is where a fake plugin reading clean is most visible.
   - **The verdict is on the component, not the release**: a dropper's version string is whatever its author typed, so enumerating known-bad versions is unwinnable. Because the component lookup route auto-creates components keyed on `(slug, component_type_slug)`, a fake plugin reappearing with a brand-new version number lands on the same row and inherits the flag with no further action.
   - **Writes are CLI-only by design**: no API route sets these columns, and no API key of any role can set or clear a verdict. The component lookup route already creates components as a side effect of reading them and the vulnerability POST route is open to any authenticated key, so a fleet key must not be able to make a claim that is actioned across every site at once.
@@ -383,7 +383,7 @@ MALWARE_ALERT_EMAIL='security@example.com'
 
 ### Changed
 
-- **A flagged component reports `has_vulnerabilities: true` on every one of its releases**, with no vulnerability rows behind them. This is deliberate, temporary debt: the fleet and vulnz-woo already branch on `has_vulnerabilities`, so the malware verdict is acted on the moment a component is flagged, with no client-side change. New clients should branch on `is_malware`, which distinguishes a known vulnerability from malicious software. Confined to one helper (`malwareTaintsReleases()`) and tracked in [`dev-notes/13-snag-list.md`](dev-notes/13-snag-list.md).
+- **A flagged component reports `has_vulnerabilities: true` on every one of its releases**, with no vulnerability rows behind them. This is deliberate, temporary debt: existing integrations already branch on `has_vulnerabilities`, so the malware verdict is acted on the moment a component is flagged, with no client-side change. New clients should branch on `is_malware`, which distinguishes a known vulnerability from malicious software. Confined to one helper (`malwareTaintsReleases()`).
 - **The documented search response in [`docs/api-usage.md`](docs/api-usage.md) now matches what the endpoint actually returns** — it had drifted (it showed `name`, `type` and `latest_version` fields that do not exist, and omitted `releases`). Also notes that `id` serializes as a string, since the column is a `BIGINT`.
 
 ### Security
@@ -409,7 +409,7 @@ vulnz component:malware:add wordpress-plugin easypost --summary "Backdoor file d
 
 ### Features
 
-- **Urgent update classification (M13)**: the fast-update manifest now says whether a release actually warrants an emergency update, not just what the latest version is. See [`docs/fast-update-triggers.md`](docs/fast-update-triggers.md#urgent-updates) for the guide and [`dev-notes/14-urgent-updates.md`](dev-notes/14-urgent-updates.md) for the design.
+- **Urgent update classification (M13)**: the fast-update manifest now says whether a release actually warrants an emergency update, not just what the latest version is. See [`docs/fast-update-triggers.md`](docs/fast-update-triggers.md#urgent-updates) for the guide.
   - **`is_urgent` and `summary` on `GET /api/wordpress/latest-versions`**: `is_urgent` is true only when a release fixes a vulnerability realistically exploitable against a default installation — the one case that justifies interrupting a host's overnight cycle. `summary` is a one-sentence description of the release. Routine releases are left to the existing overnight run, which is what makes the feed usable without being unbearably noisy.
   - **Why classification rather than a passthrough flag**: wordpress.org publishes no security flag for plugins — there is no equivalent of the `insecure`/`outdated`/`latest` status the core stable-check API provides. The changelog is the only signal available at release time, so it is classified by an LLM.
   - **New `src/lib/llm/` layer**: a small provider-agnostic client plus a task registry. Adding a future classification or housekeeping prompt is a new file in `tasks/` and one registry line. Provider is OpenRouter (OpenAI chat-completions shape), so model and provider are `.env` changes rather than code changes.
