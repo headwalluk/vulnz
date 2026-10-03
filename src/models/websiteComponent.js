@@ -91,6 +91,61 @@ const getComponentsForChangeTracking = async (websiteId) => {
   return await db.query(query, [websiteId]);
 };
 
+/**
+ * Every installation of one component: one row per website and release, with the owner.
+ *
+ * @param {number} componentId
+ * @param {object} [options]
+ * @param {number|null} [options.userId]  Restrict to this owner's websites; null for every website.
+ * @param {boolean|null} [options.isDev]  Only dev (true) or only live (false) websites; null for both.
+ */
+const findInstallsOfComponent = async (componentId, { userId = null, isDev = null } = {}) => {
+  let query = `
+    SELECT r.id AS release_id, r.version,
+           w.id AS website_id, w.domain, w.title, w.is_ssl, w.is_dev, w.versions_last_checked_at, w.user_id,
+           u.username
+    FROM website_components wc
+    JOIN releases r ON wc.release_id = r.id
+    JOIN websites w ON wc.website_id = w.id
+    JOIN users u ON w.user_id = u.id
+    WHERE r.component_id = ?
+  `;
+  const params = [componentId];
+
+  if (userId) {
+    query += ' AND w.user_id = ?';
+    params.push(userId);
+  }
+
+  if (isDev === true || isDev === false) {
+    query += ' AND w.is_dev = ?';
+    params.push(isDev ? 1 : 0);
+  }
+
+  query += ' ORDER BY w.domain ASC';
+  return db.query(query, params);
+};
+
+/**
+ * Vulnerability URLs recorded against each of the given releases.
+ * @param {number[]} releaseIds
+ * @returns {Promise<Map<number, string[]>>} keyed by release id
+ */
+const findVulnerabilityUrlsByRelease = async (releaseIds) => {
+  const urlsByRelease = new Map();
+  if (releaseIds.length > 0) {
+    const rows = await db.query('SELECT release_id, url FROM vulnerabilities WHERE release_id IN (?) ORDER BY url ASC', [releaseIds]);
+    for (const row of rows) {
+      const releaseId = parseInt(row.release_id, 10);
+      if (!urlsByRelease.has(releaseId)) {
+        urlsByRelease.set(releaseId, []);
+      }
+      urlsByRelease.get(releaseId).push(row.url);
+    }
+  }
+  return urlsByRelease;
+};
+
 module.exports = {
   createTable,
   create,
@@ -98,4 +153,6 @@ module.exports = {
   getPlugins,
   getThemes,
   getComponentsForChangeTracking,
+  findInstallsOfComponent,
+  findVulnerabilityUrlsByRelease,
 };

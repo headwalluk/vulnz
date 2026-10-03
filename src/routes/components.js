@@ -17,6 +17,10 @@ const Website = require('../models/website');
 // a local `component` for the row they are working on.
 const componentModel = require('../models/component');
 const Release = require('../models/release');
+const User = require('../models/user');
+const WebsiteComponent = require('../models/websiteComponent');
+const { booleanFlag } = require('../lib/queryParams');
+const { versionSortCompare } = require('../lib/versionCompare');
 const { MAX_VULNERABILITY_URL_LENGTH } = require('../models/vulnerability');
 
 function sanitiseComponentSlugMiddleware(req, res, next) {
@@ -515,6 +519,134 @@ router.post('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, 
  *       404:
  *         description: The component was not found
  */
+/**
+ * Group installation rows by release, newest version first, each with its vulnerabilities and sites.
+ * @param {object[]} installRows from WebsiteComponent.findInstallsOfComponent()
+ * @param {Map<number, string[]>} urlsByRelease
+ * @param {string|null} latestVersion
+ */
+function groupInstallsByVersion(installRows, urlsByRelease, latestVersion) {
+  const versions = new Map();
+  for (const row of installRows) {
+    const releaseId = parseInt(row.release_id, 10);
+    if (!versions.has(releaseId)) {
+      const vulnerabilities = urlsByRelease.get(releaseId) || [];
+      versions.set(releaseId, {
+        version: row.version,
+        is_latest: Boolean(latestVersion) && row.version === latestVersion,
+        has_vulnerabilities: vulnerabilities.length > 0,
+        vulnerabilities,
+        site_count: 0,
+        sites: [],
+      });
+    }
+    const entry = versions.get(releaseId);
+    entry.site_count++;
+    entry.sites.push({
+      domain: row.domain,
+      title: row.title,
+      url: `${row.is_ssl ? 'https' : 'http'}://${row.domain}`,
+      user_id: parseInt(row.user_id, 10),
+      username: row.username,
+      is_dev: Boolean(row.is_dev),
+      versions_last_checked_at: row.versions_last_checked_at || null,
+    });
+  }
+  return [...versions.values()].sort((left, right) => versionSortCompare(right.version, left.version));
+}
+
+/**
+ * @swagger
+ * /api/components/{componentTypeSlug}/{componentSlug}/installs:
+ *   get:
+ *     summary: Installed versions of a component across the fleet
+ *     description: >
+ *       One entry per installed version, newest first, each with its recorded
+ *       vulnerabilities and the websites running it. Answers "which versions
+ *       of this plugin are installed, and where" without pulling each site's
+ *       full inventory. Administrators see every website; other users see
+ *       only their own. Unlike `GET /api/components/{type}/{slug}`, an
+ *       unknown component is a 404 and is never created.
+ *     tags: [Components]
+ *     parameters:
+ *       - in: path
+ *         name: componentTypeSlug
+ *         schema:
+ *           type: string
+ *           example: wordpress-plugin
+ *         required: true
+ *       - in: path
+ *         name: componentSlug
+ *         schema:
+ *           type: string
+ *         required: true
+ *       - in: query
+ *         name: is_dev
+ *         schema:
+ *           type: boolean
+ *         description: "`false` counts live sites only, `true` dev sites only. Omit for both."
+ *     responses:
+ *       200:
+ *         description: >
+ *           `component` (identity, latest_version, malware and wordpress.org
+ *           status), `site_count`, `version_count`, and `versions[]`, each with
+ *           `version`, `is_latest`, `has_vulnerabilities`, `vulnerabilities`
+ *           (URLs), `site_count` and `sites[]` (domain, title, url, user_id,
+ *           username, is_dev, versions_last_checked_at). A component installed
+ *           nowhere returns an empty `versions` array.
+ *       400:
+ *         description: Invalid is_dev
+ *       404:
+ *         description: Component type or component not found
+ */
+router.get('/:componentTypeSlug/:componentSlug/installs', apiAuth, logApiCall, sanitiseComponentSlugMiddleware, async (req, res) => {
+  try {
+    const { componentTypeSlug, componentSlug } = req.params;
+    const isDev = booleanFlag(req.query.is_dev);
+    if (isDev === undefined) {
+      return res.status(400).json({ error: 'Invalid is_dev', message: 'is_dev must be true, false, 1 or 0.' });
+    }
+
+    const [componentType] = await db.query('SELECT slug FROM component_types WHERE slug = ?', [componentTypeSlug]);
+    if (!componentType) {
+      return res.status(404).send('Component type not found');
+    }
+
+    const [component] = await db.query(`${COMPONENT_SELECT} WHERE c.component_type_slug = ? AND c.slug = ?`, [componentTypeSlug, componentSlug]);
+    if (!component) {
+      return res.status(404).send('Component not found');
+    }
+
+    const roles = await User.getRoles(req.user.id);
+    const userId = roles.includes('administrator') ? null : req.user.id;
+    const installRows = await WebsiteComponent.findInstallsOfComponent(component.id, { userId, isDev });
+    const releaseIds = [...new Set(installRows.map((row) => parseInt(row.release_id, 10)))];
+    const urlsByRelease = await WebsiteComponent.findVulnerabilityUrlsByRelease(releaseIds);
+    const versions = groupInstallsByVersion(installRows, urlsByRelease, component.latest_version);
+
+    res.json({
+      component: {
+        id: parseInt(component.id, 10),
+        slug: component.slug,
+        component_type_slug: component.component_type_slug,
+        title: component.title,
+        latest_version: component.latest_version || null,
+        is_malware: !!component.is_malware,
+        malware_summary: component.malware_summary || null,
+        wporg_status: component.wporg_status_slug || null,
+        wporg_closure_reason: component.wporg_closure_reason_slug || null,
+        wporg_closure_is_security_concern: closureSecurityConcern(component.wporg_closure_is_security_concern),
+      },
+      site_count: new Set(installRows.map((row) => parseInt(row.website_id, 10))).size,
+      version_count: versions.length,
+      versions,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
 /**
  * @swagger
  * /api/components/{componentTypeSlug}/{componentSlug}/{version}:
