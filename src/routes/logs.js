@@ -1,7 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { apiAuth } = require('../middleware/auth');
+const { apiAuth, hasRole } = require('../middleware/auth');
+const { ROLE_ADMINISTRATOR } = require('../models/role');
+const { resolvePagination } = require('../lib/pagination');
+
+const DEFAULT_LOG_PAGE_SIZE = 50;
 const { logApiCall } = require('../middleware/logApiCall');
 
 /**
@@ -9,6 +13,9 @@ const { logApiCall } = require('../middleware/logApiCall');
  * /api/logs:
  *   get:
  *     summary: Get API call logs
+ *     description: >
+ *       Administrator only (since v1.44.0). The log holds every account's
+ *       username, route, query string and source IP.
  *     tags:
  *       - Logs
  *     parameters:
@@ -21,7 +28,7 @@ const { logApiCall } = require('../middleware/logApiCall');
  *         name: limit
  *         schema:
  *           type: integer
- *         description: Items per page (default 50)
+ *         description: Items per page (default 50). Capped by API_MAX_PAGE_SIZE (default 200); a larger value is a 400.
  *       - in: query
  *         name: sort
  *         schema:
@@ -51,16 +58,22 @@ const { logApiCall } = require('../middleware/logApiCall');
  *                   type: integer
  *                 limit:
  *                   type: integer
+ *       400:
+ *         description: Invalid pagination
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Not an administrator
  *       500:
  *         description: Server error
  */
-router.get('/', apiAuth, logApiCall, async (req, res) => {
+router.get('/', apiAuth, logApiCall, hasRole(ROLE_ADMINISTRATOR), async (req, res) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 50;
-    const offset = (page - 1) * limit;
+    const pagination = resolvePagination(req.query, DEFAULT_LOG_PAGE_SIZE);
+    if (pagination.error) {
+      return res.status(400).json(pagination.error);
+    }
+    const { page, limit, offset } = pagination;
     const sort = req.query.sort === 'asc' ? 'ASC' : 'DESC';
     const username = req.query.username;
 
