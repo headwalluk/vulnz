@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const router = express.Router();
 const { notifyAuth } = require('../middleware/notifyAuth');
 
@@ -9,7 +9,8 @@ const { notifyAuth } = require('../middleware/notifyAuth');
 const notifyLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
-  keyGenerator: (req) => req.headers['x-forwarded-for'] || req.connection.remoteAddress,
+  // req.ip honours 'trust proxy'; a raw X-Forwarded-For header can be rotated to dodge the limit
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
   handler: (req, res) => res.status(429).json({ error: 'Too many requests' }),
 });
 const notificationSite = require('../models/notificationSite');

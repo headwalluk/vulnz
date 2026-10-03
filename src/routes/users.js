@@ -607,7 +607,7 @@ router.put('/:id/unpause', apiKeyAdminAuth, logApiCall, async (req, res) => {
 router.put('/:id/block', apiKeyAdminAuth, logApiCall, async (req, res) => {
   try {
     // Prevent admin from blocking themselves
-    if (parseInt(req.params.id, 10) === req.user.id) {
+    if (String(req.params.id) === String(req.user.id)) {
       return res.status(403).send('You cannot block your own account. This would cause a complete system lockout.');
     }
     await user.updateUser(req.params.id, { blocked: true });
