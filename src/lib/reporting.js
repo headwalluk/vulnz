@@ -76,11 +76,21 @@ function deduplicatePlugins(plugins) {
   return Array.from(pluginMap.values());
 }
 
+/**
+ * Build and send the summary report for one user; returns false without sending when they have no websites.
+ * @param {object} userToSend
+ * @returns {Promise<boolean>} Whether a report was sent.
+ */
 async function sendSummaryEmail(userToSend) {
   const roles = await getRoles(userToSend.id);
   const isAdministrator = roles.includes(ROLE_ADMINISTRATOR);
 
   const totalWebsites = await website.countAll(isAdministrator ? null : userToSend.id);
+  if (totalWebsites === 0) {
+    logger.info(`Report for user ${userToSend.id} not sent: no websites on the account`);
+    return false;
+  }
+
   const vulnerableWebsites = await website.findAll(isAdministrator ? null : userToSend.id, 1000, 0, null, true);
 
   for (const site of vulnerableWebsites) {
@@ -285,6 +295,8 @@ async function sendSummaryEmail(userToSend) {
     await emailLog.logEmail(delivery.to, emailLog.EMAIL_TYPE_VULNERABILITY_REPORT, 'error', logContext);
     throw emailError;
   }
+
+  return true;
 }
 
 async function sendWeeklyReports() {
@@ -312,6 +324,7 @@ async function sendWeeklyReports() {
     logger.info(`Sending emails to ${userToSend.username}`);
 
     try {
+      // Stamped even when skipped for having no websites, so the user leaves today's queue
       await sendSummaryEmail(userToSend);
       await user.updateLastSummarySentAt(userToSend.id);
     } catch (err) {

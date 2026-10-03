@@ -14,7 +14,7 @@ const mockDb = {
 
 jest.mock('../../src/db', () => mockDb);
 
-const mockReporting = { sendSummaryEmail: jest.fn().mockResolvedValue(undefined) };
+const mockReporting = { sendSummaryEmail: jest.fn().mockResolvedValue(true) };
 jest.mock('../../src/lib/reporting', () => mockReporting);
 
 describe('POST /api/reports/summary-email', () => {
@@ -57,8 +57,18 @@ describe('POST /api/reports/summary-email', () => {
     const response = await request(app).post('/api/reports/summary-email').set('X-API-Key', customerApiKey).send({});
 
     expect(response.status).toBe(200);
+    expect(response.text).toBe('Report sent');
     expect(mockReporting.sendSummaryEmail).toHaveBeenCalledTimes(1);
     expect(mockReporting.sendSummaryEmail.mock.calls[0][0].username).toBe('customer@example.com');
+  });
+
+  test('an account with no websites is told no report was sent', async () => {
+    mockReporting.sendSummaryEmail.mockResolvedValueOnce(false);
+
+    const response = await request(app).post('/api/reports/summary-email').set('X-API-Key', customerApiKey).send({});
+
+    expect(response.status).toBe(200);
+    expect(response.text).toBe('Report not sent: no websites on this account');
   });
 
   test("a user cannot trigger someone else's report", async () => {

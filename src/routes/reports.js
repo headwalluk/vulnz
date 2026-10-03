@@ -27,7 +27,9 @@ const { ROLE_ADMINISTRATOR } = require('../models/role');
  *                 description: User ID to send the report for (administrators only; defaults to the authenticated user)
  *     responses:
  *       200:
- *         description: Report sent
+ *         description: >
+ *           `Report sent`, or `Report not sent: no websites on this account` when the
+ *           user has no websites (no email is sent for an empty account).
  *       400:
  *         description: user_id is required
  *       403:
@@ -56,9 +58,9 @@ router.post('/summary-email', apiAuth, logApiCall, async (req, res) => {
       return res.status(404).send('User not found');
     }
 
-    await sendSummaryEmail(userToSend);
+    const sent = await sendSummaryEmail(userToSend);
 
-    res.send('Report sent');
+    res.send(sent ? 'Report sent' : 'Report not sent: no websites on this account');
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');

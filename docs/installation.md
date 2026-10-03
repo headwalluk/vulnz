@@ -178,7 +178,7 @@ curl -X POST "http://localhost:3000/api/reports/summary-email" \
   -d '{}'
 ```
 
-With an empty body the report goes to the key holder's own account. An administrator may pass `{"user_id": 3}` to send another user's report. A `Report sent` response means SMTP accepted it.
+With an empty body the report goes to the key holder's own account. An administrator may pass `{"user_id": 3}` to send another user's report. A `Report sent` response means SMTP accepted it. An account with no websites gets no report, weekly or on demand: the response is `Report not sent: no websites on this account`.
 
 ### Configure WordPress.org Sync (Optional)
 

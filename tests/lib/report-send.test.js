@@ -1,5 +1,6 @@
 /**
  * The weekly report goes to the resolved recipient with the CC list on the same message, and the log records both.
+ * An account with no websites is skipped without sending.
  * Runs the real sendSummaryEmail() against the SQLite test database; only the mail transport is replaced.
  */
 
@@ -38,7 +39,7 @@ describe('sendSummaryEmail with a CC list', () => {
   test('sends one message with the valid CC addresses, and logs recipient, CC and account', async () => {
     const [account] = await db.query('SELECT * FROM users WHERE id = ?', [accountId]);
 
-    await sendSummaryEmail(account);
+    await expect(sendSummaryEmail(account)).resolves.toBe(true);
 
     expect(mockEmailer.sendVulnerabilityReport).toHaveBeenCalledTimes(1);
     const [to, , cc] = mockEmailer.sendVulnerabilityReport.mock.calls[0];
@@ -58,5 +59,35 @@ describe('sendSummaryEmail with a CC list', () => {
 
     const [logged] = await db.query('SELECT * FROM email_logs ORDER BY id DESC LIMIT 1');
     expect(logged).toMatchObject({ user_id: accountId, status: 'error', cc_emails: 'agency@example.net, client@example.com' });
+  });
+
+});
+
+describe('sendSummaryEmail for an account with no websites', () => {
+  let db;
+  let emptyAccountId;
+
+  beforeAll(async () => {
+    db = await createTestDatabase();
+    mockDb.query.mockImplementation((...args) => db.query(...args));
+    await initializeSchema(db);
+    emptyAccountId = (await createTestUser(db, { username: 'empty@example.com', role: 'user' })).id;
+    const otherAccountId = (await createTestUser(db, { username: 'other@example.com', role: 'user' })).id;
+    await createTestWebsite(db, { domain: 'someone-elses-site.example.com', user_id: otherAccountId });
+  });
+
+  afterAll(async () => {
+    await cleanupTestDatabase(db);
+  });
+
+  test('sends nothing, logs nothing and returns false', async () => {
+    mockEmailer.sendVulnerabilityReport.mockClear();
+    const [account] = await db.query('SELECT * FROM users WHERE id = ?', [emptyAccountId]);
+
+    await expect(sendSummaryEmail(account)).resolves.toBe(false);
+
+    expect(mockEmailer.sendVulnerabilityReport).not.toHaveBeenCalled();
+    const logged = await db.query('SELECT * FROM email_logs WHERE user_id = ?', [emptyAccountId]);
+    expect(logged).toHaveLength(0);
   });
 });
