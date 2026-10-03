@@ -33,7 +33,9 @@ const { sanitizeEmailHtml } = require('../lib/htmlSanitizer');
  *         name: q
  *         schema:
  *           type: string
- *         description: Search query
+ *         description: >
+ *           Case-insensitive substring match against the username (the
+ *           account email) or the reporting email. Users have no name field.
  *     responses:
  *       200:
  *         description: A list of users
@@ -69,6 +71,9 @@ const { sanitizeEmailHtml } = require('../lib/htmlSanitizer');
  *                         type: array
  *                         items:
  *                           type: string
+ *                       website_count:
+ *                         type: integer
+ *                         description: Websites this user owns. List them with `GET /api/websites?user_id=`.
  *                 total:
  *                   type: integer
  *                 page:
@@ -89,13 +94,14 @@ router.get('/', apiKeyAdminAuth, async (req, res) => {
     let totalUsers;
     const queryParams = [];
 
-    let baseQuery = 'SELECT id, username, blocked, paused, max_api_keys, reporting_weekday, reporting_email, enable_white_label, white_label_html FROM users';
+    let baseQuery =
+      'SELECT id, username, blocked, paused, max_api_keys, reporting_weekday, reporting_email, enable_white_label, white_label_html, (SELECT COUNT(*) FROM websites w WHERE w.user_id = users.id) AS website_count FROM users';
     let countQuery = 'SELECT COUNT(*) as count FROM users';
 
     if (searchQuery) {
-      baseQuery += ' WHERE username LIKE ?';
-      countQuery += ' WHERE username LIKE ?';
-      queryParams.push(`%${searchQuery}%`);
+      baseQuery += ' WHERE username LIKE ? OR reporting_email LIKE ?';
+      countQuery += ' WHERE username LIKE ? OR reporting_email LIKE ?';
+      queryParams.push(`%${searchQuery}%`, `%${searchQuery}%`);
     }
 
     baseQuery += ' LIMIT ? OFFSET ?';
@@ -108,7 +114,7 @@ router.get('/', apiKeyAdminAuth, async (req, res) => {
       u.roles = roles.map((r) => r.name);
     }
 
-    const countParams = searchQuery ? [`%${searchQuery}%`] : [];
+    const countParams = searchQuery ? [`%${searchQuery}%`, `%${searchQuery}%`] : [];
     totalUsers = await db.query(countQuery, countParams);
     const total = parseInt(totalUsers[0].count, 10);
 
@@ -117,6 +123,7 @@ router.get('/', apiKeyAdminAuth, async (req, res) => {
       id: parseInt(u.id, 10),
       blocked: Boolean(u.blocked),
       paused: Boolean(u.paused),
+      website_count: Number(u.website_count),
     }));
 
     const totalPages = Math.ceil(total / limit);

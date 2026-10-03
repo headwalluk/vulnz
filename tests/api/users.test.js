@@ -7,7 +7,7 @@
 const request = require('supertest');
 const express = require('express');
 const passport = require('passport');
-const { createTestDatabase, initializeSchema, createTestUser, createTestApiKey, cleanupTestDatabase } = require('../setup');
+const { createTestDatabase, initializeSchema, createTestUser, createTestApiKey, createTestWebsite, cleanupTestDatabase } = require('../setup');
 
 // Mock the db module
 const mockDb = {
@@ -63,7 +63,6 @@ describe('Users API', () => {
     // Create Express app
     app = express();
     app.use(express.json());
-
 
     app.use(passport.initialize());
 
@@ -121,6 +120,27 @@ describe('Users API', () => {
       expect(response.status).toBe(200);
       const usernames = response.body.users.map((u) => u.username);
       expect(usernames).toContain('admin@example.com');
+    });
+
+    test('search matches the reporting email as well as the username', async () => {
+      const reportingUser = await createTestUser(db, { username: 'owner@example.com', role: 'user' });
+      await db.query('UPDATE users SET reporting_email = ? WHERE id = ?', ['accounts@agency.test', reportingUser.id]);
+
+      const response = await request(app).get('/api/users?q=agency').set('X-API-Key', adminApiKey);
+
+      expect(response.status).toBe(200);
+      expect(response.body.users.map((u) => u.username)).toEqual(['owner@example.com']);
+      expect(response.body.total).toBe(1);
+    });
+
+    test('reports how many websites each user owns', async () => {
+      const siteOwner = await createTestUser(db, { username: 'siteowner@example.com', role: 'user' });
+      await createTestWebsite(db, { domain: 'one.example.com', user_id: siteOwner.id });
+      await createTestWebsite(db, { domain: 'two.example.com', user_id: siteOwner.id });
+
+      const response = await request(app).get('/api/users?q=siteowner').set('X-API-Key', adminApiKey);
+
+      expect(response.body.users[0].website_count).toBe(2);
     });
 
     test('should require authentication', async () => {
