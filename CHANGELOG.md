@@ -17,6 +17,7 @@
 - **User search matches the CC list.** `GET /api/users?q=` now also matches `reporting_cc`, and each result carries `matched_on`, so an account owner can be told apart from an agency that is only copied in.
 - **Email history per account.** The email log now records the account and the CC addresses of each send. `GET /api/users/{id}/emails` (administrators) lists an account's emails, newest first, with recipient, CC, type, status and time.
 - **CLI:** `user:info` shows the CC list and where the report actually goes.
+- **Immediate malware alerts reach the agency too.** When a site's account has a `reporting_cc` list, those addresses get the malware alert as a **separate** email, so the operator's address (`MALWARE_ALERT_EMAIL`) is never shown to them. The account owner is not emailed. If either send fails, the alert stays unsent and the next sync retries both. With `MALWARE_ALERT_EMAIL` unset, only the CC lists are alerted.
 
 ### Upgrading
 
