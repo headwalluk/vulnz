@@ -449,10 +449,35 @@ describe('Components API', () => {
   });
 
   describe('POST /api/components/:componentTypeSlug/:componentSlug/:version', () => {
-    test('should add a new release as authenticated user', async () => {
+    let ingestApiKey;
+
+    beforeAll(async () => {
+      const ingestUser = await createTestUser(db, { username: 'ingest@example.com', role: 'ingest' });
+      ingestApiKey = await createTestApiKey(db, ingestUser.id);
+    });
+
+    test('refuses a plain user key (since v1.46.0)', async () => {
+      const response = await request(app)
+        .post(`/api/components/${testComponentType.slug}/${testComponent.slug}/7.7.7`)
+        .set('X-API-Key', regularApiKey)
+        .send({ urls: ['https://example.test/advisory/refused'] });
+
+      expect(response.status).toBe(403);
+    });
+
+    test('accepts an administrator key', async () => {
+      const response = await request(app)
+        .post(`/api/components/${testComponentType.slug}/${testComponent.slug}/7.7.8`)
+        .set('X-API-Key', adminApiKey)
+        .send({ urls: ['https://example.test/advisory/admin'] });
+
+      expect(response.status).toBeLessThan(300);
+    });
+
+    test('should add a new release with an ingest key', async () => {
       const response = await request(app)
         .post(`/api/components/${testComponentType.slug}/${testComponent.slug}/2.0.0`)
-        .set('X-API-Key', regularApiKey)
+        .set('X-API-Key', ingestApiKey)
         .send({
           urls: ['https://example.com/vulnerability'],
         });
@@ -468,7 +493,7 @@ describe('Components API', () => {
       // Production uses INSERT OR IGNORE, so duplicates are silently ignored
       const response = await request(app)
         .post(`/api/components/${testComponentType.slug}/${testComponent.slug}/1.0.0`)
-        .set('X-API-Key', regularApiKey)
+        .set('X-API-Key', ingestApiKey)
         .send({
           urls: ['https://example.com/vuln'],
         });
@@ -479,7 +504,7 @@ describe('Components API', () => {
     test('should reject a version that is not a recognisable version', async () => {
       const response = await request(app)
         .post(`/api/components/${testComponentType.slug}/${testComponent.slug}/invalid-version`)
-        .set('X-API-Key', regularApiKey)
+        .set('X-API-Key', ingestApiKey)
         .send({
           urls: ['https://example.com/vuln'],
         });
@@ -504,11 +529,11 @@ describe('Components API', () => {
 
       const accepted = await request(app)
         .post(endpoint)
-        .set('X-API-Key', regularApiKey)
+        .set('X-API-Key', ingestApiKey)
         .send({ urls: [urlOfLength(2048)] });
       const rejected = await request(app)
         .post(endpoint)
-        .set('X-API-Key', regularApiKey)
+        .set('X-API-Key', ingestApiKey)
         .send({ urls: [urlOfLength(2049)] });
 
       expect(accepted.status).toBe(200);

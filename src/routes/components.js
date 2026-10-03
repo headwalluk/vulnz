@@ -21,7 +21,7 @@ const Release = require('../models/release');
 const DEFAULT_SEARCH_PAGE_SIZE = 10;
 const vulnerabilityRange = require('../models/vulnerabilityRange');
 const User = require('../models/user');
-const { ROLE_ADMINISTRATOR } = require('../models/role');
+const { ROLE_ADMINISTRATOR, VULNERABILITY_WRITER_ROLES } = require('../models/role');
 const WebsiteComponent = require('../models/websiteComponent');
 const { booleanFlag } = require('../lib/queryParams');
 const { versionSortCompare } = require('../lib/versionCompare');
@@ -417,6 +417,7 @@ router.post('/', apiAuth, logApiCall, hasRole(ROLE_ADMINISTRATOR), async (req, r
  * /api/components/{componentTypeSlug}/{componentSlug}/{version}:
  *   post:
  *     summary: Create a new vulnerability for a release
+ *     description: Requires the administrator or ingest role (since v1.46.0). Creates the component and release if they do not exist.
  *     tags: [Components]
  *     parameters:
  *       - in: path
@@ -452,6 +453,8 @@ router.post('/', apiAuth, logApiCall, hasRole(ROLE_ADMINISTRATOR), async (req, r
  *                   type: string
  *                 description: Array of vulnerability reference URLs
  *     responses:
+ *       403:
+ *         description: Neither the administrator nor the ingest role
  *       200:
  *         description: Vulnerabilities created for the release
  *       400:
@@ -459,7 +462,7 @@ router.post('/', apiAuth, logApiCall, hasRole(ROLE_ADMINISTRATOR), async (req, r
  *       404:
  *         description: Component type not found
  */
-router.post('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, sanitiseComponentSlugMiddleware, async (req, res) => {
+router.post('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, hasRole(VULNERABILITY_WRITER_ROLES), sanitiseComponentSlugMiddleware, async (req, res) => {
   try {
     const { componentTypeSlug, componentSlug } = req.params;
     const version = req.params.version;

@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { apiAuth } = require('../middleware/auth');
+const { apiAuth, hasRole } = require('../middleware/auth');
+const { VULNERABILITY_WRITER_ROLES } = require('../models/role');
 const { logApiCall } = require('../middleware/logApiCall');
 const { sanitizeComponentSlug } = require('../lib/sanitizer');
 const { normaliseReportedVersion, MAX_VERSION_LENGTH } = require('../lib/versionCompare');
@@ -94,6 +95,8 @@ const MAX_BULK_ITEMS = 500;
  *                         $ref: '#/components/schemas/BulkItemError'
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: The key's account holds neither the administrator nor the ingest role (since v1.46.0)
  *       500:
  *         description: Unexpected failure
  *         content:
@@ -101,7 +104,7 @@ const MAX_BULK_ITEMS = 500;
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/bulk', apiAuth, logApiCall, async (req, res) => {
+router.post('/bulk', apiAuth, logApiCall, hasRole(VULNERABILITY_WRITER_ROLES), async (req, res) => {
   try {
     const { items } = req.body;
 

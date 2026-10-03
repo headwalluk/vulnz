@@ -21,16 +21,20 @@ describe('Vulnerabilities API', () => {
   let db;
   let regularUser;
   let regularApiKey;
+  let plainApiKey;
 
   beforeAll(async () => {
     db = await createTestDatabase();
     mockDb.query.mockImplementation((...args) => db.query(...args));
     await initializeSchema(db);
 
+    // The bulk writes need the ingest (or administrator) role since v1.46.0
     regularUser = await createTestUser(db, {
       username: 'vuln-user@example.com',
-      role: 'user',
+      role: 'ingest',
     });
+    const plainUser = await createTestUser(db, { username: 'plain-vuln-user@example.com', role: 'user' });
+    plainApiKey = await createTestApiKey(db, plainUser.id);
     regularApiKey = await createTestApiKey(db, regularUser.id, 'Vuln User Key');
 
     require('../../src/config/passport');
@@ -50,38 +54,33 @@ describe('Vulnerabilities API', () => {
   });
 
   describe('POST /api/vulnerabilities/bulk', () => {
+    test('refuses a key whose account has neither the ingest nor the administrator role', async () => {
+      const response = await request(app).post('/api/vulnerabilities/bulk').set('X-API-Key', plainApiKey).send({ items: [] });
+
+      expect(response.status).toBe(403);
+    });
+
     test('should require authentication', async () => {
-      const response = await request(app)
-        .post('/api/vulnerabilities/bulk')
-        .send({ items: [] });
+      const response = await request(app).post('/api/vulnerabilities/bulk').send({ items: [] });
 
       expect(response.status).toBe(401);
     });
 
     test('should reject empty body', async () => {
-      const response = await request(app)
-        .post('/api/vulnerabilities/bulk')
-        .set('X-API-Key', regularApiKey)
-        .send({});
+      const response = await request(app).post('/api/vulnerabilities/bulk').set('X-API-Key', regularApiKey).send({});
 
       expect(response.status).toBe(400);
       expect(response.body.error).toMatch(/items/);
     });
 
     test('should reject non-array items', async () => {
-      const response = await request(app)
-        .post('/api/vulnerabilities/bulk')
-        .set('X-API-Key', regularApiKey)
-        .send({ items: 'not-an-array' });
+      const response = await request(app).post('/api/vulnerabilities/bulk').set('X-API-Key', regularApiKey).send({ items: 'not-an-array' });
 
       expect(response.status).toBe(400);
     });
 
     test('should reject empty items array', async () => {
-      const response = await request(app)
-        .post('/api/vulnerabilities/bulk')
-        .set('X-API-Key', regularApiKey)
-        .send({ items: [] });
+      const response = await request(app).post('/api/vulnerabilities/bulk').set('X-API-Key', regularApiKey).send({ items: [] });
 
       expect(response.status).toBe(400);
     });
@@ -603,7 +602,15 @@ describe('Vulnerabilities API', () => {
         { componentTypeSlug: TYPE, componentSlug: 'codes-d', urls: [URL] },
         { componentTypeSlug: TYPE, componentSlug: 'codes-e', version: '.3.1', urls: [URL] },
         { componentTypeSlug: TYPE, componentSlug: 'codes-f', ranges: 'nope', urls: [URL] },
-        { componentTypeSlug: TYPE, componentSlug: 'codes-g', ranges: [{ from: null, to: '1.0', toInclusive: true }, { from: null, to: '1 EN', toInclusive: true }], urls: [URL] },
+        {
+          componentTypeSlug: TYPE,
+          componentSlug: 'codes-g',
+          ranges: [
+            { from: null, to: '1.0', toInclusive: true },
+            { from: null, to: '1 EN', toInclusive: true },
+          ],
+          urls: [URL],
+        },
         { componentTypeSlug: TYPE, componentSlug: 'codes-h', ranges: [{ from: null, to: '1.0' }], urls: [URL] },
         { componentTypeSlug: TYPE, componentSlug: 'codes-i', ranges: [{ from: '2.0', fromInclusive: true, to: '1.0', toInclusive: true }], urls: [URL] },
         { componentTypeSlug: TYPE, componentSlug: 'codes-j', version: '1.0' },

@@ -42,7 +42,9 @@ function optionalApiAuth(req, res, next) {
   })(req, res, next);
 }
 
-function hasRole(role) {
+/** Middleware allowing the request through when the user holds the role, or any of the roles given as an array. */
+function hasRole(roleOrRoles) {
+  const allowedRoles = Array.isArray(roleOrRoles) ? roleOrRoles : [roleOrRoles];
   return async (req, res, next) => {
     if (!req.user) {
       return res.status(401).send('Unauthorized');
@@ -50,7 +52,7 @@ function hasRole(role) {
     try {
       const rows = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [req.user.id]);
       const roles = rows.map((row) => row.name);
-      if (roles.includes(role)) {
+      if (roles.some((roleName) => allowedRoles.includes(roleName))) {
         return next();
       }
       res.status(403).send('Forbidden');

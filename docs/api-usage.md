@@ -448,6 +448,8 @@ curl -X POST \
 
 ### Reporting a Vulnerability
 
+Writing vulnerability, range or release data — this route, `POST /api/vulnerabilities/bulk` and `POST /api/releases/bulk` — needs a key whose account holds the `ingest` or `administrator` role (since v1.46.0). Other keys get `403`. Grant the role with `bin/vulnz.js user:role:add <email> ingest`.
+
 Add vulnerability information for a specific component version:
 
 ```bash

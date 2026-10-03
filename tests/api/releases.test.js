@@ -21,16 +21,20 @@ describe('Releases API', () => {
   let db;
   let regularUser;
   let regularApiKey;
+  let plainApiKey;
 
   beforeAll(async () => {
     db = await createTestDatabase();
     mockDb.query.mockImplementation((...args) => db.query(...args));
     await initializeSchema(db);
 
+    // The bulk writes need the ingest (or administrator) role since v1.46.0
     regularUser = await createTestUser(db, {
       username: 'release-user@example.com',
-      role: 'user',
+      role: 'ingest',
     });
+    const plainUser = await createTestUser(db, { username: 'plain-release-user@example.com', role: 'user' });
+    plainApiKey = await createTestApiKey(db, plainUser.id);
     regularApiKey = await createTestApiKey(db, regularUser.id);
 
     require('../../src/config/passport');
@@ -50,38 +54,33 @@ describe('Releases API', () => {
   });
 
   describe('POST /api/releases/bulk', () => {
+    test('refuses a key whose account has neither the ingest nor the administrator role', async () => {
+      const response = await request(app).post('/api/releases/bulk').set('X-API-Key', plainApiKey).send({ items: [] });
+
+      expect(response.status).toBe(403);
+    });
+
     test('should require authentication', async () => {
-      const response = await request(app)
-        .post('/api/releases/bulk')
-        .send({ items: [] });
+      const response = await request(app).post('/api/releases/bulk').send({ items: [] });
 
       expect(response.status).toBe(401);
     });
 
     test('should reject empty body', async () => {
-      const response = await request(app)
-        .post('/api/releases/bulk')
-        .set('X-API-Key', regularApiKey)
-        .send({});
+      const response = await request(app).post('/api/releases/bulk').set('X-API-Key', regularApiKey).send({});
 
       expect(response.status).toBe(400);
       expect(response.body.error).toMatch(/items/);
     });
 
     test('should reject non-array items', async () => {
-      const response = await request(app)
-        .post('/api/releases/bulk')
-        .set('X-API-Key', regularApiKey)
-        .send({ items: 'not-an-array' });
+      const response = await request(app).post('/api/releases/bulk').set('X-API-Key', regularApiKey).send({ items: 'not-an-array' });
 
       expect(response.status).toBe(400);
     });
 
     test('should reject empty items array', async () => {
-      const response = await request(app)
-        .post('/api/releases/bulk')
-        .set('X-API-Key', regularApiKey)
-        .send({ items: [] });
+      const response = await request(app).post('/api/releases/bulk').set('X-API-Key', regularApiKey).send({ items: [] });
 
       expect(response.status).toBe(400);
     });
@@ -93,10 +92,7 @@ describe('Releases API', () => {
         version: '1.0.0',
       }));
 
-      const response = await request(app)
-        .post('/api/releases/bulk')
-        .set('X-API-Key', regularApiKey)
-        .send({ items });
+      const response = await request(app).post('/api/releases/bulk').set('X-API-Key', regularApiKey).send({ items });
 
       expect(response.status).toBe(400);
       expect(response.body.error).toMatch(/500/);
@@ -143,10 +139,7 @@ describe('Releases API', () => {
       expect(response.body.duplicates).toBe(0);
 
       // Verify component was created
-      const comp = await db.query('SELECT * FROM components WHERE slug = ? AND component_type_slug = ?', [
-        'release-test-plugin',
-        'wordpress-plugin',
-      ]);
+      const comp = await db.query('SELECT * FROM components WHERE slug = ? AND component_type_slug = ?', ['release-test-plugin', 'wordpress-plugin']);
       expect(comp.length).toBe(1);
 
       // Verify release was created
@@ -245,10 +238,7 @@ describe('Releases API', () => {
       expect(response.body.duplicates).toBe(1);
 
       // Only one release record in database
-      const comp = await db.query('SELECT * FROM components WHERE slug = ? AND component_type_slug = ?', [
-        'intra-dup-plugin',
-        'wordpress-plugin',
-      ]);
+      const comp = await db.query('SELECT * FROM components WHERE slug = ? AND component_type_slug = ?', ['intra-dup-plugin', 'wordpress-plugin']);
       const releases = await db.query('SELECT * FROM releases WHERE component_id = ?', [comp[0].id]);
       expect(releases.length).toBe(1);
     });
@@ -262,10 +252,7 @@ describe('Releases API', () => {
         'Already exists',
       ]);
 
-      const comp = await db.query('SELECT * FROM components WHERE slug = ? AND component_type_slug = ?', [
-        'pre-existing-rel',
-        'wordpress-plugin',
-      ]);
+      const comp = await db.query('SELECT * FROM components WHERE slug = ? AND component_type_slug = ?', ['pre-existing-rel', 'wordpress-plugin']);
       await db.query('INSERT INTO releases (component_id, version) VALUES (?, ?)', [comp[0].id, '5.0.0']);
 
       const response = await request(app)
@@ -291,10 +278,7 @@ describe('Releases API', () => {
       expect(response.body.duplicates).toBe(1);
 
       // Should not have created a duplicate component
-      const comps = await db.query('SELECT * FROM components WHERE slug = ? AND component_type_slug = ?', [
-        'pre-existing-rel',
-        'wordpress-plugin',
-      ]);
+      const comps = await db.query('SELECT * FROM components WHERE slug = ? AND component_type_slug = ?', ['pre-existing-rel', 'wordpress-plugin']);
       expect(comps.length).toBe(1);
     });
 
@@ -365,10 +349,7 @@ describe('Releases API', () => {
       expect(response.body.created).toBe(1);
 
       // Slug should be lowercased with extension stripped
-      const comp = await db.query('SELECT * FROM components WHERE slug = ? AND component_type_slug = ?', [
-        'sanitize-rel',
-        'wordpress-plugin',
-      ]);
+      const comp = await db.query('SELECT * FROM components WHERE slug = ? AND component_type_slug = ?', ['sanitize-rel', 'wordpress-plugin']);
       expect(comp.length).toBe(1);
 
       // Tags and whitespace go; the version itself is never rewritten
@@ -394,10 +375,7 @@ describe('Releases API', () => {
       expect(response.body.duplicates).toBe(0);
 
       // One component, four releases
-      const comp = await db.query('SELECT * FROM components WHERE slug = ? AND component_type_slug = ?', [
-        'multi-ver',
-        'wordpress-plugin',
-      ]);
+      const comp = await db.query('SELECT * FROM components WHERE slug = ? AND component_type_slug = ?', ['multi-ver', 'wordpress-plugin']);
       expect(comp.length).toBe(1);
 
       const releases = await db.query('SELECT * FROM releases WHERE component_id = ?', [comp[0].id]);
@@ -411,10 +389,7 @@ describe('Releases API', () => {
         version: '1.0.0',
       }));
 
-      const response = await request(app)
-        .post('/api/releases/bulk')
-        .set('X-API-Key', regularApiKey)
-        .send({ items });
+      const response = await request(app).post('/api/releases/bulk').set('X-API-Key', regularApiKey).send({ items });
 
       expect(response.status).toBe(200);
       expect(response.body.created).toBe(500);

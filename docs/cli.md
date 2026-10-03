@@ -246,7 +246,15 @@ Keys carry no permissions of their own; change the owner's roles with user:role:
 
 ### `user:role:add <email> <role>` / `user:role:remove <email> <role>`
 
-Grant or withdraw a role (`user`, `administrator`). This is how to change what a user's API keys can do. An unknown role is an error, and a user's last role cannot be removed.
+Grant or withdraw a role. This is how to change what a user's API keys can do. An unknown role is an error, and a user's last role cannot be removed.
+
+| Role            | What its keys can do                                                                                                                                                                           |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `user`          | Read and write the account's own websites                                                                                                                                                      |
+| `ingest`        | Also write the shared vulnerability, range and release data (`POST /api/vulnerabilities/bulk`, `POST /api/releases/bulk`, `POST /api/components/{type}/{slug}/{version}`), for a feed importer |
+| `administrator` | Everything, across every account                                                                                                                                                               |
+
+A role added in a new release can be granted from the CLI before the server has been restarted on that release.
 
 ```bash
 node bin/vulnz.js user:role:add agent@example.com administrator

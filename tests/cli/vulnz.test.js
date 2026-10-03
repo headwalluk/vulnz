@@ -567,6 +567,16 @@ describe('CLI: key:show', () => {
     expect(JSON.parse(result.stdout)).toMatchObject({ id: 8, user_id: 4, username: 'customer@example.com', status: 'paused', roles: ['user'], access: 'own websites only' });
   });
 
+  test('describes an ingest key', async () => {
+    mockApiKey.findByKey.mockResolvedValue({ id: 9, api_key: SAMPLE_KEY, user_id: 5, createdAt: '2026-10-03 00:00:00' });
+    mockUser.findUserById.mockResolvedValue({ id: 5, username: 'ingest@example.com', blocked: 0, paused: 0 });
+    mockUser.getRoles.mockResolvedValue(['user', 'ingest']);
+
+    const result = await runCli(['key:show', SAMPLE_KEY]);
+
+    expect(result.stdout).toMatch(/Access: own websites, plus writes to the shared vulnerability and release data/);
+  });
+
   test('exits 1 for an unknown key', async () => {
     mockApiKey.findByKey.mockResolvedValue(null);
 

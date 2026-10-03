@@ -35,7 +35,7 @@ BigInt.prototype.toJSON = function () {
 const { Command } = require('commander');
 const user = require('../src/models/user');
 const apiKey = require('../src/models/apiKey');
-const { ROLES, ROLE_USER, ROLE_ADMINISTRATOR } = require('../src/models/role');
+const { ROLES, ROLE_USER, ROLE_ADMINISTRATOR, ROLE_INGEST } = require('../src/models/role');
 const feed = require('../src/models/feed');
 const component = require('../src/models/component');
 const release = require('../src/models/release');
@@ -473,7 +473,12 @@ program
       const roles = await user.getRoles(ownerId);
       const status = owner.blocked ? 'BLOCKED' : owner.paused ? 'paused' : 'active';
       const created = found.createdAt instanceof Date ? found.createdAt.toISOString() : String(found.createdAt);
-      const access = roles.includes(ROLE_ADMINISTRATOR) ? 'every account: read and write, including deletes' : 'own websites only';
+      let access = 'own websites only';
+      if (roles.includes(ROLE_ADMINISTRATOR)) {
+        access = 'every account: read and write, including deletes';
+      } else if (roles.includes(ROLE_INGEST)) {
+        access = 'own websites, plus writes to the shared vulnerability and release data';
+      }
 
       if (opts.json) {
         console.log(JSON.stringify({ id: parseInt(found.id, 10), user_id: ownerId, username: owner.username, status, roles, access, created_at: created }, null, 2));

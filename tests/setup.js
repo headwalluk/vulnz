@@ -308,6 +308,7 @@ async function initializeSchema(db) {
   // Seed roles
   await db.run(`INSERT OR IGNORE INTO roles (name) VALUES ('administrator')`);
   await db.run(`INSERT OR IGNORE INTO roles (name) VALUES ('user')`);
+  await db.run(`INSERT OR IGNORE INTO roles (name) VALUES ('ingest')`);
 
   // Create ecosystems table
   await db.exec(`
@@ -687,7 +688,8 @@ async function createTestUser(db, userData = {}) {
   const userId = result.insertId;
 
   // Assign role to user
-  const roleName = user.role === 'admin' || user.role === 'administrator' ? 'administrator' : 'user';
+  const ROLE_BY_OPTION = { admin: 'administrator', administrator: 'administrator', ingest: 'ingest' };
+  const roleName = ROLE_BY_OPTION[user.role] || 'user';
   const roleRows = await db.query('SELECT id FROM roles WHERE name = ?', [roleName]);
   if (roleRows && roleRows.length > 0) {
     await db.query('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [userId, roleRows[0].id]);

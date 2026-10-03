@@ -2,6 +2,7 @@ const db = require('../db');
 const bcrypt = require('bcrypt');
 const { validatePassword } = require('../lib/passwordValidation');
 const { validateEmailAddress } = require('../lib/emailValidation');
+const roleModel = require('./role');
 
 async function createTable() {
   const sql = `
@@ -187,6 +188,8 @@ const getRoles = async (userId) => {
  * @returns {Promise<boolean>} false when the user already held it
  */
 async function addRole(userId, roleName) {
+  // A role added in a release exists only once the server has started; seeding here lets it be granted before the restart
+  await roleModel.seedData();
   const [role] = await db.query('SELECT id FROM roles WHERE name = ?', [roleName]);
   if (!role) {
     throw new Error(`Unknown role '${roleName}'.`);
