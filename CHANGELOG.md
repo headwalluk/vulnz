@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.45.0 - 2026-10-03
+
+### Security
+
+- **`/doc` and `/openapi.json` require an administrator API key when `NODE_ENV=production`.** They stay public in development. Both are now mounted after helmet, so they carry the same security headers as the rest of the API. A browser cannot send `X-API-Key`, so on a production server fetch the spec with the header (see [API Usage](docs/api-usage.md#interactive-documentation)) or browse `/doc` on a development instance.
+
+### Changes
+
+- **`NODE_ENV` belongs in `.env`.** It is now documented in `.env.example`, and `npm start` no longer sets `NODE_ENV=production` inline. A value in the real environment, such as a PM2 ecosystem file's `env` block, still overrides `.env`, so keep application settings out of the ecosystem file. See [Configuration](docs/configuration.md#pm2-ecosystem-file).
+- **Cron jobs are scheduled only on PM2 instance `0`, whatever `NODE_ENV` says.** Previously the check applied only in production, so a cluster started without `NODE_ENV=production` scheduled cron on every instance. An unclustered process counts as instance `0`.
+
+### Upgrading
+
+- **Set `NODE_ENV=production` in `.env` before deploying.** A server that relied on `npm start` setting it starts in development mode, with the API documentation public.
+- If your PM2 ecosystem file sets `NODE_ENV` or other application settings, move them to `.env` and remove them from the file. PM2 keeps the environment it was started with, so `pm2 delete` and `pm2 start` the app (then `pm2 save`) rather than relying on a reload.
+
 ## 1.44.0 - 2026-10-03
 
 ### Security
