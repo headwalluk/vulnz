@@ -12,6 +12,68 @@ const { validateEmailAddress } = require('../lib/emailValidation');
 const SELF_EDITABLE_FIELDS = ['reporting_email', 'reporting_weekday', 'enable_white_label', 'white_label_html'];
 // An empty string switches the weekly report off.
 const REPORTING_WEEKDAYS = ['', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+// What an administrator may change through the API; credentials and roles are CLI-only, status has its own routes.
+const ADMIN_EDITABLE_FIELDS = [...SELF_EDITABLE_FIELDS, 'max_api_keys'];
+const WHITE_LABEL_HTML_MAX_LENGTH = 16384;
+
+/**
+ * Validate an account update against an allow-list of fields.
+ * @returns {{updateData: object}|{error: {error: string, message: string}}}
+ */
+function validateAccountUpdate(body, allowedFields) {
+  const updateData = body && typeof body === 'object' && !Array.isArray(body) ? { ...body } : {};
+  const unknownFields = Object.keys(updateData).filter((field) => !allowedFields.includes(field));
+
+  let error = null;
+  if (Object.keys(updateData).length === 0) {
+    error = { error: 'Nothing to update', message: `Send at least one of: ${allowedFields.join(', ')}.` };
+  } else if (unknownFields.length > 0) {
+    error = { error: 'Field not editable', message: `Only ${allowedFields.join(', ')} can be changed here. Not editable: ${unknownFields.join(', ')}.` };
+  } else if (updateData.reporting_weekday !== undefined && !REPORTING_WEEKDAYS.includes(updateData.reporting_weekday)) {
+    error = { error: 'Invalid reporting_weekday', message: `reporting_weekday must be one of: ${REPORTING_WEEKDAYS.map((weekday) => `'${weekday}'`).join(', ')}` };
+  } else if (
+    updateData.reporting_email !== undefined &&
+    updateData.reporting_email !== null &&
+    updateData.reporting_email !== '' &&
+    !(typeof updateData.reporting_email === 'string' && validateEmailAddress(updateData.reporting_email).isValid)
+  ) {
+    error = { error: 'Invalid reporting_email', message: 'reporting_email must be a valid email address, or empty to use the account email.' };
+  } else if (updateData.white_label_html !== undefined && (typeof updateData.white_label_html !== 'string' || updateData.white_label_html.length > WHITE_LABEL_HTML_MAX_LENGTH)) {
+    error = { error: 'Invalid white_label_html', message: `white_label_html must be a string of at most ${WHITE_LABEL_HTML_MAX_LENGTH} characters.` };
+  } else if (updateData.enable_white_label !== undefined && typeof updateData.enable_white_label !== 'boolean') {
+    error = { error: 'Invalid enable_white_label', message: 'enable_white_label must be a boolean.' };
+  } else if (updateData.max_api_keys !== undefined && !(Number.isInteger(updateData.max_api_keys) && updateData.max_api_keys >= 0)) {
+    error = { error: 'Invalid max_api_keys', message: 'max_api_keys must be a non-negative integer.' };
+  }
+
+  if (!error && updateData.white_label_html !== undefined) {
+    updateData.white_label_html = sanitizeEmailHtml(updateData.white_label_html);
+  }
+
+  return error ? { error } : { updateData };
+}
+
+/** Load one account in its API shape, or undefined when the id does not exist. */
+async function findAccountForResponse(userId) {
+  const [account] = await db.query(
+    'SELECT id, username, blocked, paused, max_api_keys, reporting_weekday, reporting_email, enable_white_label, white_label_html, (SELECT COUNT(*) FROM websites w WHERE w.user_id = users.id) AS website_count FROM users WHERE id = ?',
+    [userId]
+  );
+  let response;
+  if (account) {
+    const roles = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [account.id]);
+    response = {
+      ...account,
+      id: parseInt(account.id, 10),
+      blocked: Boolean(account.blocked),
+      paused: Boolean(account.paused),
+      enable_white_label: Boolean(account.enable_white_label),
+      website_count: Number(account.website_count),
+      roles: roles.map((role) => role.name),
+    };
+  }
+  return response;
+}
 
 /**
  * @swagger
@@ -264,24 +326,11 @@ router.post('/', apiKeyAdminAuth, logApiCall, async (req, res) => {
  */
 router.get('/:id', apiKeyAdminAuth, logApiCall, async (req, res) => {
   try {
-    const u = await db.query(
-      'SELECT id, username, blocked, paused, max_api_keys, reporting_weekday, reporting_email, enable_white_label, white_label_html, (SELECT COUNT(*) FROM websites w WHERE w.user_id = users.id) AS website_count FROM users WHERE id = ?',
-      [req.params.id]
-    );
-    if (!u || u.length === 0) {
+    const account = await findAccountForResponse(req.params.id);
+    if (!account) {
       return res.status(404).send('User not found');
     }
-    const userResult = u[0];
-    const roles = await db.query('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [userResult.id]);
-    res.json({
-      ...userResult,
-      id: parseInt(userResult.id, 10),
-      blocked: Boolean(userResult.blocked),
-      paused: Boolean(userResult.paused),
-      enable_white_label: Boolean(userResult.enable_white_label),
-      website_count: Number(userResult.website_count),
-      roles: roles.map((r) => r.name),
-    });
+    res.json(account);
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
@@ -293,6 +342,13 @@ router.get('/:id', apiKeyAdminAuth, logApiCall, async (req, res) => {
  * /api/users/{id}:
  *   put:
  *     summary: Update a user (admin only)
+ *     description: >
+ *       Changes reporting and white-label settings and the API key limit.
+ *       Any other field is a 400 naming the allowed set. Credentials and
+ *       roles are CLI-only since v1.47.0 (`user:reset-password`,
+ *       `user:role:add`/`remove`); block and pause have their own routes.
+ *       Replies with the updated user as JSON, so the caller can read back
+ *       what was stored.
  *     tags: [Users]
  *     parameters:
  *       - in: path
@@ -307,19 +363,6 @@ router.get('/:id', apiKeyAdminAuth, logApiCall, async (req, res) => {
  *           schema:
  *             type: object
  *             properties:
- *               username:
- *                 type: string
- *                 format: email
- *               password:
- *                 type: string
- *               roles:
- *                 type: array
- *                 items:
- *                   type: string
- *               blocked:
- *                 type: boolean
- *               paused:
- *                 type: boolean
  *               max_api_keys:
  *                 type: integer
  *               reporting_weekday:
@@ -335,9 +378,11 @@ router.get('/:id', apiKeyAdminAuth, logApiCall, async (req, res) => {
  *                 maxLength: 16384
  *     responses:
  *       200:
- *         description: User updated
+ *         description: The updated user, in the same shape as GET /api/users/{id}
  *       400:
- *         description: Invalid request
+ *         description: An empty body, a field outside the allowed set, or an invalid value. The body carries `error` and `message`.
+ *       404:
+ *         description: No user with that id
  *       500:
  *         description: Server error
  */
@@ -381,46 +426,12 @@ router.get('/:id', apiKeyAdminAuth, logApiCall, async (req, res) => {
  */
 router.put('/me', apiAuth, logApiCall, async (req, res) => {
   try {
-    const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const unknownFields = Object.keys(body).filter((field) => !SELF_EDITABLE_FIELDS.includes(field));
-    if (unknownFields.length > 0) {
-      return res.status(400).json({
-        error: 'Field not editable',
-        message: `Only ${SELF_EDITABLE_FIELDS.join(', ')} can be changed here. Not editable: ${unknownFields.join(', ')}.`,
-      });
-    }
-    const updateData = { ...body };
-
-    if (updateData.reporting_weekday !== undefined && !REPORTING_WEEKDAYS.includes(updateData.reporting_weekday)) {
-      return res.status(400).send(`reporting_weekday must be one of: ${REPORTING_WEEKDAYS.map((weekday) => `'${weekday}'`).join(', ')}`);
+    const validation = validateAccountUpdate(req.body, SELF_EDITABLE_FIELDS);
+    if (validation.error) {
+      return res.status(400).json(validation.error);
     }
 
-    if (updateData.reporting_email !== undefined && updateData.reporting_email !== null && updateData.reporting_email !== '') {
-      const emailValidation = typeof updateData.reporting_email === 'string' ? validateEmailAddress(updateData.reporting_email) : { isValid: false };
-      if (!emailValidation.isValid) {
-        return res.status(400).send('reporting_email must be a valid email address');
-      }
-    }
-
-    // Validate and sanitize white_label_html if provided
-    if (updateData.white_label_html !== undefined) {
-      if (typeof updateData.white_label_html !== 'string') {
-        return res.status(400).send('white_label_html must be a string');
-      }
-      if (updateData.white_label_html.length > 16384) {
-        return res.status(400).send('white_label_html must not exceed 16384 characters');
-      }
-      updateData.white_label_html = sanitizeEmailHtml(updateData.white_label_html);
-    }
-
-    // Validate enable_white_label if provided
-    if (updateData.enable_white_label !== undefined) {
-      if (typeof updateData.enable_white_label !== 'boolean') {
-        return res.status(400).send('enable_white_label must be a boolean');
-      }
-    }
-
-    await user.updateUser(req.user.id, updateData);
+    await user.updateUser(req.user.id, validation.updateData);
     res.send('User updated');
   } catch (err) {
     console.error(err);
@@ -466,28 +477,18 @@ router.put('/me/password', apiAuth, logApiCall, async (req, res) => {
 
 router.put('/:id', apiKeyAdminAuth, logApiCall, async (req, res) => {
   try {
-    const updateData = { ...req.body };
-
-    // Validate and sanitize white_label_html if provided
-    if (updateData.white_label_html !== undefined) {
-      if (typeof updateData.white_label_html !== 'string') {
-        return res.status(400).send('white_label_html must be a string');
-      }
-      if (updateData.white_label_html.length > 16384) {
-        return res.status(400).send('white_label_html must not exceed 16384 characters');
-      }
-      updateData.white_label_html = sanitizeEmailHtml(updateData.white_label_html);
+    const existing = await findAccountForResponse(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ error: 'User not found', message: `No user with id ${req.params.id}.` });
     }
 
-    // Validate enable_white_label if provided
-    if (updateData.enable_white_label !== undefined) {
-      if (typeof updateData.enable_white_label !== 'boolean') {
-        return res.status(400).send('enable_white_label must be a boolean');
-      }
+    const validation = validateAccountUpdate(req.body, ADMIN_EDITABLE_FIELDS);
+    if (validation.error) {
+      return res.status(400).json(validation.error);
     }
 
-    await user.updateUser(req.params.id, updateData);
-    res.send('User updated');
+    await user.updateUser(existing.id, validation.updateData);
+    res.json(await findAccountForResponse(existing.id));
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');

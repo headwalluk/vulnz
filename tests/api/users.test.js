@@ -350,7 +350,56 @@ describe('Users API', () => {
       });
 
       expect(response.status).toBe(200);
-      expect(response.text).toMatch(/User updated/i);
+      expect(response.body.id).toBe(regularUser.id);
+      expect(response.body.reporting_email).toBe('admin-updated@example.com');
+      expect(response.body).not.toHaveProperty('password');
+    });
+
+    test.each([
+      ['an unknown field', { reporting_cc: 'agency@example.com' }],
+      ['a misspelt field', { reporting_emial: 'x@example.com' }],
+      ['password', { password: 'N3w-Passw0rd!xyz' }],
+      ['roles', { roles: ['administrator'] }],
+      ['username', { username: 'renamed@example.com' }],
+      ['blocked', { blocked: true }],
+    ])('rejects %s with a 400 that names the allowed fields, and changes nothing', async (label, body) => {
+      const [before] = await db.query('SELECT * FROM users WHERE id = ?', [regularUser.id]);
+      const rolesBefore = await db.query('SELECT role_id FROM user_roles WHERE user_id = ? ORDER BY role_id', [regularUser.id]);
+
+      const response = await request(app).put(`/api/users/${regularUser.id}`).set('X-API-Key', adminApiKey).send(body);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Field not editable');
+      expect(response.body.message).toContain('reporting_email');
+      expect((await db.query('SELECT * FROM users WHERE id = ?', [regularUser.id]))[0]).toEqual(before);
+      expect(await db.query('SELECT role_id FROM user_roles WHERE user_id = ? ORDER BY role_id', [regularUser.id])).toEqual(rolesBefore);
+    });
+
+    test('rejects an invalid reporting_email at write time', async () => {
+      const response = await request(app).put(`/api/users/${regularUser.id}`).set('X-API-Key', adminApiKey).send({ reporting_email: 'not-an-email' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Invalid reporting_email');
+    });
+
+    test('rejects an empty body', async () => {
+      const response = await request(app).put(`/api/users/${regularUser.id}`).set('X-API-Key', adminApiKey).send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Nothing to update');
+    });
+
+    test('an unknown user id is a 404, not a silent success', async () => {
+      const response = await request(app).put('/api/users/999999').set('X-API-Key', adminApiKey).send({ reporting_weekday: 'MON' });
+
+      expect(response.status).toBe(404);
+    });
+
+    test('accepts max_api_keys and reads it back', async () => {
+      const response = await request(app).put(`/api/users/${regularUser.id}`).set('X-API-Key', adminApiKey).send({ max_api_keys: 3 });
+
+      expect(response.status).toBe(200);
+      expect(response.body.max_api_keys).toBe(3);
     });
 
     test('should reject non-admin users', async () => {
