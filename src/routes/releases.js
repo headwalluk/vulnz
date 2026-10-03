@@ -12,6 +12,8 @@ const { ERROR_CODES, itemError, requestError } = require('../lib/apiErrors');
 const logger = require('../lib/logger');
 
 const MAX_BULK_ITEMS = 500;
+// Anything else on an item is rejected, so a field this version does not understand is never silently dropped
+const ITEM_FIELDS = ['componentTypeSlug', 'componentSlug', 'version'];
 
 /**
  * @swagger
@@ -124,6 +126,11 @@ router.post('/bulk', apiAuth, logApiCall, hasRole(VULNERABILITY_WRITER_ROLES), a
 
       if (!item || typeof item !== 'object') {
         errors.push(itemError(i, ERROR_CODES.ITEM_NOT_OBJECT, null, 'Each item must be an object.'));
+        continue;
+      }
+      const unknownField = Object.keys(item).find((field) => !ITEM_FIELDS.includes(field));
+      if (unknownField) {
+        errors.push(itemError(i, ERROR_CODES.UNKNOWN_FIELD, unknownField, `Unknown field ${unknownField}; allowed: ${ITEM_FIELDS.join(', ')}.`));
         continue;
       }
       if (!item.componentTypeSlug || typeof item.componentTypeSlug !== 'string') {

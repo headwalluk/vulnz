@@ -15,6 +15,8 @@ const ERROR_CODES = Object.freeze({
   UNRECOGNISED_VERSION: 'UNRECOGNISED_VERSION',
   EMPTY_RANGE: 'EMPTY_RANGE',
   INVALID_URL: 'INVALID_URL',
+  UNKNOWN_FIELD: 'UNKNOWN_FIELD',
+  UNKNOWN_ADVISORY_SOURCE: 'UNKNOWN_ADVISORY_SOURCE',
 });
 
 /** A per-item error entry; `field` names the offending field, or is null for the whole item. */

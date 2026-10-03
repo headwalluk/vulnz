@@ -485,6 +485,56 @@ async function initializeSchema(db) {
     )
   `);
 
+  // Advisory tables (M28 Batch C); url_hash uses the same SQLite stand-in as vulnerabilities
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS advisory_sources (
+      slug VARCHAR(32) NOT NULL PRIMARY KEY,
+      title VARCHAR(255) NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS cvss_ratings (
+      slug VARCHAR(16) NOT NULL PRIMARY KEY,
+      title VARCHAR(64) NOT NULL,
+      rank INTEGER NOT NULL,
+      min_score DECIMAL(3,1) NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS advisories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_slug VARCHAR(32) NOT NULL,
+      external_id VARCHAR(255) NOT NULL,
+      title VARCHAR(512),
+      cve VARCHAR(32),
+      cwe_id INTEGER,
+      cwe_name VARCHAR(255),
+      cvss_score DECIMAL(3,1),
+      cvss_rating_slug VARCHAR(16),
+      cvss_vector VARCHAR(255),
+      is_informational INTEGER NOT NULL DEFAULT 0,
+      published_at DATETIME,
+      source_updated_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(source_slug, external_id),
+      FOREIGN KEY (source_slug) REFERENCES advisory_sources(slug),
+      FOREIGN KEY (cvss_rating_slug) REFERENCES cvss_ratings(slug)
+    );
+    CREATE TABLE IF NOT EXISTS advisory_urls (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      advisory_id INTEGER NOT NULL,
+      url VARCHAR(2048) NOT NULL,
+      url_hash BLOB GENERATED ALWAYS AS (CAST(url AS BLOB)) STORED,
+      UNIQUE(advisory_id, url_hash),
+      FOREIGN KEY (advisory_id) REFERENCES advisories(id) ON DELETE CASCADE
+    )
+  `);
+  // Seed values come from the migration, so tests and MariaDB cannot drift
+  const { ADVISORY_SOURCES, CVSS_RATINGS } = require('../src/migrations/20261004090000-create-advisories');
+  for (const [slug, title] of ADVISORY_SOURCES) {
+    await db.run('INSERT OR IGNORE INTO advisory_sources (slug, title) VALUES (?, ?)', [slug, title]);
+  }
+  for (const [slug, title, rank, minScore] of CVSS_RATINGS) {
+    await db.run('INSERT OR IGNORE INTO cvss_ratings (slug, title, rank, min_score) VALUES (?, ?, ?, ?)', [slug, title, rank, minScore]);
+  }
+
   // Create vulnerability_ranges table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS vulnerability_ranges (

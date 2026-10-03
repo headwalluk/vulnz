@@ -20,6 +20,7 @@ const Release = require('../models/release');
 
 const DEFAULT_SEARCH_PAGE_SIZE = 10;
 const vulnerabilityRange = require('../models/vulnerabilityRange');
+const Advisory = require('../models/advisory');
 const User = require('../models/user');
 const { ROLE_ADMINISTRATOR, VULNERABILITY_WRITER_ROLES } = require('../models/role');
 const WebsiteComponent = require('../models/websiteComponent');
@@ -63,8 +64,9 @@ const closureSecurityConcern = (raw) => (raw === null || raw === undefined ? nul
  *
  * @param {object} componentRow row from the components table
  * @param {object[]|null} releases release rows, each with has_vulnerabilities; null leaves the key out
+ * @param {Map<number, object>} [severityByRelease] from Advisory.severityForReleases()
  */
-function buildComponentResponse(componentRow, releases) {
+function buildComponentResponse(componentRow, releases, severityByRelease = new Map()) {
   // Dropped from the spread because they are re-exposed below under their
   // public names. Leaving both meant the same value arrived twice under two
   // spellings, and a consumer had no way to know which was canonical.
@@ -92,12 +94,18 @@ function buildComponentResponse(componentRow, releases) {
     ...(releases === null
       ? {}
       : {
-          releases: releases.map((release) => ({
-            ...release,
-            id: parseInt(release.id, 10),
-            component_id: parseInt(release.component_id, 10),
-            has_vulnerabilities: !!release.has_vulnerabilities,
-          })),
+          releases: releases.map((release) => {
+            const severity = severityByRelease.get(parseInt(release.id, 10)) || Advisory.emptySeverity();
+            return {
+              ...release,
+              id: parseInt(release.id, 10),
+              component_id: parseInt(release.component_id, 10),
+              has_vulnerabilities: !!release.has_vulnerabilities,
+              max_cvss_score: severity.max_cvss_score,
+              max_cvss_rating: severity.max_cvss_rating,
+              unrated_vulnerabilities: severity.unrated_vulnerabilities,
+            };
+          }),
         }),
   };
 }
@@ -723,9 +731,16 @@ router.get('/:componentTypeSlug/:componentSlug/installs', apiAuth, logApiCall, s
  *       against the component's stored vulnerability ranges and returned with
  *       `is_recorded: false` and `id: null`. Before v1.44.0 this route created
  *       the component and release on lookup.
+ *       Severity (since v1.49.0): `max_cvss_score` and `max_cvss_rating`
+ *       are the worst of the release's advisories (an informational advisory
+ *       rates `none`), and `unrated_vulnerabilities` counts vulnerabilities no
+ *       rated advisory accounts for. While it is above 0 the max is a lower
+ *       bound: unrated never means low.
+ *       `advisories[]` lists each advisory, worst first: source, external_id,
+ *       title, cve, cvss_score, cvss_rating, is_informational, url.
  *     responses:
  *       200:
- *         description: The release, with `is_recorded`, `vulnerabilities` and `has_vulnerabilities`.
+ *         description: The release, with `is_recorded`, `vulnerabilities`, `has_vulnerabilities`, `advisories`, `max_cvss_score`, `max_cvss_rating` and `unrated_vulnerabilities`.
  *       400:
  *         description: No usable version supplied
  *       404:
@@ -758,6 +773,7 @@ router.get('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, s
     const [release] = await db.query('SELECT * FROM releases WHERE component_id = ? AND version = ?', [componentId, version]);
     if (release) {
       const vulnerabilities = await db.query('SELECT id, release_id, url FROM vulnerabilities WHERE release_id = ?', [release.id]);
+      const severity = (await Advisory.severityForReleases([parseInt(release.id, 10)])).get(parseInt(release.id, 10)) || Advisory.emptySeverity();
       return res.json({
         ...release,
         id: parseInt(release.id, 10),
@@ -770,6 +786,7 @@ router.get('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, s
           release_id: parseInt(v.release_id, 10),
         })),
         has_vulnerabilities: vulnerabilities.length > 0,
+        ...severity,
       });
     }
 
@@ -783,6 +800,7 @@ router.get('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, s
       ...malwareFields,
       vulnerabilities: affectingUrls.map((url) => ({ id: null, release_id: null, url })),
       has_vulnerabilities: affectingUrls.length > 0,
+      ...(await Advisory.severityForUrls(affectingUrls)),
     });
   } catch (err) {
     console.error(err);
@@ -809,7 +827,11 @@ router.get('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, s
  *           type: string
  *         required: true
  *         description: The component slug
- *     description: Read-only. An unknown component is a 404; before v1.44.0 this route created it on lookup.
+ *     description: >
+ *       Read-only. An unknown component is a 404; before v1.44.0 this route
+ *       created it on lookup. Each release carries `max_cvss_score`,
+ *       `max_cvss_rating` and `unrated_vulnerabilities` (since v1.49.0); the
+ *       version route lists the advisories themselves.
  *     responses:
  *       200:
  *         description: The component.
@@ -839,7 +861,8 @@ router.get('/:componentTypeSlug/:componentSlug', apiAuth, logApiCall, sanitiseCo
     `,
       [component[0].id]
     );
-    res.json(buildComponentResponse(component[0], releases));
+    const severityByRelease = await Advisory.severityForReleases(releases.map((release) => parseInt(release.id, 10)));
+    res.json(buildComponentResponse(component[0], releases, severityByRelease));
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
@@ -863,7 +886,8 @@ router.get('/:id', apiAuth, logApiCall, async (req, res) => {
     `,
       [id]
     );
-    res.json(buildComponentResponse(component[0], releases));
+    const severityByRelease = await Advisory.severityForReleases(releases.map((release) => parseInt(release.id, 10)));
+    res.json(buildComponentResponse(component[0], releases, severityByRelease));
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');

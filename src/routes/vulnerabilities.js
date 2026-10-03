@@ -11,9 +11,12 @@ const ComponentType = require('../models/componentType');
 const Release = require('../models/release');
 const VulnerabilityRange = require('../models/vulnerabilityRange');
 const { MAX_VULNERABILITY_URL_LENGTH } = require('../models/vulnerability');
+const Advisory = require('../models/advisory');
 
 const MAX_BULK_ITEMS = 500;
 const MAX_RANGES_PER_ITEM = 50;
+// Anything else on an item is rejected, so a field this version does not understand is never silently dropped
+const ITEM_FIELDS = ['componentTypeSlug', 'componentSlug', 'version', 'ranges', 'urls', 'advisory'];
 
 /**
  * @swagger
@@ -36,6 +39,8 @@ const MAX_RANGES_PER_ITEM = 50;
  *       against a range (an unrecognised suffix at the boundary) is not matched.
  *       Posting a range never creates a release.
  *
+ *       An item field this version does not know is rejected with UNKNOWN_FIELD
+ *       (since v1.49.0), never silently ignored.
  *       Each item is validated and written independently. An invalid item is
  *       reported in `errors` by its index and skipped; the rest of the batch is
  *       still written. The response is 400 only when no item is valid.
@@ -98,6 +103,65 @@ const MAX_RANGES_PER_ITEM = 50;
  *                         type: string
  *                         maxLength: 2048
  *                       description: Array of vulnerability reference URLs
+ *                     advisory:
+ *                       type: object
+ *                       description: >
+ *                         Optional (since v1.49.0). The advisory these URLs belong to,
+ *                         with its severity. Upserted by (source, external_id):
+ *                         re-posting replaces its details (send the whole advisory;
+ *                         an omitted field is cleared). The item's urls and any
+ *                         aliases are attached to it, and never removed, so every
+ *                         vulnerability recorded under those URLs takes its severity.
+ *                       required: [source, external_id]
+ *                       properties:
+ *                         source:
+ *                           type: string
+ *                           description: A slug from the advisory_sources lookup (wordfence, osv)
+ *                         external_id:
+ *                           type: string
+ *                           maxLength: 255
+ *                           description: The source's own identifier for the advisory
+ *                         title:
+ *                           type: string
+ *                           maxLength: 512
+ *                         cve:
+ *                           type: string
+ *                           example: CVE-2024-12345
+ *                         cwe:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: integer
+ *                             name:
+ *                               type: string
+ *                         cvss:
+ *                           type: object
+ *                           properties:
+ *                             score:
+ *                               type: number
+ *                               minimum: 0
+ *                               maximum: 10
+ *                             rating:
+ *                               type: string
+ *                               enum: [critical, high, medium, low, none]
+ *                               description: Case-insensitive. Stored as given even when it disagrees with the score's CVSS band.
+ *                             vector:
+ *                               type: string
+ *                               example: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H
+ *                         informational:
+ *                           type: boolean
+ *                           description: The source's notice that this is not an exploitable vulnerability. Reads report it as rating none.
+ *                         published_at:
+ *                           type: string
+ *                           description: ISO 8601, or YYYY-MM-DD HH:MM:SS (read as UTC)
+ *                         updated_at:
+ *                           type: string
+ *                         aliases:
+ *                           type: array
+ *                           maxItems: 10
+ *                           items:
+ *                             type: string
+ *                           description: Other URLs the advisory is known by (a CVE link alongside the source's own), linked whether or not they are posted as vulnerability URLs
  *           example:
  *             items:
  *               - componentTypeSlug: wordpress-plugin
@@ -125,6 +189,12 @@ const MAX_RANGES_PER_ITEM = 50;
  *                 rangesDuplicates:
  *                   type: integer
  *                   description: Number of (url, range) records that already existed
+ *                 advisoriesCreated:
+ *                   type: integer
+ *                   description: Advisories stored for the first time
+ *                 advisoriesUpdated:
+ *                   type: integer
+ *                   description: Items whose advisory already existed and was refreshed
  *                 errors:
  *                   type: array
  *                   description: One entry per invalid item, which was skipped. Branch on code, not message.
@@ -168,13 +238,20 @@ router.post('/bulk', apiAuth, logApiCall, hasRole(VULNERABILITY_WRITER_ROLES), a
 
     // Validate all items up-front before writing anything
     const componentTypeSlugs = new Set((await ComponentType.findAll()).map((componentType) => componentType.slug));
+    const advisorySourceSlugs = new Set(await Advisory.findSourceSlugs());
     const errors = [];
     const normalisedRanges = new Map();
+    const normalisedAdvisories = new Map();
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
 
       if (!item || typeof item !== 'object') {
         errors.push(itemError(i, ERROR_CODES.ITEM_NOT_OBJECT, null, 'Each item must be an object.'));
+        continue;
+      }
+      const unknownField = Object.keys(item).find((field) => !ITEM_FIELDS.includes(field));
+      if (unknownField) {
+        errors.push(itemError(i, ERROR_CODES.UNKNOWN_FIELD, unknownField, `Unknown field ${unknownField}; allowed: ${ITEM_FIELDS.join(', ')}.`));
         continue;
       }
       if (!item.componentTypeSlug || typeof item.componentTypeSlug !== 'string') {
@@ -238,6 +315,21 @@ router.post('/bulk', apiAuth, logApiCall, hasRole(VULNERABILITY_WRITER_ROLES), a
       const invalidUrlIndex = item.urls.findIndex((url) => !isUrl(url) || url.length > MAX_VULNERABILITY_URL_LENGTH);
       if (invalidUrlIndex !== -1) {
         errors.push(itemError(i, ERROR_CODES.INVALID_URL, `urls[${invalidUrlIndex}]`, `Invalid URL format: ${item.urls[invalidUrlIndex]}`));
+        continue;
+      }
+      if (item.advisory !== undefined) {
+        const { advisory, error } = Advisory.normaliseAdvisory(item.advisory);
+        if (error) {
+          errors.push(itemError(i, error.code, error.field, error.message));
+          continue;
+        }
+        if (!advisorySourceSlugs.has(advisory.source)) {
+          errors.push(
+            itemError(i, ERROR_CODES.UNKNOWN_ADVISORY_SOURCE, 'advisory.source', `Unknown advisory source ${advisory.source}; known: ${[...advisorySourceSlugs].join(', ')}.`)
+          );
+          continue;
+        }
+        normalisedAdvisories.set(i, advisory);
       }
     }
 
@@ -254,6 +346,8 @@ router.post('/bulk', apiAuth, logApiCall, hasRole(VULNERABILITY_WRITER_ROLES), a
     let totalDuplicates = 0;
     let totalRangesCreated = 0;
     let totalRangesDuplicates = 0;
+    let totalAdvisoriesCreated = 0;
+    let totalAdvisoriesUpdated = 0;
 
     for (let i = 0; i < items.length; i++) {
       if (invalidIndexes.has(i)) {
@@ -299,6 +393,15 @@ router.post('/bulk', apiAuth, logApiCall, hasRole(VULNERABILITY_WRITER_ROLES), a
         totalCreated += inserted;
         totalDuplicates += item.urls.length - inserted;
       }
+
+      if (normalisedAdvisories.has(i)) {
+        const { created } = await Advisory.upsert(normalisedAdvisories.get(i), item.urls);
+        if (created) {
+          totalAdvisoriesCreated++;
+        } else {
+          totalAdvisoriesUpdated++;
+        }
+      }
     }
 
     const response = {
@@ -306,6 +409,8 @@ router.post('/bulk', apiAuth, logApiCall, hasRole(VULNERABILITY_WRITER_ROLES), a
       duplicates: totalDuplicates,
       rangesCreated: totalRangesCreated,
       rangesDuplicates: totalRangesDuplicates,
+      advisoriesCreated: totalAdvisoriesCreated,
+      advisoriesUpdated: totalAdvisoriesUpdated,
     };
     if (errors.length > 0) {
       response.errors = errors.sort((left, right) => left.index - right.index);
@@ -333,7 +438,7 @@ module.exports = router;
  *         code:
  *           type: string
  *           description: Stable, machine-readable reason. UNRECOGNISED_VERSION is expected for some feed data (a version VULNZ cannot parse) and is not worth retrying.
- *           enum: [ITEM_NOT_OBJECT, FIELD_REQUIRED, FIELD_INVALID, CONFLICTING_FIELDS, UNKNOWN_COMPONENT_TYPE, UNRECOGNISED_VERSION, EMPTY_RANGE, INVALID_URL]
+ *           enum: [ITEM_NOT_OBJECT, FIELD_REQUIRED, FIELD_INVALID, CONFLICTING_FIELDS, UNKNOWN_COMPONENT_TYPE, UNRECOGNISED_VERSION, EMPTY_RANGE, INVALID_URL, UNKNOWN_FIELD, UNKNOWN_ADVISORY_SOURCE]
  *         field:
  *           type: string
  *           nullable: true

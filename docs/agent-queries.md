@@ -319,7 +319,7 @@ Read `error` and `message` on a 400 — `message` names the valid values.
 
 Worth knowing so you do not infer it:
 
-- **Severity or CVSS.** The `vulnerabilities` array holds disclosure URLs, nothing more. There is no severity, no CVE field, no description. Ranking by "how bad" is not possible from this data alone.
+- **Fleet-wide severity, yet.** Since v1.49.0 a single component carries severity: `GET /api/components/{type}/{slug}` gives each release `max_cvss_score`, `max_cvss_rating` and `unrated_vulnerabilities`, and `GET /api/components/{type}/{slug}/{version}` adds the advisories themselves (CVE, title, CVSS). Website lists, `/installs` and `/report` do not carry severity yet, so "which sites have critical vulnerabilities" cannot be asked in one call. Severity is filled in as the feed importer re-sends each advisory. Until then most vulnerabilities read as unrated: `unrated_vulnerabilities` above 0 means the rating is a lower bound, and **unrated is never low**.
 - **Whether a site is actually exploited.** Everything here is inventory plus known-bad lists.
 - **A person's name.** Accounts are email addresses. There is no name to search on.
 - **Premium plugin versions.** Anything not on wordpress.org has no `latest_version` unless it arrived via an ingest feed. See `blind_spots`.

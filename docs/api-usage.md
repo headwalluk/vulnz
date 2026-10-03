@@ -547,6 +547,43 @@ curl -X POST \
 - Feed-specific mapping (Wordfence, OSV) is in [Version Matching](version-matching.md#mapping-feed-formats).
 - Re-posting the same range is harmless. The response reports `rangesCreated` / `rangesDuplicates` alongside the usual `created` / `duplicates` vulnerability counts.
 
+### Reporting an Advisory's Severity
+
+Since v1.49.0, each `POST /api/vulnerabilities/bulk` item may carry an `advisory` object: the advisory its URLs belong to, with its severity. VULNZ upserts it by `source` and `external_id`, and attaches the item's `urls` and any `aliases` to it. Every vulnerability recorded under any of those URLs then takes that severity, including rows stored earlier under, say, a CVE link.
+
+```json
+{
+  "componentTypeSlug": "wordpress-plugin",
+  "componentSlug": "foobar",
+  "urls": ["https://www.wordfence.com/threat-intel/vulnerabilities/id/…"],
+  "ranges": [{ "from": null, "to": "2.4.0", "toInclusive": false }],
+  "advisory": {
+    "source": "wordfence",
+    "external_id": "…",
+    "title": "Foobar <= 2.3.1 - Unauthenticated SQL Injection",
+    "cve": "CVE-2024-12345",
+    "cwe": { "id": 89, "name": "SQL Injection" },
+    "cvss": { "score": 9.8, "rating": "critical", "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H" },
+    "informational": false,
+    "published_at": "2024-05-01 00:00:00",
+    "updated_at": "2024-05-03T10:00:00Z",
+    "aliases": ["https://www.cve.org/CVERecord?id=CVE-2024-12345"]
+  }
+}
+```
+
+- **Required fields:** `source` (a slug from the `advisory_sources` lookup: `wordfence`, `osv`) and `external_id`. Everything else is optional.
+- **Re-posting replaces the advisory's details** with the ones sent, so a source re-scoring an advisory is picked up on the next pass. A field left out is cleared, so always send the whole advisory. URLs are only ever added. The response counts `advisoriesCreated` and `advisoriesUpdated`.
+- **`cvss.rating`** is one of `critical`, `high`, `medium`, `low`, `none`, in any case. It is stored as given even when it disagrees with the score's CVSS band; the source is the authority.
+- **`informational: true`** marks a notice rather than an exploitable vulnerability. Reads report it as rating `none`.
+- **Strict items:** an item field VULNZ does not know is rejected with `UNKNOWN_FIELD`, on both bulk endpoints. So a payload this version cannot store is never silently accepted.
+
+**Reading it back:**
+
+- `GET /api/components/{type}/{slug}`: each release carries `max_cvss_score`, `max_cvss_rating` and `unrated_vulnerabilities`.
+- `GET /api/components/{type}/{slug}/{version}`: adds `advisories[]`, worst first.
+- `unrated_vulnerabilities` counts vulnerabilities no rated advisory accounts for. While it is above zero, `max_cvss_rating` is a lower bound. An unrated vulnerability is never treated as low.
+
 ### Bulk Error Codes
 
 `POST /api/vulnerabilities/bulk` and `POST /api/releases/bulk` validate each item independently. An invalid item is skipped and reported, and the rest of the batch is written:
@@ -561,16 +598,18 @@ curl -X POST \
 
 **Branch on `code`, never on `message`.** Codes are part of the API contract, and messages may be reworded between releases. `field` names the offending field (`version`, `ranges[1].to`, `urls[0]`), or is `null` when the whole item is at fault.
 
-| Code                     | Meaning                                                                                                                                                                           |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ITEM_NOT_OBJECT`        | The item is not a JSON object                                                                                                                                                     |
-| `FIELD_REQUIRED`         | A required field is missing: `componentTypeSlug`, `componentSlug`, `version` or `ranges`, `urls`, a range's `from`/`to`, or the inclusivity flag of a bound that is set           |
-| `FIELD_INVALID`          | A field has the wrong type or size: a version over 255 characters, `ranges` not an array of 1–50, `urls` not a non-empty array                                                    |
-| `CONFLICTING_FIELDS`     | Both `version` and `ranges` were given                                                                                                                                            |
-| `UNKNOWN_COMPONENT_TYPE` | `componentTypeSlug` is not a type VULNZ knows                                                                                                                                     |
-| `UNRECOGNISED_VERSION`   | A version or range bound cannot be parsed (see [Rejected versions](version-matching.md#rejected-versions)). **Expected for some feed data; log it and count it, don't retry it.** |
-| `EMPTY_RANGE`            | A range's `from` is not below its `to`                                                                                                                                            |
-| `INVALID_URL`            | A URL is malformed or longer than 2048 characters                                                                                                                                 |
+| Code                      | Meaning                                                                                                                                                                                                                   |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ITEM_NOT_OBJECT`         | The item is not a JSON object                                                                                                                                                                                             |
+| `FIELD_REQUIRED`          | A required field is missing: `componentTypeSlug`, `componentSlug`, `version` or `ranges`, `urls`, a range's `from`/`to`, or the inclusivity flag of a bound that is set                                                   |
+| `FIELD_INVALID`           | A field has the wrong type or size: a version over 255 characters, `ranges` not an array of 1–50, `urls` not a non-empty array; or an `advisory` field fails validation (`field` is then `advisory.cvss.score` and so on) |
+| `CONFLICTING_FIELDS`      | Both `version` and `ranges` were given                                                                                                                                                                                    |
+| `UNKNOWN_COMPONENT_TYPE`  | `componentTypeSlug` is not a type VULNZ knows                                                                                                                                                                             |
+| `UNRECOGNISED_VERSION`    | A version or range bound cannot be parsed (see [Rejected versions](version-matching.md#rejected-versions)). **Expected for some feed data; log it and count it, don't retry it.**                                         |
+| `EMPTY_RANGE`             | A range's `from` is not below its `to`                                                                                                                                                                                    |
+| `INVALID_URL`             | A URL is malformed or longer than 2048 characters                                                                                                                                                                         |
+| `UNKNOWN_FIELD`           | The item, or its `advisory`, has a field VULNZ does not know (since v1.49.0). `field` names it                                                                                                                            |
+| `UNKNOWN_ADVISORY_SOURCE` | `advisory.source` is not in the `advisory_sources` lookup                                                                                                                                                                 |
 
 Request-level errors return `{ "error": "…", "code": "…" }`:
 

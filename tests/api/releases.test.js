@@ -54,6 +54,16 @@ describe('Releases API', () => {
   });
 
   describe('POST /api/releases/bulk', () => {
+    test('rejects an unknown item field instead of ignoring it', async () => {
+      const response = await request(app)
+        .post('/api/releases/bulk')
+        .set('X-API-Key', regularApiKey)
+        .send({ items: [{ componentTypeSlug: 'wordpress-plugin', componentSlug: 'strict-check', version: '1.0.0', changelog: 'x' }] });
+
+      expect(response.status).toBe(400);
+      expect(response.body.errors[0]).toMatchObject({ code: 'UNKNOWN_FIELD', field: 'changelog' });
+    });
+
     test('refuses a key whose account has neither the ingest nor the administrator role', async () => {
       const response = await request(app).post('/api/releases/bulk').set('X-API-Key', plainApiKey).send({ items: [] });
 
