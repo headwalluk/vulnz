@@ -17,6 +17,8 @@ const Website = require('../models/website');
 // a local `component` for the row they are working on.
 const componentModel = require('../models/component');
 const Release = require('../models/release');
+
+const DEFAULT_SEARCH_PAGE_SIZE = 10;
 const vulnerabilityRange = require('../models/vulnerabilityRange');
 const User = require('../models/user');
 const { ROLE_ADMINISTRATOR } = require('../models/role');
@@ -203,8 +205,11 @@ function buildComponentResponse(componentRow, releases) {
 router.get('/search', optionalApiAuth, unauthenticatedSearchLimiter, logApiCall, async (req, res) => {
   try {
     const query = sanitizeSearchQuery(req.query.query || '');
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
+    const pagination = resolvePagination(req.query, DEFAULT_SEARCH_PAGE_SIZE);
+    if (pagination.error) {
+      return res.status(400).json(pagination.error);
+    }
+    const { page, limit } = pagination;
     const type = req.query.type || undefined;
     const ecosystem = req.query.ecosystem || undefined;
 

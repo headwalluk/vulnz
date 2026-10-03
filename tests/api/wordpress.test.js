@@ -93,7 +93,7 @@ describe('WordPress manifest API', () => {
 
   test('sets a cache-control header', async () => {
     const response = await request(app).get('/api/wordpress/latest-versions').set('X-API-Key', apiKey).expect(200);
-    expect(response.headers['cache-control']).toBe('public, max-age=300');
+    expect(response.headers['cache-control']).toBe('private, max-age=300');
   });
 
   test('generated_at reflects the freshest plugin timestamp', async () => {

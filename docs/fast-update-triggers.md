@@ -67,7 +67,7 @@ curl -s -H "X-API-Key: ${VULNZ_API_KEY}" \
 
 ### Caching
 
-The response carries `Cache-Control: public, max-age=300` and an ETag. Because `generated_at` is data-derived, a conditional request (`If-None-Match`) returns `304 Not Modified` until something actually changes. A host polling hourly is inexpensive — ten hosts is ~240 requests/day.
+The response carries `Cache-Control: private, max-age=300` (private since v1.44.0, so a shared cache cannot serve it without a key) and an ETag. Because `generated_at` is data-derived, a conditional request (`If-None-Match`) returns `304 Not Modified` until something actually changes. A host polling hourly is inexpensive — ten hosts is ~240 requests/day.
 
 **Fleet-side recommendation:** write the last good response to a local cache and fall back to it on any fetch failure. Never fail-open (update everything) or fail-closed (never update) — fall back to normal overnight behaviour.
 

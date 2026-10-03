@@ -25,7 +25,7 @@ const requireAdmin = async (req, res, next) => {
  * /api/settings:
  *   get:
  *     summary: Get all application settings
- *     description: Retrieve all settings, optionally filtered by category or grouped. Requires authentication.
+ *     description: Retrieve all settings, optionally filtered by category or grouped. Administrator only (since v1.44.0).
  *     tags: [Settings]
  *     security:
  *       - ApiKeyAuth: []
@@ -77,7 +77,7 @@ const requireAdmin = async (req, res, next) => {
  *       500:
  *         description: Server error
  */
-router.get('/', apiAuth, logApiCall, async (req, res) => {
+router.get('/', apiAuth, logApiCall, requireAdmin, async (req, res) => {
   try {
     const { category, grouped } = req.query;
 
@@ -108,7 +108,7 @@ router.get('/', apiAuth, logApiCall, async (req, res) => {
  * /api/settings/{key}:
  *   get:
  *     summary: Get a single setting by key
- *     description: Retrieve a specific setting value with automatic type casting
+ *     description: Retrieve a specific setting value with automatic type casting. Administrator only (since v1.44.0).
  *     tags: [Settings]
  *     security:
  *       - ApiKeyAuth: []
@@ -128,7 +128,7 @@ router.get('/', apiAuth, logApiCall, async (req, res) => {
  *       401:
  *         description: Authentication required
  */
-router.get('/:key', apiAuth, logApiCall, async (req, res) => {
+router.get('/:key', apiAuth, logApiCall, requireAdmin, async (req, res) => {
   try {
     const { key } = req.params;
 

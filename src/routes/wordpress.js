@@ -78,7 +78,7 @@ function isNewer(candidate, current) {
  *           Cache-Control:
  *             schema:
  *               type: string
- *             description: public, max-age=300
+ *             description: private, max-age=300
  *         content:
  *           application/json:
  *             schema:
@@ -176,7 +176,8 @@ router.get('/latest-versions', apiAuth, logApiCall, async (req, res) => {
       dataChangedAt = coreUpdatedAt;
     }
 
-    res.set('Cache-Control', `public, max-age=${MANIFEST_MAX_AGE_SECONDS}`);
+    // private: the manifest is per-key data and must not be served from a shared cache
+    res.set('Cache-Control', `private, max-age=${MANIFEST_MAX_AGE_SECONDS}`);
     res.json({
       generated_at: toIso(dataChangedAt),
       wordpress_core: { latest_version: versionInfo.latest },

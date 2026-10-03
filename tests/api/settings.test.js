@@ -96,11 +96,15 @@ describe('Settings API', () => {
       expect(response.body.settings.length).toBeGreaterThan(0);
     });
 
-    test('should allow authenticated regular user to list all settings', async () => {
-      const response = await request(app).get('/api/settings').set('X-API-Key', regularApiKey).expect(200);
+    test('should allow an administrator to list all settings', async () => {
+      const response = await request(app).get('/api/settings').set('X-API-Key', adminApiKey).expect(200);
 
       expect(response.body).toHaveProperty('settings');
       expect(Array.isArray(response.body.settings)).toBe(true);
+    });
+
+    test('should refuse a regular user', async () => {
+      await request(app).get('/api/settings').set('X-API-Key', regularApiKey).expect(403);
     });
 
     test('should reject unauthenticated requests', async () => {
@@ -126,8 +130,12 @@ describe('Settings API', () => {
   });
 
   describe('GET /api/settings/:key', () => {
-    test('should allow authenticated user to get a single setting', async () => {
-      const response = await request(app).get('/api/settings/wordpress.current_version').set('X-API-Key', regularApiKey).expect(200);
+    test('should refuse a regular user a single setting', async () => {
+      await request(app).get('/api/settings/wordpress.current_version').set('X-API-Key', regularApiKey).expect(403);
+    });
+
+    test('should allow an administrator to get a single setting', async () => {
+      const response = await request(app).get('/api/settings/wordpress.current_version').set('X-API-Key', adminApiKey).expect(200);
 
       expect(response.body).toHaveProperty('key');
       expect(response.body).toHaveProperty('value');
@@ -139,7 +147,7 @@ describe('Settings API', () => {
     });
 
     test('should return 404 for non-existent setting', async () => {
-      await request(app).get('/api/settings/nonexistent.setting').set('X-API-Key', regularApiKey).expect(404);
+      await request(app).get('/api/settings/nonexistent.setting').set('X-API-Key', adminApiKey).expect(404);
     });
   });
 
