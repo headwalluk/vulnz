@@ -1,5 +1,6 @@
 const db = require('../db');
 const { stripAll } = require('../lib/sanitizer');
+const { compareVersions, versionSortCompare } = require('../lib/versionCompare');
 
 /**
  * Normalise a website title on the way in.
@@ -417,39 +418,33 @@ const updateVersions = async (websiteId, versions) => {
   return result.affectedRows > 0;
 };
 
-const findOutdatedWordPress = async (minVersion, userId = null) => {
-  let query = `
-    SELECT * FROM websites 
-    WHERE wordpress_version IS NOT NULL 
-    AND wordpress_version < ?
-  `;
-  const params = [minVersion];
+/**
+ * Websites whose `versionColumn` is older than `minVersion`, oldest first.
+ *
+ * Compared with compareVersions() rather than in SQL: VARCHAR comparison is
+ * character by character, so '6.10.0' < '6.7.1'. A version that cannot be
+ * compared is left out, never reported as outdated.
+ */
+const findOlderThan = async (versionColumn, minVersion, userId) => {
+  let query = `SELECT * FROM websites WHERE ${versionColumn} IS NOT NULL AND ${versionColumn} <> ''`;
+  const params = [];
 
   if (userId !== null) {
     query += ' AND user_id = ?';
     params.push(userId);
   }
 
-  query += ' ORDER BY wordpress_version ASC';
-  return await db.query(query, params);
+  const rows = await db.query(query, params);
+  return rows
+    .filter((row) => compareVersions(String(row[versionColumn]), String(minVersion)) === -1)
+    .sort((left, right) => versionSortCompare(String(left[versionColumn]), String(right[versionColumn])));
 };
 
-const findOutdatedPhp = async (minVersion, userId = null) => {
-  let query = `
-    SELECT * FROM websites 
-    WHERE php_version IS NOT NULL 
-    AND php_version < ?
-  `;
-  const params = [minVersion];
+/** Websites running a WordPress release older than minVersion. */
+const findOutdatedWordPress = async (minVersion, userId = null) => findOlderThan('wordpress_version', minVersion, userId);
 
-  if (userId !== null) {
-    query += ' AND user_id = ?';
-    params.push(userId);
-  }
-
-  query += ' ORDER BY php_version ASC';
-  return await db.query(query, params);
-};
+/** Websites running a PHP release older than minVersion. */
+const findOutdatedPhp = async (minVersion, userId = null) => findOlderThan('php_version', minVersion, userId);
 
 const getVersionDistribution = async (userId = null) => {
   let query = `
