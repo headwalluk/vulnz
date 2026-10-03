@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.52.0 - 2026-10-03
+
+### Features
+
+- **Preview a report without sending it.** `GET /api/reports/summary-email/preview?username=…` (or `user_id`) returns a user's weekly report as JSON, built exactly as the weekly email would be: `subject`, `html`, a plain-text `text`, and the `delivery` it would use. Nothing is sent and nothing is written to the email log. `would_send` is `false` when the weekly job would skip the account, and `skip_reasons` lists why (`no_websites`, `blocked`, `paused`, `no_weekday`). Naming another user is administrator-only.
+- **Plain-text part.** The weekly report is now sent with a `text/plain` alternative alongside the HTML. It is the same rendering the preview returns.
+
+### Changes
+
+- **Sending another user's report must be confirmed.** `POST /api/reports/summary-email` naming another user (by `user_id` or `username`) now needs `"send": true`. Without it the request is refused and nothing is sent. Sending your own report with an empty body is unchanged.
+- **`preview: true` is withdrawn.** The flag added in 1.51.0 emailed the preview to the caller. The POST route now refuses it with a `400`, rather than ignoring it and sending the real report. Use the GET preview route instead.
+
+### Upgrading
+
+- No migrations and no new environment variables.
+- Anything that sends another user's report must add `"send": true`. Anything that used `preview: true` must move to the GET route.
+
 ## 1.51.0 - 2026-10-03
 
 ### Features
