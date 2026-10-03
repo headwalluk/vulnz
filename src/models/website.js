@@ -63,6 +63,40 @@ const MALWARE_COUNT_SQL = `(
     AND c.component_type_slug IN (${COUNTED_TYPE_PLACEHOLDERS})
 )`;
 
+// Joins from a website to the vulnerabilities on its installed plugins and themes
+const COUNTED_VULNERABILITY_JOINS = `
+  FROM website_components wc
+  JOIN releases r ON wc.release_id = r.id
+  JOIN components c ON r.component_id = c.id
+  JOIN vulnerabilities v ON v.release_id = r.id`;
+
+/**
+ * The site's worst advisory rating, as the cvss_ratings rank (critical 4 … none 0), or NULL
+ * when none of its vulnerabilities has a rated advisory. Informational advisories rank 0.
+ */
+const WORST_SEVERITY_RANK_SQL = `(
+  SELECT MAX(CASE WHEN a.is_informational = 1 THEN 0 ELSE cr.\`rank\` END)
+  ${COUNTED_VULNERABILITY_JOINS}
+  JOIN advisory_urls au ON au.url_hash = v.url_hash
+  JOIN advisories a ON a.id = au.advisory_id
+  LEFT JOIN cvss_ratings cr ON cr.slug = a.cvss_rating_slug
+  WHERE wc.website_id = w.id
+    AND c.component_type_slug IN (${COUNTED_TYPE_PLACEHOLDERS})
+)`;
+
+/** Whether the site carries a vulnerability no rated advisory accounts for. */
+const HAS_UNRATED_VULNERABILITY_SQL = `EXISTS (
+  SELECT 1
+  ${COUNTED_VULNERABILITY_JOINS}
+  WHERE wc.website_id = w.id
+    AND c.component_type_slug IN (${COUNTED_TYPE_PLACEHOLDERS})
+    AND NOT EXISTS (
+      SELECT 1 FROM advisory_urls au
+      JOIN advisories a ON a.id = au.advisory_id
+      WHERE au.url_hash = v.url_hash AND (a.is_informational = 1 OR a.cvss_rating_slug IS NOT NULL)
+    )
+)`;
+
 /**
  * Mirrors the wporg_statuses lookup table. Duplicated as a constant so a
  * caller-supplied filter value can be validated without a round trip on
@@ -74,6 +108,7 @@ const WPORG_STATUSES = ['unknown', 'available', 'closed', 'absent'];
 const SORT_NEWEST = 'newest';
 const SORT_VULNERABILITIES = 'vulnerabilities';
 const SORT_MALWARE = 'malware';
+const SORT_SEVERITY = 'severity';
 
 /**
  * Whitelisted sort orders. The value is interpolated into the query, so it
@@ -87,6 +122,8 @@ const SORT_CLAUSES = {
   [SORT_NEWEST]: 'w.id DESC',
   [SORT_VULNERABILITIES]: 'vulnerability_count DESC, malware_count DESC, w.id DESC',
   [SORT_MALWARE]: 'malware_count DESC, vulnerability_count DESC, w.id DESC',
+  // Unrated sites (NULL rank) sort after every rated one in both MariaDB and SQLite
+  [SORT_SEVERITY]: 'worst_severity_rank DESC, vulnerability_count DESC, malware_count DESC, w.id DESC',
 };
 
 const SORTS = Object.keys(SORT_CLAUSES);
@@ -242,6 +279,17 @@ const websiteFilter = (userId, search, onlyVulnerable, options) => {
     params.push(options.checkedWithinDays);
   }
 
+  if (options.minSeverityRank !== undefined && options.minSeverityRank !== null) {
+    where.push(`${WORST_SEVERITY_RANK_SQL} >= ?`);
+    params.push(...COUNTED_COMPONENT_TYPES, options.minSeverityRank);
+  }
+
+  // Sites a min_severity filter could not rule out: below the threshold on what is rated, but carrying unrated vulnerabilities
+  if (options.severityUnknownBelowRank !== undefined && options.severityUnknownBelowRank !== null) {
+    where.push(`COALESCE(${WORST_SEVERITY_RANK_SQL}, -1) < ? AND ${HAS_UNRATED_VULNERABILITY_SQL}`);
+    params.push(...COUNTED_COMPONENT_TYPES, options.severityUnknownBelowRank, ...COUNTED_COMPONENT_TYPES);
+  }
+
   // A site that has never reported its versions counts as stale.
   if (options.staleDays) {
     where.push('(w.versions_last_checked_at IS NULL OR w.versions_last_checked_at < NOW() - INTERVAL ? DAY)');
@@ -268,15 +316,18 @@ const websiteFilter = (userId, search, onlyVulnerable, options) => {
  * @param {boolean} [options.isDev]                 Only dev sites (true) or only live sites (false).
  * @param {number} [options.checkedWithinDays]      Only sites that reported versions within this many days.
  * @param {number} [options.staleDays]              Only sites that have not reported versions for this many days.
+ * @param {number} [options.minSeverityRank]        Only sites whose worst advisory ranks at least this (cvss_ratings.rank).
+ * @param {number} [options.severityUnknownBelowRank] Only sites below this rank on rated advisories that also carry unrated vulnerabilities.
  * @param {string} [options.sort]                   One of SORTS; unknown values fall back to newest.
  */
 const findAll = async (userId, limit, offset, search, onlyVulnerable, options = {}) => {
   const filter = websiteFilter(userId, search, onlyVulnerable, options);
-  const params = [...COUNTED_COMPONENT_TYPES, ...COUNTED_COMPONENT_TYPES, ...filter.params];
+  const params = [...COUNTED_COMPONENT_TYPES, ...COUNTED_COMPONENT_TYPES, ...COUNTED_COMPONENT_TYPES, ...filter.params];
   let query = `
     SELECT w.*,
       ${VULNERABILITY_COUNT_SQL} AS vulnerability_count,
-      ${MALWARE_COUNT_SQL} AS malware_count
+      ${MALWARE_COUNT_SQL} AS malware_count,
+      ${WORST_SEVERITY_RANK_SQL} AS worst_severity_rank
     FROM websites w
     ${filter.join}
   `;
@@ -524,4 +575,6 @@ module.exports = {
   SORT_NEWEST,
   SORT_VULNERABILITIES,
   SORT_MALWARE,
+  SORT_SEVERITY,
+  COUNTED_COMPONENT_TYPES,
 };

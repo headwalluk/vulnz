@@ -6,6 +6,8 @@ const componentChange = require('../models/componentChange');
 const component = require('../models/component');
 const { loadReportThresholds } = require('./reportThresholds');
 const { compareVersions } = require('./versionCompare');
+const Advisory = require('../models/advisory');
+const { severityForWebsites } = require('./siteSeverity');
 const { resolveReportDelivery } = require('./reportRecipients');
 const emailLog = require('../models/emailLog');
 
@@ -46,6 +48,10 @@ const reportComponent = (installed) => ({
   version: installed.version,
   latest_version: installed.latest_version,
   vulnerabilities: installed.vulnerabilities,
+  max_cvss_score: installed.max_cvss_score,
+  max_cvss_rating: installed.max_cvss_rating,
+  unrated_vulnerabilities: installed.unrated_vulnerabilities,
+  advisories: installed.advisories,
   is_malware: installed.is_malware,
   malware_summary: installed.malware_summary,
   wporg_status: installed.wporg_status,
@@ -68,7 +74,15 @@ async function buildSiteReport(website, { owner, days, now = new Date() }) {
   const thresholds = await loadReportThresholds();
 
   const inventory = await websiteComponent.getInventoryForReport(websiteId);
-  const vulnerable = inventory.filter((installed) => installed.has_vulnerabilities);
+  const severityByRelease = await Advisory.severityForReleases(inventory.filter((installed) => installed.has_vulnerabilities).map((installed) => installed.release_id));
+  for (const installed of inventory) {
+    Object.assign(installed, severityByRelease.get(installed.release_id) || Advisory.emptySeverity());
+  }
+  const siteSeverity = (await severityForWebsites([websiteId])).get(websiteId);
+  // Worst first, so the components that need a call lead; unrated after every rated one
+  const vulnerable = inventory
+    .filter((installed) => installed.has_vulnerabilities)
+    .sort((left, right) => (Advisory.RATING_RANK[right.max_cvss_rating] ?? -1) - (Advisory.RATING_RANK[left.max_cvss_rating] ?? -1));
   const malware = inventory.filter((installed) => installed.is_malware);
   const withdrawn = inventory.filter((installed) => installed.wporg_status === WPORG_STATUS_CLOSED);
   const behindLatest = inventory.filter((installed) => isOlderThan(installed.version, installed.latest_version) === true);
@@ -114,6 +128,9 @@ async function buildSiteReport(website, { owner, days, now = new Date() }) {
     generated_at: now.toISOString(),
     period: { days, from: periodStart.toISOString(), to: now.toISOString() },
     summary: {
+      max_cvss_rating: siteSeverity.max_cvss_rating,
+      severity_counts: siteSeverity.severity_counts,
+      unrated_vulnerabilities: siteSeverity.unrated_vulnerabilities,
       component_count: inventory.length,
       vulnerable_components: vulnerable.length,
       malware_components: malware.length,

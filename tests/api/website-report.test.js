@@ -151,6 +151,10 @@ describe('GET /api/websites/:domain/report', () => {
     const response = await getReport('reported.example.com');
 
     expect(response.body.summary).toEqual({
+      // The one vulnerable component has no advisory yet: unrated, never low
+      max_cvss_rating: null,
+      severity_counts: { critical: 0, high: 0, medium: 0, low: 0, none: 0, unrated: 1 },
+      unrated_vulnerabilities: 1,
       component_count: 6,
       vulnerable_components: 1,
       malware_components: 1,

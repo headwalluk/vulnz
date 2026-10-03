@@ -74,7 +74,11 @@ async function sendVulnerabilityReport(to, data, cc = []) {
 
   // Dynamic subject line based on vulnerability status
   const hasVulnerabilities = data.vulnerableWebsitesCount > 0;
-  const subjectStatus = hasVulnerabilities ? 'Attention Required!' : 'All Clear';
+  const criticalWebsites = (data.executiveSummary && data.executiveSummary.criticalWebsites) || 0;
+  let subjectStatus = hasVulnerabilities ? 'Attention Required!' : 'All Clear';
+  if (criticalWebsites > 0) {
+    subjectStatus = `${criticalWebsites} site(s) with critical vulnerabilities`;
+  }
   const subject = `Weekly Vulnerability Report: ${subjectStatus}`;
 
   const mailOptions = {

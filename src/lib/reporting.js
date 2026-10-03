@@ -9,6 +9,7 @@ const componentChange = require('../models/componentChange');
 const component = require('../models/component');
 const { loadReportThresholds } = require('./reportThresholds');
 const { resolveReportDelivery } = require('./reportRecipients');
+const { severityForWebsites } = require('./siteSeverity');
 const emailer = require('../lib/email');
 const emailLog = require('../models/emailLog');
 const logger = require('./logger');
@@ -148,8 +149,14 @@ async function sendSummaryEmail(userToSend) {
   const totalComponentChanges = componentChangesSummary.length;
 
   // Build executive summary
+  // Only advisories rated critical count; an unrated vulnerability is never presented as critical
+  const severityBySite = await severityForWebsites(vulnerableWebsites.map((site) => parseInt(site.id, 10)));
+  const criticalCounts = [...severityBySite.values()].map((severity) => severity.severity_counts.critical);
+
   const executiveSummary = {
     vulnerableWebsites: vulnerableWebsites.length,
+    criticalWebsites: criticalCounts.filter((count) => count > 0).length,
+    criticalComponents: criticalCounts.reduce((sum, count) => sum + count, 0),
     totalWebsites,
     securityEvents: totalSecurityEvents,
     outdatedWordPress: outdatedWordPress.length,

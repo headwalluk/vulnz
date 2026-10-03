@@ -26,6 +26,9 @@ const { ROLE_ADMINISTRATOR, VULNERABILITY_WRITER_ROLES } = require('../models/ro
 const WebsiteComponent = require('../models/websiteComponent');
 const { booleanFlag, positiveInteger } = require('../lib/queryParams');
 const { versionSortCompare } = require('../lib/versionCompare');
+
+// min_severity on /installs accepts these; 'none' (informational only) is not a useful floor
+const INSTALLS_MIN_SEVERITY_LEVELS = ['critical', 'high', 'medium', 'low'];
 const { MAX_VULNERABILITY_URL_LENGTH } = require('../models/vulnerability');
 
 function sanitiseComponentSlugMiddleware(req, res, next) {
@@ -555,18 +558,24 @@ router.post('/:componentTypeSlug/:componentSlug/:version', apiAuth, logApiCall, 
  * @param {object[]} installRows from WebsiteComponent.findInstallsOfComponent()
  * @param {Map<number, string[]>} urlsByRelease
  * @param {string|null} latestVersion
+ * @param {Map<number, object>} severityByRelease from Advisory.severityForReleases()
  */
-function groupInstallsByVersion(installRows, urlsByRelease, latestVersion) {
+function groupInstallsByVersion(installRows, urlsByRelease, latestVersion, severityByRelease) {
   const versions = new Map();
   for (const row of installRows) {
     const releaseId = parseInt(row.release_id, 10);
     if (!versions.has(releaseId)) {
       const vulnerabilities = urlsByRelease.get(releaseId) || [];
+      const severity = severityByRelease.get(releaseId) || Advisory.emptySeverity();
       versions.set(releaseId, {
         version: row.version,
         is_latest: Boolean(latestVersion) && row.version === latestVersion,
         has_vulnerabilities: vulnerabilities.length > 0,
         vulnerabilities,
+        max_cvss_score: severity.max_cvss_score,
+        max_cvss_rating: severity.max_cvss_rating,
+        unrated_vulnerabilities: severity.unrated_vulnerabilities,
+        advisories: severity.advisories,
         site_count: 0,
         sites: [],
       });
@@ -618,6 +627,16 @@ function groupInstallsByVersion(installRows, urlsByRelease, latestVersion) {
  *           type: boolean
  *         description: "`false` counts live sites only, `true` dev sites only. Omit for both."
  *       - in: query
+ *         name: min_severity
+ *         schema:
+ *           type: string
+ *           enum: [critical, high, medium, low]
+ *         description: >
+ *           Only versions whose worst rated advisory is at least this CVSS
+ *           rating (since v1.50.0). The response adds
+ *           `severity_unknown_versions`, versions it could not rule out
+ *           because they carry unrated vulnerabilities.
+ *       - in: query
  *         name: vulnerable_only
  *         schema:
  *           type: boolean
@@ -657,6 +676,10 @@ router.get('/:componentTypeSlug/:componentSlug/installs', apiAuth, logApiCall, s
     if (checkedWithinDays === undefined) {
       return res.status(400).json({ error: 'Invalid checked_within_days', message: 'checked_within_days must be a positive integer.' });
     }
+    const minSeverity = req.query.min_severity ? String(req.query.min_severity).toLowerCase() : null;
+    if (minSeverity !== null && !INSTALLS_MIN_SEVERITY_LEVELS.includes(minSeverity)) {
+      return res.status(400).json({ error: 'Unknown min_severity', message: `min_severity must be one of: ${INSTALLS_MIN_SEVERITY_LEVELS.join(', ')}` });
+    }
 
     const [componentType] = await db.query('SELECT slug FROM component_types WHERE slug = ?', [componentTypeSlug]);
     if (!componentType) {
@@ -673,9 +696,24 @@ router.get('/:componentTypeSlug/:componentSlug/installs', apiAuth, logApiCall, s
     const allInstallRows = await WebsiteComponent.findInstallsOfComponent(component.id, { userId, isDev, checkedWithinDays });
     const releaseIds = [...new Set(allInstallRows.map((row) => parseInt(row.release_id, 10)))];
     const urlsByRelease = await WebsiteComponent.findVulnerabilityUrlsByRelease(releaseIds);
-    // vulnerable_only drops clean releases before counting, so site_count describes what is returned
-    const installRows = vulnerableOnly ? allInstallRows.filter((row) => urlsByRelease.has(parseInt(row.release_id, 10))) : allInstallRows;
-    const versions = groupInstallsByVersion(installRows, urlsByRelease, component.latest_version);
+    const severityByRelease = await Advisory.severityForReleases(releaseIds);
+    const minSeverityRank = minSeverity ? Advisory.RATING_RANK[minSeverity] : null;
+    // Filters drop releases before counting, so site_count and version_count describe what is returned
+    const keepRelease = (releaseId) => {
+      const severity = severityByRelease.get(releaseId);
+      const meetsSeverity = minSeverityRank === null || (severity && severity.max_cvss_rating !== null && Advisory.RATING_RANK[severity.max_cvss_rating] >= minSeverityRank);
+      return (!vulnerableOnly || urlsByRelease.has(releaseId)) && meetsSeverity;
+    };
+    const installRows = allInstallRows.filter((row) => keepRelease(parseInt(row.release_id, 10)));
+    const versions = groupInstallsByVersion(installRows, urlsByRelease, component.latest_version, severityByRelease);
+    // Releases min_severity could not rule out: vulnerable, below the threshold on what is rated, with unrated vulnerabilities
+    const severityUnknownVersions =
+      minSeverityRank === null
+        ? undefined
+        : releaseIds.filter((releaseId) => {
+            const severity = severityByRelease.get(releaseId);
+            return severity && severity.unrated_vulnerabilities > 0 && !(severity.max_cvss_rating !== null && Advisory.RATING_RANK[severity.max_cvss_rating] >= minSeverityRank);
+          }).length;
 
     res.json({
       component: {
@@ -693,6 +731,7 @@ router.get('/:componentTypeSlug/:componentSlug/installs', apiAuth, logApiCall, s
       site_count: new Set(installRows.map((row) => parseInt(row.website_id, 10))).size,
       version_count: versions.length,
       versions,
+      ...(severityUnknownVersions === undefined ? {} : { severity_unknown_versions: severityUnknownVersions }),
     });
   } catch (err) {
     console.error(err);

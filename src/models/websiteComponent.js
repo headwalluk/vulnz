@@ -1,4 +1,5 @@
 const db = require('../db');
+const Advisory = require('./advisory');
 
 const createTable = async () => {
   const query = `
@@ -29,7 +30,7 @@ const deleteByType = async (websiteId, componentType) => {
 
 const getComponents = async (websiteId, componentType) => {
   const query = `
-        SELECT c.slug, c.title, c.component_type_slug, r.version, v.url as vulnerability_url,
+        SELECT c.slug, c.title, c.component_type_slug, r.id AS release_id, r.version, v.url as vulnerability_url,
                c.is_malware, c.malware_summary, c.malware_url,
                a.first_detected_at AS malware_first_detected_at
         FROM website_components wc
@@ -58,17 +59,31 @@ const getComponents = async (websiteId, componentType) => {
         // Null until the site has synced since the component was flagged:
         // detections are stamped by the ingest path, not by reads.
         malware_first_detected_at: row.malware_first_detected_at || null,
+        releaseIds: new Set(),
       };
     }
+    components[row.slug].releaseIds.add(parseInt(row.release_id, 10));
     if (row.vulnerability_url) {
       components[row.slug].vulnerabilities.push(row.vulnerability_url);
     }
   }
 
-  return Object.values(components).map((c) => ({
-    ...c,
-    has_vulnerabilities: c.vulnerabilities.length > 0,
-  }));
+  const allReleaseIds = Object.values(components).flatMap((component) => [...component.releaseIds]);
+  const severityByRelease = await Advisory.severityForReleases(allReleaseIds);
+
+  return Object.values(components).map(({ releaseIds, ...component }) => {
+    // Mid-upgrade a slug can carry two releases; it reports the worse
+    const severities = [...releaseIds].map((releaseId) => severityByRelease.get(releaseId)).filter(Boolean);
+    const rated = severities.filter((severity) => severity.max_cvss_rating !== null);
+    const worst = rated.sort((left, right) => Advisory.RATING_RANK[right.max_cvss_rating] - Advisory.RATING_RANK[left.max_cvss_rating])[0];
+    return {
+      ...component,
+      has_vulnerabilities: component.vulnerabilities.length > 0,
+      max_cvss_score: worst ? worst.max_cvss_score : null,
+      max_cvss_rating: worst ? worst.max_cvss_rating : null,
+      unrated_vulnerabilities: severities.reduce((sum, severity) => sum + severity.unrated_vulnerabilities, 0),
+    };
+  });
 };
 
 const getPlugins = async (websiteId) => {
@@ -178,6 +193,7 @@ const getInventoryForReport = async (websiteId) => {
     const releaseId = parseInt(row.release_id, 10);
     if (!components.has(releaseId)) {
       components.set(releaseId, {
+        release_id: releaseId,
         slug: row.slug,
         title: row.title,
         component_type_slug: row.component_type_slug,

@@ -23,6 +23,11 @@ const { checkWebsiteForMalware } = require('../lib/malwareAlert');
 const { lookupIp } = require('../lib/geoip');
 const { domainCandidates } = require('../lib/domain');
 const { buildSiteReport, DEFAULT_REPORT_DAYS, MAX_REPORT_DAYS } = require('../lib/siteReport');
+const { severityForWebsites } = require('../lib/siteSeverity');
+const Advisory = require('../models/advisory');
+
+// min_severity accepts these; 'none' (informational only) is not a useful floor
+const MIN_SEVERITY_LEVELS = ['critical', 'high', 'medium', 'low'];
 
 // Preserved from the original inline `|| 10`; callers that send no limit
 // must keep getting the page size they always got.
@@ -116,6 +121,7 @@ const summariseWebsite = (website) => {
     url: website.url,
     user_id: parseInt(website.user_id, 10),
     username: website.username,
+    reporting_cc: website.reporting_cc || '',
     is_dev: Boolean(website.is_dev),
     server: Website.serverFromMeta(website.meta),
     wordpress_version: website.wordpress_version || null,
@@ -123,12 +129,15 @@ const summariseWebsite = (website) => {
     versions_last_checked_at: website.versions_last_checked_at || null,
     vulnerability_count: Number(website.vulnerability_count),
     malware_count: Number(website.malware_count),
+    max_cvss_rating: website.max_cvss_rating,
+    severity_counts: website.severity_counts,
+    unrated_vulnerabilities: website.unrated_vulnerabilities,
   };
 };
 
 /**
  * Parse the owner, dev, freshness and summary filters on GET /api/websites.
- * @returns {{ownerId: number|null, isDev: boolean|null, checkedWithinDays: number|null, staleDays: number|null, summary: boolean}|{error: {error: string, message: string}}}
+ * @returns {{ownerId: number|null, isDev: boolean|null, checkedWithinDays: number|null, staleDays: number|null, minSeverity: string|null, summary: boolean}|{error: {error: string, message: string}}}
  */
 const resolveListFilters = (query) => {
   const ownerId = positiveInteger(query.user_id);
@@ -136,6 +145,7 @@ const resolveListFilters = (query) => {
   const checkedWithinDays = positiveInteger(query.checked_within_days);
   const staleDays = positiveInteger(query.stale_days);
   const summary = booleanFlag(query.summary);
+  const minSeverity = query.min_severity === undefined || query.min_severity === '' ? null : String(query.min_severity).toLowerCase();
 
   let error = null;
   if (ownerId === undefined) {
@@ -148,6 +158,8 @@ const resolveListFilters = (query) => {
     error = { error: 'Invalid checked_within_days', message: 'checked_within_days must be a positive integer.' };
   } else if (staleDays === undefined) {
     error = { error: 'Invalid stale_days', message: 'stale_days must be a positive integer.' };
+  } else if (minSeverity !== null && !MIN_SEVERITY_LEVELS.includes(minSeverity)) {
+    error = { error: 'Unknown min_severity', message: `min_severity must be one of: ${MIN_SEVERITY_LEVELS.join(', ')}` };
   } else if (checkedWithinDays && staleDays) {
     error = {
       error: 'Conflicting freshness filters',
@@ -155,7 +167,7 @@ const resolveListFilters = (query) => {
     };
   }
 
-  return error ? { error } : { ownerId, isDev, checkedWithinDays, staleDays, summary: summary === true };
+  return error ? { error } : { ownerId, isDev, checkedWithinDays, staleDays, minSeverity, summary: summary === true };
 };
 
 /**
@@ -231,6 +243,17 @@ const resolveListFilters = (query) => {
  *           of the payload. `server` is the site's self-reported meta.Server
  *           (or meta.server), or null.
  *       - in: query
+ *         name: min_severity
+ *         schema:
+ *           type: string
+ *           enum: [critical, high, medium, low]
+ *         description: >
+ *           Only sites whose worst rated advisory (on an installed plugin or
+ *           theme) is at least this CVSS rating (since v1.50.0). The response
+ *           then adds `severity_unknown_sites`: sites the filter could not
+ *           rule out because they also carry vulnerabilities with no rated
+ *           advisory. Unrated is never treated as low.
+ *       - in: query
  *         name: only_vulnerable
  *         schema:
  *           type: boolean
@@ -282,12 +305,14 @@ const resolveListFilters = (query) => {
  *         name: sort
  *         schema:
  *           type: string
- *           enum: [newest, vulnerabilities, malware]
+ *           enum: [newest, severity, vulnerabilities, malware]
  *           default: newest
  *         description: >
- *           Result order. `vulnerabilities` and `malware` rank the whole
- *           matching set in the database, so page 1 really is the worst
- *           affected. Ties fall back to newest first.
+ *           Result order. `severity` (since v1.50.0) ranks by the worst rated
+ *           advisory, then vulnerability_count, with unrated sites last.
+ *           `vulnerabilities` and `malware` rank the whole matching set in
+ *           the database, so page 1 really is the worst affected. Ties fall
+ *           back to newest first.
  *     responses:
  *       200:
  *         description: A list of websites.
@@ -397,6 +422,7 @@ router.get('/', apiAuth, logApiCall, async (req, res) => {
       isDev: listFilters.isDev,
       checkedWithinDays: listFilters.checkedWithinDays,
       staleDays: listFilters.staleDays,
+      minSeverityRank: listFilters.minSeverity ? Advisory.RATING_RANK[listFilters.minSeverity] : null,
       sort,
     };
 
@@ -406,13 +432,17 @@ router.get('/', apiAuth, logApiCall, async (req, res) => {
     const total = await Website.countAll(isAdmin ? null : req.user.id, search, onlyVulnerable, options);
     const websites = await Website.findAll(isAdmin ? null : req.user.id, limit, offset, search, onlyVulnerable, options);
 
-    const usernames = new Map();
+    const owners = new Map();
+    const severityBySite = await severityForWebsites(websites.map((website) => parseInt(website.id, 10)));
     for (const website of websites) {
-      if (!usernames.has(website.user_id)) {
-        const user = await User.findUserById(website.user_id);
-        usernames.set(website.user_id, user ? user.username : null);
+      if (!owners.has(website.user_id)) {
+        owners.set(website.user_id, (await User.findUserById(website.user_id)) || null);
       }
-      website.username = usernames.get(website.user_id);
+      const owner = owners.get(website.user_id);
+      website.username = owner ? owner.username : null;
+      website.reporting_cc = owner && owner.reporting_cc ? owner.reporting_cc : '';
+      Object.assign(website, severityBySite.get(parseInt(website.id, 10)));
+      delete website.worst_severity_rank;
       if (listFilters.summary) {
         continue;
       }
@@ -424,12 +454,21 @@ router.get('/', apiAuth, logApiCall, async (req, res) => {
       addUrl(website);
     }
 
-    res.json({
+    const response = {
       websites: websites.map(listFilters.summary ? summariseWebsite : tidyWebsite),
       total,
       page,
       limit,
-    });
+    };
+    if (options.minSeverityRank !== null) {
+      // Sites the filter could not rule out because some of their vulnerabilities are not rated yet
+      response.severity_unknown_sites = await Website.countAll(isAdmin ? null : req.user.id, search, onlyVulnerable, {
+        ...options,
+        minSeverityRank: null,
+        severityUnknownBelowRank: options.minSeverityRank,
+      });
+    }
+    res.json(response);
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
@@ -587,6 +626,8 @@ router.get('/:domain', apiAuth, logApiCall, canReadWebsite, async (req, res) => 
     addVulnerabilityCount(req.website);
     addMalwareCount(req.website);
     addUrl(req.website);
+    const websiteId = parseInt(req.website.id, 10);
+    Object.assign(req.website, (await severityForWebsites([websiteId])).get(websiteId));
     res.json({
       ...tidyWebsite(req.website),
       username: user.username,

@@ -337,6 +337,34 @@ curl "http://localhost:3000/api/websites?user_id=42&summary=true&limit=200" \
 
 The list leaves out `white_label_html`. `GET /api/users/{id}` returns a single account, including `enable_white_label`, `white_label_html`, `website_count` and `report_delivery` (see below). `GET /api/users/{id}/emails` lists the account's logged emails, newest first.
 
+### Severity Across the Fleet
+
+Since v1.50.0, every place that lists vulnerable components also says how bad they are, using the advisories reported through the bulk endpoint (see [Reporting an Advisory's Severity](#reporting-an-advisorys-severity)):
+
+- **`GET /api/websites?summary=true` rows:**
+  - `max_cvss_rating`: the worst rated advisory on an installed plugin or theme;
+  - `severity_counts` (`critical`, `high`, `medium`, `low`, `none`, `unrated`): each vulnerable component counted once, at its worst advisory, so the counts add up to `vulnerability_count`;
+  - `unrated_vulnerabilities`.
+- **Full website records:** the same three fields, and each plugin and theme carries `max_cvss_score`, `max_cvss_rating` and `unrated_vulnerabilities`.
+- **`/installs`:** each version carries the same three fields plus `advisories[]`.
+- **`/report`:** `summary` gains the site's severity fields, and `components.vulnerable` is listed worst first, each with its advisories.
+
+```bash
+# Sites with a critical vulnerability, worst first, as compact rows
+curl "http://localhost:3000/api/websites?min_severity=critical&sort=severity&summary=true" \
+  -H "X-API-Key: your-admin-api-key"
+
+# Versions of one plugin with at least a high-rated advisory
+curl "http://localhost:3000/api/components/wordpress-plugin/foobar/installs?min_severity=high" \
+  -H "X-API-Key: your-api-key"
+```
+
+`min_severity` takes `critical`, `high`, `medium` or `low`, and `sort=severity` orders sites by their worst rating.
+
+**Unrated is never treated as low.** A vulnerability whose advisory has not been rated, or has not been reported yet, is counted in `unrated_vulnerabilities`, and any maximum rating beside it is a lower bound. With `min_severity`, the response counts what the filter could not rule out: `severity_unknown_sites` on `/api/websites`, `severity_unknown_versions` on `/installs`.
+
+Informational advisories rate `none`, and npm packages have no severity yet.
+
 ### Report Recipients and CC
 
 The weekly report is sent per account. It goes to `reporting_email` when that is a valid address, otherwise to the account email. `reporting_cc` holds a comma-separated list of extra addresses, such as the site's designer or agency, copied in on the **same message** with a real `Cc:` header, so every recipient can see who else was told.

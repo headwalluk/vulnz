@@ -359,7 +359,7 @@ describe('Websites agent query surface', () => {
     });
 
     test('rejects an unknown sort rather than silently using the default', async () => {
-      const response = await request(app).get('/api/websites?sort=severity').set('X-API-Key', adminApiKey);
+      const response = await request(app).get('/api/websites?sort=worst').set('X-API-Key', adminApiKey);
 
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('Unknown sort order');

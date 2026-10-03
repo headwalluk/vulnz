@@ -27,7 +27,7 @@ All examples below assume an administrator key.
 GET /api/websites?q=acme&summary=true
 ```
 
-`q` is a case-insensitive substring match against the **domain or the title**, so a partial domain or a site's name both work. `summary=true` returns one compact row per site (`id`, `domain`, `title`, `url`, `user_id`, `username`, `is_dev`, `server`, `wordpress_version`, `php_version`, `versions_last_checked_at`, `vulnerability_count`, `malware_count`) without the embedded plugin and theme lists, about a twentieth of the payload. Use it for any "which site did you mean?" step, then fetch the one you want in full.
+`q` is a case-insensitive substring match against the **domain or the title**, so a partial domain or a site's name both work. `summary=true` returns one compact row per site (`id`, `domain`, `title`, `url`, `user_id`, `username`, `reporting_cc`, `is_dev`, `server`, `wordpress_version`, `php_version`, `versions_last_checked_at`, `vulnerability_count`, `malware_count`, `max_cvss_rating`, `severity_counts`, `unrated_vulnerabilities`) without the embedded plugin and theme lists, about a twentieth of the payload. Use it for any "which site did you mean?" step, then fetch the one you want in full.
 
 `server` is the hosting server the site **reports about itself** in `meta.Server` (or `meta.server`), or `null` when it reports none. VULNZ does not verify it. It is the only part of `meta` in the compact responses: summary rows, `/installs` sites and the `/report` website block carry no `meta` otherwise, and the full website record carries all of it.
 
@@ -130,7 +130,7 @@ One entry per installed version, newest first (values illustrative):
 }
 ```
 
-`site_count` at the top counts distinct sites. A site that reports two releases of the same plugin, which happens mid-upgrade, appears under both versions but is counted once. `vulnerable_only=true` keeps only versions with a recorded vulnerability, and `site_count` / `version_count` then count only those. `is_dev=false` leaves dev sites out, and `checked_within_days=N` drops sites that have not reported in N days (or ever). An unknown slug is a `404`, never an empty answer. No component read creates anything (since v1.44.0), so a mistyped slug leaves no trace in the catalogue. `latest_version` is only as good as its source; see `blind_spots` below for premium plugins.
+`site_count` at the top counts distinct sites. A site that reports two releases of the same plugin, which happens mid-upgrade, appears under both versions but is counted once. `vulnerable_only=true` keeps only versions with a recorded vulnerability, and `min_severity=critical` (or `high`, `medium`, `low`) keeps only versions whose worst rated advisory is at least that. `site_count` and `version_count` then count only what is kept, and with `min_severity` the response adds `severity_unknown_versions`. Each version carries `max_cvss_score`, `max_cvss_rating`, `unrated_vulnerabilities` and `advisories[]`. `is_dev=false` leaves dev sites out, and `checked_within_days=N` drops sites that have not reported in N days (or ever). An unknown slug is a `404`, never an empty answer. No component read creates anything (since v1.44.0), so a mistyped slug leaves no trace in the catalogue. `latest_version` is only as good as its source; see `blind_spots` below for premium plugins.
 
 ### Which sites run a given plugin?
 
@@ -152,14 +152,29 @@ With `component_slug`, `only_vulnerable=true` means **that component's** install
 
 `total` is the site count. Each entry carries the site's full plugin and theme lists, so the matching version is in `wordpress-plugins[]` alongside everything else installed. To see the versions themselves, grouped, use the `/installs` route above instead.
 
+### Which sites need a phone call?
+
+"Extreme" means CVSS **critical** (9.0 and above). One call gets the sites, the owner and the agency to ring:
+
+```http
+GET /api/websites?min_severity=critical&summary=true&is_dev=false&checked_within_days=7&sort=severity
+```
+
+Each row carries `username` (the account owner), `reporting_cc` (any designer or agency copied in on the reports), `max_cvss_rating` and `severity_counts`, plus `server`. To see _which_ plugin is critical, follow up with `GET /api/websites/{domain}/report`: `components.vulnerable` is listed worst first, each with its advisories (CVE, title, CVSS).
+
+**Then read `severity_unknown_sites` before you say anything is safe.** It counts the sites the filter could **not** rule out: their rated advisories fall below the threshold, but they also carry vulnerabilities nobody has rated yet. While the importer is still filling in severity this number is large, and "no critical sites" is not a true statement until it reaches 0. See the trap below.
+
+`min_severity` accepts `critical`, `high`, `medium` or `low`. A site matches when its worst rated advisory is at or above the level. Informational advisories rate `none` and never match.
+
 ### Which sites are worst affected?
 
 ```http
+GET /api/websites?sort=severity&summary=true&limit=10
 GET /api/websites?sort=vulnerabilities&limit=10
 GET /api/websites?sort=malware&limit=10
 ```
 
-`sort` accepts `newest` (default), `vulnerabilities`, `malware`. Ranking happens in the database across the whole matching set, so page 1 really is the worst affected. Ties break on the other count, then on recency, so paging is stable. An unrecognised value returns `400` rather than silently falling back.
+`sort` accepts `newest` (default), `severity`, `vulnerabilities`, `malware`. `severity` ranks by the worst rated advisory, then by `vulnerability_count`; sites with nothing rated come after every rated site. Ranking happens in the database across the whole matching set, so page 1 really is the worst affected. Ties break on the other count, then on recency, so paging is stable. An unrecognised value returns `400` rather than silently falling back.
 
 ### Which sites are behind on a plugin?
 
@@ -281,6 +296,17 @@ Filtering `?wporg_closure_reason=security-issue` gives you only the confirmed on
 
 The largest install count on the fleet at the time of writing was a plugin closed in 2011 with `reason: unknown` on 29 sites. It would be invisible to a filter that only looked for `security-issue`.
 
+### Unrated is never low
+
+Severity comes from the advisory behind each vulnerability. A vulnerability whose advisory has no rating, or that no advisory claims at all, is **unrated**, and unrated means _unknown_, not _minor_:
+
+- On every component, version, summary row and report, `unrated_vulnerabilities` counts the vulnerabilities no rated advisory accounts for. While it is above 0, `max_cvss_rating` is only a **lower bound**: a component showing `high` may also carry an unrated critical.
+- `severity_counts.unrated` counts vulnerable components with nothing rated at all. The six counts always add up to `vulnerability_count`.
+- `min_severity` answers "which sites are known to be at least this bad", never "which sites are fine". `severity_unknown_sites` (on `/api/websites`) and `severity_unknown_versions` (on `/installs`) count what the filter could not rule out.
+- An **informational** advisory (Wordfence's notices) rates `none`, whatever score the source attached. It still counts as a vulnerability.
+
+Severity is filled in as the feed importer re-sends each advisory with its details, one full feed pass at a time. Until a pass completes, expect most vulnerabilities to be unrated.
+
 ### `vulnerability_count` counts components, not vulnerabilities
 
 It is the number of installed plugins and themes with at least one recorded vulnerability. A component with three CVEs counts once. It covers WordPress plugins and themes only — npm packages are not included.
@@ -319,7 +345,7 @@ Read `error` and `message` on a 400 — `message` names the valid values.
 
 Worth knowing so you do not infer it:
 
-- **Fleet-wide severity, yet.** Since v1.49.0 a single component carries severity: `GET /api/components/{type}/{slug}` gives each release `max_cvss_score`, `max_cvss_rating` and `unrated_vulnerabilities`, and `GET /api/components/{type}/{slug}/{version}` adds the advisories themselves (CVE, title, CVSS). Website lists, `/installs` and `/report` do not carry severity yet, so "which sites have critical vulnerabilities" cannot be asked in one call. Severity is filled in as the feed importer re-sends each advisory. Until then most vulnerabilities read as unrated: `unrated_vulnerabilities` above 0 means the rating is a lower bound, and **unrated is never low**.
+- **Severity for npm packages.** Advisories from OSV are not rated yet, so npm vulnerabilities always read as unrated. Severity covers WordPress plugins and themes, like `vulnerability_count`.
 - **Whether a site is actually exploited.** Everything here is inventory plus known-bad lists.
 - **A person's name.** Accounts are email addresses. There is no name to search on.
 - **Premium plugin versions.** Anything not on wordpress.org has no `latest_version` unless it arrived via an ingest feed. See `blind_spots`.
