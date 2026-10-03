@@ -466,6 +466,38 @@ describe('Websites agent query surface', () => {
     });
   });
 
+  describe('lenient domain lookup on reads', () => {
+    test.each([['WORST.example.com'], [encodeURIComponent('https://worst.example.com:443/wp-admin/?x=1')], ['worst.example.com.'], ['www.worst.example.com']])(
+      'GET /api/websites/%s resolves to the stored domain',
+      async (domainParam) => {
+        const response = await request(app).get(`/api/websites/${domainParam}`).set('X-API-Key', adminApiKey);
+
+        expect(response.status).toBe(200);
+        expect(response.body.domain).toBe('worst.example.com');
+      }
+    );
+
+    test('a near-miss is still a 404, never a guess', async () => {
+      const response = await request(app).get('/api/websites/worst.example').set('X-API-Key', adminApiKey);
+
+      expect(response.status).toBe(404);
+    });
+
+    test('ownership is still enforced on a lenient match', async () => {
+      const response = await request(app).get('/api/websites/www.worst.example.com').set('X-API-Key', customerApiKey);
+
+      expect(response.status).toBe(401);
+    });
+
+    test('writes do not accept the lenient form', async () => {
+      const response = await request(app).delete('/api/websites/www.worst.example.com').set('X-API-Key', adminApiKey);
+
+      expect(response.status).toBe(404);
+      const [website] = await db.query('SELECT id FROM websites WHERE domain = ?', ['worst.example.com']);
+      expect(website).toBeDefined();
+    });
+  });
+
   describe('audit logging', () => {
     /**
      * logApiCall fires its INSERT from inside the res.send override without

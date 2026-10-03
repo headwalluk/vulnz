@@ -20,6 +20,7 @@ const ComponentChange = require('../models/componentChange');
 const WebsiteMalware = require('../models/websiteMalware');
 const { checkWebsiteForMalware } = require('../lib/malwareAlert');
 const { lookupIp } = require('../lib/geoip');
+const { domainCandidates } = require('../lib/domain');
 
 // Preserved from the original inline `|| 10`; callers that send no limit
 // must keep getting the page size they always got.
@@ -33,9 +34,9 @@ const getWebsiteComponents = async (website) => {
   return { wordpressPlugins, wordpressThemes };
 };
 
-const canAccessWebsite = async (req, res, next) => {
-  const { domain } = req.params;
-  const website = await Website.findByDomain(domain);
+/** Build middleware that loads `req.params.domain` with `findWebsite` and checks the caller may see it. */
+const authoriseWebsite = (findWebsite) => async (req, res, next) => {
+  const website = await findWebsite(req.params.domain);
 
   if (!website) {
     return res.status(404).send('Website not found');
@@ -49,6 +50,22 @@ const canAccessWebsite = async (req, res, next) => {
   req.website = website;
   next();
 };
+
+/** Resolve a loosely written domain to a website by trying each exact candidate in turn. */
+const findWebsiteLeniently = async (rawDomain) => {
+  let website;
+  for (const candidate of domainCandidates(rawDomain)) {
+    website = await Website.findByDomain(candidate);
+    if (website) {
+      break;
+    }
+  }
+  return website;
+};
+
+// Writes match the stored domain exactly; only reads accept a scheme, path, port, case or www. difference.
+const canAccessWebsite = authoriseWebsite((domain) => Website.findByDomain(domain));
+const canReadWebsite = authoriseWebsite(findWebsiteLeniently);
 
 const addVulnerabilityCount = (website) => {
   const vulnerablePlugins = (website['wordpress-plugins'] || []).filter((p) => p.has_vulnerabilities).length;
@@ -530,7 +547,12 @@ router.get('/malware', apiAuth, logApiCall, async (req, res) => {
  * /api/websites/{domain}:
  *   get:
  *     summary: Retrieve a single website
- *     description: Retrieve a single website by its domain name.
+ *     description: >
+ *       Retrieve a single website by its domain name. The domain is matched
+ *       leniently but never fuzzily: a scheme, path, port, trailing dot and
+ *       letter case are ignored, and if nothing matches exactly the same host
+ *       with `www.` added or removed is tried. The returned `domain` is the
+ *       stored one. Use `GET /api/websites?q=` to search for a site.
  *     tags:
  *       - Websites
  *     parameters:
@@ -539,7 +561,7 @@ router.get('/malware', apiAuth, logApiCall, async (req, res) => {
  *         required: true
  *         schema:
  *           type: string
- *         description: The domain name of the website to retrieve.
+ *         description: The domain name of the website to retrieve. A full URL is accepted if URL-encoded.
  *     responses:
  *       200:
  *         description: A single website.
@@ -550,7 +572,7 @@ router.get('/malware', apiAuth, logApiCall, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/:domain', apiAuth, logApiCall, canAccessWebsite, async (req, res) => {
+router.get('/:domain', apiAuth, logApiCall, canReadWebsite, async (req, res) => {
   try {
     const user = await User.findUserById(req.website.user_id);
     const { wordpressPlugins, wordpressThemes } = await getWebsiteComponents(req.website);
