@@ -149,6 +149,23 @@ const componentFilter = ({ componentSlug, componentType, componentVersion, compo
   return { join, where, params };
 };
 
+// meta keys a site may report its hosting server under, checked in order
+const SERVER_META_KEYS = ['Server', 'server'];
+
+/**
+ * The hosting server a site reports in its meta, or null. Self-reported and unverified.
+ * The driver returns the JSON column as an object; a string (the SQLite test shim) is parsed.
+ */
+const serverFromMeta = (meta) => {
+  const parsed = typeof meta === 'string' ? JSON.parse(meta) : meta;
+  let server = null;
+  if (parsed && typeof parsed === 'object') {
+    const key = SERVER_META_KEYS.find((candidate) => typeof parsed[candidate] === 'string' && parsed[candidate].trim() !== '');
+    server = key ? parsed[key].trim() : null;
+  }
+  return server;
+};
+
 const createTable = async () => {
   const query = `
     CREATE TABLE IF NOT EXISTS websites (
@@ -501,6 +518,7 @@ module.exports = {
   findOutdatedPhp,
   getVersionDistribution,
   PLATFORM_KEY_TO_VERSION,
+  serverFromMeta,
   SORTS,
   WPORG_STATUSES,
   SORT_NEWEST,

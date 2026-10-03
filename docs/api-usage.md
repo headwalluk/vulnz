@@ -255,7 +255,7 @@ The recipient is a single operator address for now. Routing alerts to each websi
 
 ### Installed Versions of a Component
 
-`GET /api/components/{type}/{slug}/installs` groups the fleet by installed version, newest first. Each version carries its vulnerability URLs and the websites running it, with owner and freshness. Administrators see every website; other users see only their own. `is_dev=false` leaves dev sites out. An unknown component is a `404` and is not created.
+`GET /api/components/{type}/{slug}/installs` groups the fleet by installed version, newest first. Each version carries its vulnerability URLs and the websites running it, with owner and freshness. Administrators see every website; other users see only their own. `vulnerable_only=true` keeps only vulnerable versions, `is_dev=false` leaves dev sites out, and `checked_within_days=N` drops sites that have not reported in N days. Each site carries `server`: its self-reported `meta.Server`, or `null`. An unknown component is a `404` and is not created.
 
 ```bash
 curl "http://localhost:3000/api/components/wordpress-plugin/foobar/installs?is_dev=false" \

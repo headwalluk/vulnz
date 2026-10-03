@@ -62,7 +62,7 @@ describe('GET /api/websites/:domain/report', () => {
       wordpress_version: '6.4.2',
       php_version: '8.2.0',
     });
-    await db.query("UPDATE websites SET versions_last_checked_at = datetime('now', '-3 days') WHERE id = ?", [site.id]);
+    await db.query("UPDATE websites SET versions_last_checked_at = datetime('now', '-3 days'), meta = ? WHERE id = ?", [JSON.stringify({ Server: 'box-two' }), site.id]);
     const otherSite = await createTestWebsite(db, { domain: 'other.example.com', user_id: adminUser.id, wordpress_version: '6.8.2', php_version: '7.4.33' });
 
     const vulnerable = await installComponent(site.id, 'leaky-forms', '2.0.0', { latest_version: '2.1.0' });
@@ -135,6 +135,7 @@ describe('GET /api/websites/:domain/report', () => {
       url: 'https://reported.example.com',
       username: 'customer@example.com',
       is_dev: false,
+      server: 'box-two',
       days_since_versions_checked: 3,
     });
     expect(response.body.period.days).toBe(7);

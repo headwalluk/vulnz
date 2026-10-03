@@ -38,6 +38,7 @@ describe('GET /api/components/:type/:slug/installs', () => {
     customerApiKey = await createTestApiKey(db, customerUser.id);
 
     const alpha = await createTestWebsite(db, { domain: 'alpha.example.com', title: 'Alpha', user_id: adminUser.id });
+    await db.query("UPDATE websites SET meta = ?, versions_last_checked_at = datetime('now', '-1 days') WHERE id = ?", [JSON.stringify({ Server: 'box-alpha' }), alpha.id]);
     const bravo = await createTestWebsite(db, { domain: 'bravo.example.com', title: 'Bravo', user_id: adminUser.id, is_dev: 1 });
     const charlie = await createTestWebsite(db, { domain: 'charlie.example.com', title: 'Charlie', user_id: customerUser.id });
 
@@ -94,6 +95,36 @@ describe('GET /api/components/:type/:slug/installs', () => {
     expect(old.vulnerabilities).toEqual(['https://example.test/vuln/a', 'https://example.test/vuln/b']);
     expect(old.sites.map((site) => site.domain)).toEqual(['alpha.example.com', 'bravo.example.com', 'charlie.example.com']);
     expect(old.sites[2]).toMatchObject({ title: 'Charlie', url: 'https://charlie.example.com', username: 'customer@example.com', is_dev: false });
+  });
+
+  test('each site carries its self-reported server, or null', async () => {
+    const response = await request(app).get(installsOf('wpmudev-updates')).set('X-API-Key', adminApiKey);
+
+    const sites = response.body.versions.flatMap((entry) => entry.sites);
+    expect(sites.find((site) => site.domain === 'alpha.example.com').server).toBe('box-alpha');
+    expect(sites.find((site) => site.domain === 'bravo.example.com').server).toBeNull();
+  });
+
+  test('vulnerable_only keeps only vulnerable versions, and counts only their sites', async () => {
+    const response = await request(app).get(installsOf('wpmudev-updates', '?vulnerable_only=true')).set('X-API-Key', adminApiKey);
+
+    expect(response.body.versions.map((entry) => entry.version)).toEqual(['4.11.9']);
+    expect(response.body.version_count).toBe(1);
+    expect(response.body.site_count).toBe(3);
+  });
+
+  test('checked_within_days drops stale and never-reported sites', async () => {
+    const response = await request(app).get(installsOf('wpmudev-updates', '?checked_within_days=7')).set('X-API-Key', adminApiKey);
+
+    const domains = response.body.versions.flatMap((entry) => entry.sites.map((site) => site.domain));
+    expect([...new Set(domains)]).toEqual(['alpha.example.com']);
+    expect(response.body.site_count).toBe(1);
+  });
+
+  test.each(['?vulnerable_only=maybe', '?checked_within_days=0'])('rejects %s', async (queryString) => {
+    const response = await request(app).get(installsOf('wpmudev-updates', queryString)).set('X-API-Key', adminApiKey);
+
+    expect(response.status).toBe(400);
   });
 
   test('omits releases nobody has installed', async () => {

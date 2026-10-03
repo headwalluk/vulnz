@@ -1,3 +1,4 @@
+const Website = require('../models/website');
 const websiteComponent = require('../models/websiteComponent');
 const securityEvent = require('../models/securityEvent');
 const fileSecurityIssue = require('../models/fileSecurityIssue');
@@ -92,6 +93,7 @@ async function buildSiteReport(website, { username, days, now = new Date() }) {
       user_id: parseInt(website.user_id, 10),
       username,
       is_dev: Boolean(website.is_dev),
+      server: Website.serverFromMeta(website.meta),
       wordpress_version: website.wordpress_version || null,
       php_version: website.php_version || null,
       db_server_type: website.db_server_type || 'unknown',

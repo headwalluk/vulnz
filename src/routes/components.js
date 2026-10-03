@@ -23,7 +23,7 @@ const vulnerabilityRange = require('../models/vulnerabilityRange');
 const User = require('../models/user');
 const { ROLE_ADMINISTRATOR, VULNERABILITY_WRITER_ROLES } = require('../models/role');
 const WebsiteComponent = require('../models/websiteComponent');
-const { booleanFlag } = require('../lib/queryParams');
+const { booleanFlag, positiveInteger } = require('../lib/queryParams');
 const { versionSortCompare } = require('../lib/versionCompare');
 const { MAX_VULNERABILITY_URL_LENGTH } = require('../models/vulnerability');
 
@@ -559,6 +559,7 @@ function groupInstallsByVersion(installRows, urlsByRelease, latestVersion) {
       user_id: parseInt(row.user_id, 10),
       username: row.username,
       is_dev: Boolean(row.is_dev),
+      server: Website.serverFromMeta(row.meta),
       versions_last_checked_at: row.versions_last_checked_at || null,
     });
   }
@@ -595,6 +596,16 @@ function groupInstallsByVersion(installRows, urlsByRelease, latestVersion) {
  *         schema:
  *           type: boolean
  *         description: "`false` counts live sites only, `true` dev sites only. Omit for both."
+ *       - in: query
+ *         name: vulnerable_only
+ *         schema:
+ *           type: boolean
+ *         description: Only versions with a recorded vulnerability; site_count and version_count then count only those.
+ *       - in: query
+ *         name: checked_within_days
+ *         schema:
+ *           type: integer
+ *         description: Only sites that reported their versions within this many days. Excludes sites that have never reported.
  *     responses:
  *       200:
  *         description: >
@@ -602,10 +613,11 @@ function groupInstallsByVersion(installRows, urlsByRelease, latestVersion) {
  *           status), `site_count`, `version_count`, and `versions[]`, each with
  *           `version`, `is_latest`, `has_vulnerabilities`, `vulnerabilities`
  *           (URLs), `site_count` and `sites[]` (domain, title, url, user_id,
- *           username, is_dev, versions_last_checked_at). A component installed
- *           nowhere returns an empty `versions` array.
+ *           username, is_dev, server, versions_last_checked_at). `server` is
+ *           the site's self-reported meta.Server (or meta.server), or null. A
+ *           component installed nowhere returns an empty `versions` array.
  *       400:
- *         description: Invalid is_dev
+ *         description: Invalid is_dev, vulnerable_only or checked_within_days
  *       404:
  *         description: Component type or component not found
  */
@@ -613,8 +625,16 @@ router.get('/:componentTypeSlug/:componentSlug/installs', apiAuth, logApiCall, s
   try {
     const { componentTypeSlug, componentSlug } = req.params;
     const isDev = booleanFlag(req.query.is_dev);
+    const vulnerableOnly = booleanFlag(req.query.vulnerable_only);
+    const checkedWithinDays = positiveInteger(req.query.checked_within_days);
     if (isDev === undefined) {
       return res.status(400).json({ error: 'Invalid is_dev', message: 'is_dev must be true, false, 1 or 0.' });
+    }
+    if (vulnerableOnly === undefined) {
+      return res.status(400).json({ error: 'Invalid vulnerable_only', message: 'vulnerable_only must be true, false, 1 or 0.' });
+    }
+    if (checkedWithinDays === undefined) {
+      return res.status(400).json({ error: 'Invalid checked_within_days', message: 'checked_within_days must be a positive integer.' });
     }
 
     const [componentType] = await db.query('SELECT slug FROM component_types WHERE slug = ?', [componentTypeSlug]);
@@ -629,9 +649,11 @@ router.get('/:componentTypeSlug/:componentSlug/installs', apiAuth, logApiCall, s
 
     const roles = await User.getRoles(req.user.id);
     const userId = roles.includes(ROLE_ADMINISTRATOR) ? null : req.user.id;
-    const installRows = await WebsiteComponent.findInstallsOfComponent(component.id, { userId, isDev });
-    const releaseIds = [...new Set(installRows.map((row) => parseInt(row.release_id, 10)))];
+    const allInstallRows = await WebsiteComponent.findInstallsOfComponent(component.id, { userId, isDev, checkedWithinDays });
+    const releaseIds = [...new Set(allInstallRows.map((row) => parseInt(row.release_id, 10)))];
     const urlsByRelease = await WebsiteComponent.findVulnerabilityUrlsByRelease(releaseIds);
+    // vulnerable_only drops clean releases before counting, so site_count describes what is returned
+    const installRows = vulnerableOnly ? allInstallRows.filter((row) => urlsByRelease.has(parseInt(row.release_id, 10))) : allInstallRows;
     const versions = groupInstallsByVersion(installRows, urlsByRelease, component.latest_version);
 
     res.json({

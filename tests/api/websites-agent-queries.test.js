@@ -440,6 +440,17 @@ describe('Websites agent query surface', () => {
       expect(response.body.total).toBe(2);
     });
 
+    test('summary rows carry the self-reported server, or null', async () => {
+      await db.query('UPDATE websites SET meta = ? WHERE id = ?', [JSON.stringify({ Server: 'box-one', Login: 'secret-ish' }), sites.worst.id]);
+
+      const response = await request(app).get('/api/websites?summary=true&limit=50').set('X-API-Key', adminApiKey);
+
+      const byDomain = Object.fromEntries(response.body.websites.map((website) => [website.domain, website]));
+      expect(byDomain['worst.example.com'].server).toBe('box-one');
+      expect(byDomain['clean.example.com'].server).toBeNull();
+      expect(byDomain['worst.example.com']).not.toHaveProperty('meta');
+    });
+
     test('summary=true drops the component lists but keeps the counts', async () => {
       const response = await request(app).get('/api/websites?summary=true&sort=vulnerabilities&limit=1').set('X-API-Key', adminApiKey);
 

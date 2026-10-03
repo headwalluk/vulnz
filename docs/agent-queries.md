@@ -27,7 +27,9 @@ All examples below assume an administrator key.
 GET /api/websites?q=acme&summary=true
 ```
 
-`q` is a case-insensitive substring match against the **domain or the title**, so a partial domain or a site's name both work. `summary=true` returns one compact row per site (`domain`, `title`, `url`, `user_id`, `username`, `is_dev`, `wordpress_version`, `php_version`, `versions_last_checked_at`, `vulnerability_count`, `malware_count`) without the embedded plugin and theme lists, about a twentieth of the payload. Use it for any "which site did you mean?" step, then fetch the one you want in full.
+`q` is a case-insensitive substring match against the **domain or the title**, so a partial domain or a site's name both work. `summary=true` returns one compact row per site (`id`, `domain`, `title`, `url`, `user_id`, `username`, `is_dev`, `server`, `wordpress_version`, `php_version`, `versions_last_checked_at`, `vulnerability_count`, `malware_count`) without the embedded plugin and theme lists, about a twentieth of the payload. Use it for any "which site did you mean?" step, then fetch the one you want in full.
+
+`server` is the hosting server the site **reports about itself** in `meta.Server` (or `meta.server`), or `null` when it reports none. VULNZ does not verify it. It is the only part of `meta` in the compact responses: summary rows, `/installs` sites and the `/report` website block carry no `meta` otherwise, and the full website record carries all of it.
 
 ### Everything about one site
 
@@ -45,7 +47,7 @@ The report returns:
 
 | Field                  | What it holds                                                                                                                                                          |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `website`              | identity, owner, versions, `versions_last_checked_at` and `days_since_versions_checked`                                                                                |
+| `website`              | identity, owner, `server`, versions, `versions_last_checked_at` and `days_since_versions_checked`                                                                      |
 | `summary`              | one count per section below, plus `wordpress_outdated` / `php_outdated`                                                                                                |
 | `software`             | WordPress against the current release and PHP against the configured minimum, each with `is_outdated`                                                                  |
 | `components`           | `vulnerable`, `malware`, `withdrawn` (wordpress.org closed) and `behind_latest`, each entry with `version`, `latest_version`, `vulnerabilities` and the closure fields |
@@ -74,7 +76,10 @@ GET /api/websites?user_id=42&summary=true&limit=200
 ### Which versions of a plugin are installed, and where?
 
 ```http
-GET /api/components/wordpress-plugin/wpmudev-updates/installs
+GET /api/components/wordpress-plugin/foobar/installs
+
+# Only the vulnerable versions, on live sites that reported in the past week
+GET /api/components/wordpress-plugin/foobar/installs?vulnerable_only=true&is_dev=false&checked_within_days=7
 ```
 
 One entry per installed version, newest first (values illustrative):
@@ -91,13 +96,13 @@ One entry per installed version, newest first (values illustrative):
       "has_vulnerabilities": true,
       "vulnerabilities": ["https://…"],
       "site_count": 2,
-      "sites": [{ "domain": "…", "title": "…", "url": "…", "user_id": 2, "username": "…", "is_dev": false, "versions_last_checked_at": "…" }]
+      "sites": [{ "domain": "…", "title": "…", "url": "…", "user_id": 2, "username": "…", "is_dev": false, "server": "…", "versions_last_checked_at": "…" }]
     }
   ]
 }
 ```
 
-`site_count` at the top counts distinct sites. A site that reports two releases of the same plugin, which happens mid-upgrade, appears under both versions but is counted once. `is_dev=false` leaves dev sites out. An unknown slug is a `404`, never an empty answer. No component read creates anything (since v1.44.0), so a mistyped slug leaves no trace in the catalogue. `latest_version` is only as good as its source; see `blind_spots` below for premium plugins.
+`site_count` at the top counts distinct sites. A site that reports two releases of the same plugin, which happens mid-upgrade, appears under both versions but is counted once. `vulnerable_only=true` keeps only versions with a recorded vulnerability, and `site_count` / `version_count` then count only those. `is_dev=false` leaves dev sites out, and `checked_within_days=N` drops sites that have not reported in N days (or ever). An unknown slug is a `404`, never an empty answer. No component read creates anything (since v1.44.0), so a mistyped slug leaves no trace in the catalogue. `latest_version` is only as good as its source; see `blind_spots` below for premium plugins.
 
 ### Which sites run a given plugin?
 

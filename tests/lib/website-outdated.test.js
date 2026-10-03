@@ -75,3 +75,18 @@ describe('Website.update()', () => {
     await expect(Website.update(1, { 'title = title, user_id': 1 })).rejects.toThrow(/cannot write/);
   });
 });
+
+describe('Website.serverFromMeta()', () => {
+  test.each([
+    [{ Server: 'hhw-example-1' }, 'hhw-example-1'],
+    [{ server: 'box-2' }, 'box-2'],
+    [{ Server: '  padded  ' }, 'padded'],
+    [{ Server: '', server: 'fallback' }, 'fallback'],
+    [JSON.stringify({ Server: 'from-text' }), 'from-text'],
+    [{ Login: 'x' }, null],
+    [{}, null],
+    [null, null],
+  ])('%j -> %j', (meta, expected) => {
+    expect(Website.serverFromMeta(meta)).toBe(expected);
+  });
+});

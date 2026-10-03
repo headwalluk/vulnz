@@ -106,7 +106,7 @@ const tidyWebsite = (website) => {
   };
 };
 
-/** Compact row for `summary=true`: identity, owner, versions, freshness and the SQL-side counts. */
+/** Compact row for `summary=true`: identity, owner, server, versions, freshness and the SQL-side counts. */
 const summariseWebsite = (website) => {
   addUrl(website);
   return {
@@ -117,6 +117,7 @@ const summariseWebsite = (website) => {
     user_id: parseInt(website.user_id, 10),
     username: website.username,
     is_dev: Boolean(website.is_dev),
+    server: Website.serverFromMeta(website.meta),
     wordpress_version: website.wordpress_version || null,
     php_version: website.php_version || null,
     versions_last_checked_at: website.versions_last_checked_at || null,
@@ -224,9 +225,11 @@ const resolveListFilters = (query) => {
  *         schema:
  *           type: boolean
  *         description: >
- *           Return one compact row per site (identity, owner, versions,
- *           freshness and the two counts) without the embedded plugin and
- *           theme lists. Roughly a twentieth of the payload.
+ *           Return one compact row per site (id, domain, title, url, owner,
+ *           is_dev, server, versions, freshness and the two counts) without
+ *           the embedded plugin and theme lists or meta. Roughly a twentieth
+ *           of the payload. `server` is the site's self-reported meta.Server
+ *           (or meta.server), or null.
  *       - in: query
  *         name: only_vulnerable
  *         schema:

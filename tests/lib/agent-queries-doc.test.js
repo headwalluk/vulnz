@@ -33,21 +33,25 @@ function documentedRequests() {
   return requests;
 }
 
-/** The spec path a documented path refers to: an exact literal match first, else one matching on placeholders. */
+/** The spec path a documented path refers to: of the paths it fits, the one with the most literal segments in common. */
 function findSpecPath(documentedPath) {
   const documentedSegments = documentedPath.split('/');
-  const segmentsMatch = (specPath, allowSpecPlaceholders) => {
+  let bestPath;
+  let bestScore = -1;
+  for (const specPath of Object.keys(spec.paths)) {
     const specSegments = specPath.split('/');
-    return (
+    const fits =
       specSegments.length === documentedSegments.length &&
       specSegments.every(
-        (specSegment, index) =>
-          specSegment === documentedSegments[index] || PLACEHOLDER_PATTERN.test(documentedSegments[index]) || (allowSpecPlaceholders && PLACEHOLDER_PATTERN.test(specSegment))
-      )
-    );
-  };
-  const specPaths = Object.keys(spec.paths);
-  return specPaths.find((specPath) => segmentsMatch(specPath, false)) || specPaths.find((specPath) => segmentsMatch(specPath, true));
+        (specSegment, index) => specSegment === documentedSegments[index] || PLACEHOLDER_PATTERN.test(documentedSegments[index]) || PLACEHOLDER_PATTERN.test(specSegment)
+      );
+    const literalMatches = specSegments.filter((specSegment, index) => specSegment === documentedSegments[index]).length;
+    if (fits && literalMatches > bestScore) {
+      bestPath = specPath;
+      bestScore = literalMatches;
+    }
+  }
+  return bestPath;
 }
 
 describe('docs/agent-queries.md', () => {

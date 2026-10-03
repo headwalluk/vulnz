@@ -98,11 +98,12 @@ const getComponentsForChangeTracking = async (websiteId) => {
  * @param {object} [options]
  * @param {number|null} [options.userId]  Restrict to this owner's websites; null for every website.
  * @param {boolean|null} [options.isDev]  Only dev (true) or only live (false) websites; null for both.
+ * @param {number|null} [options.checkedWithinDays]  Only websites that reported versions within this many days.
  */
-const findInstallsOfComponent = async (componentId, { userId = null, isDev = null } = {}) => {
+const findInstallsOfComponent = async (componentId, { userId = null, isDev = null, checkedWithinDays = null } = {}) => {
   let query = `
     SELECT r.id AS release_id, r.version,
-           w.id AS website_id, w.domain, w.title, w.is_ssl, w.is_dev, w.versions_last_checked_at, w.user_id,
+           w.id AS website_id, w.domain, w.title, w.is_ssl, w.is_dev, w.versions_last_checked_at, w.user_id, w.meta,
            u.username
     FROM website_components wc
     JOIN releases r ON wc.release_id = r.id
@@ -120,6 +121,11 @@ const findInstallsOfComponent = async (componentId, { userId = null, isDev = nul
   if (isDev === true || isDev === false) {
     query += ' AND w.is_dev = ?';
     params.push(isDev ? 1 : 0);
+  }
+
+  if (checkedWithinDays) {
+    query += ' AND w.versions_last_checked_at >= NOW() - INTERVAL ? DAY';
+    params.push(checkedWithinDays);
   }
 
   query += ' ORDER BY w.domain ASC';
