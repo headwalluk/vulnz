@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.53.1 - 2026-10-14
+
+### Fixes
+
+- **Leading-dot versions are read as `0.`** Some plugins number releases `.51.1`; BulletProof Security did for `.44` to `.54.5`, and WordPress.org lists those releases as `0.44` to `0.54.5`. A range bound in that form was rejected with `UNRECOGNISED_VERSION`, and a release reported in it could not be placed against any range. `.51.1` now parses as `0.51.1`, and the two forms compare equal. Stored text is unchanged. `v.1.1` and `..1` are still rejected.
+
+### Upgrading
+
+- No migrations and no new environment variables.
+- Advisories previously rejected for a leading-dot bound are accepted the next time the ingest client posts them.
+
 ## 1.53.0 - 2026-10-14
 
 ### Fixes
