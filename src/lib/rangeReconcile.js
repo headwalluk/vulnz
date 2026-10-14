@@ -162,6 +162,8 @@ async function reconcileRangeVulnerabilities({ apply = false, componentSlug = nu
 }
 
 module.exports = {
+  OUTCOME_DELETE,
   classifyRow,
+  deleteRows,
   reconcileRangeVulnerabilities,
 };

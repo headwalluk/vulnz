@@ -14,9 +14,14 @@ const { MAX_VULNERABILITY_URL_LENGTH } = require('../models/vulnerability');
 const Advisory = require('../models/advisory');
 
 const MAX_BULK_ITEMS = 500;
-const MAX_RANGES_PER_ITEM = 50;
+const MAX_RANGES_PER_ITEM = 250;
+
+/** Key for one component's range set under one URL, used to merge replaceRanges items. */
+function replaceSetKey(componentTypeSlug, componentSlug, url) {
+  return `${componentTypeSlug}\n${sanitizeComponentSlug(componentSlug)}\n${url}`;
+}
 // Anything else on an item is rejected, so a field this version does not understand is never silently dropped
-const ITEM_FIELDS = ['componentTypeSlug', 'componentSlug', 'version', 'ranges', 'urls', 'advisory'];
+const ITEM_FIELDS = ['componentTypeSlug', 'componentSlug', 'version', 'ranges', 'replaceRanges', 'urls', 'advisory'];
 
 /**
  * @swagger
@@ -38,6 +43,15 @@ const ITEM_FIELDS = ['componentTypeSlug', 'componentSlug', 'version', 'ranges', 
  *       including releases that arrive later. A version that cannot be placed
  *       against a range (an unrecognised suffix at the boundary) is not matched.
  *       Posting a range never creates a release.
+ *
+ *       Ranges are added to what is stored unless the item sets `replaceRanges`
+ *       (since v1.53.0). Its ranges then become the complete set for the component
+ *       under each of its URLs: other stored ranges are deleted, and so are the
+ *       vulnerability rows no remaining range covers (an undecidable row is kept).
+ *       Items in one request for the same component and URL are merged first, so
+ *       every item for that component and URL in the batch must set it. If any
+ *       item naming that component and URL is rejected, nothing is replaced for
+ *       it in that request; the valid items' ranges are still added.
  *
  *       An item field this version does not know is rejected with UNKNOWN_FIELD
  *       (since v1.49.0), never silently ignored.
@@ -75,8 +89,8 @@ const ITEM_FIELDS = ['componentTypeSlug', 'componentSlug', 'version', 'ranges', 
  *                       description: One affected release version, stored exactly as given. Must be a recognisable version (same rules as range bounds). Mutually exclusive with ranges.
  *                     ranges:
  *                       type: array
- *                       maxItems: 50
- *                       description: Affected version ranges. Mutually exclusive with version.
+ *                       maxItems: 250
+ *                       description: Affected version ranges. Mutually exclusive with version. The limit was 50 before v1.53.0.
  *                       items:
  *                         type: object
  *                         required:
@@ -97,6 +111,12 @@ const ITEM_FIELDS = ['componentTypeSlug', 'componentSlug', 'version', 'ranges', 
  *                           toInclusive:
  *                             type: boolean
  *                             description: Required when to is set. false for a fixed-in version.
+ *                     replaceRanges:
+ *                       type: boolean
+ *                       description: >
+ *                         Since v1.53.0. true when ranges is the advisory's complete set for this
+ *                         component: stored ranges under these URLs that are not in it are deleted,
+ *                         with the rows only they covered. Only valid with ranges.
  *                     urls:
  *                       type: array
  *                       items:
@@ -183,12 +203,18 @@ const ITEM_FIELDS = ['componentTypeSlug', 'componentSlug', 'version', 'ranges', 
  *                 duplicates:
  *                   type: integer
  *                   description: Number of vulnerability records that already existed
+ *                 removed:
+ *                   type: integer
+ *                   description: Vulnerability records deleted because a replaceRanges set no longer covers them
  *                 rangesCreated:
  *                   type: integer
  *                   description: Number of new (url, range) records stored
  *                 rangesDuplicates:
  *                   type: integer
  *                   description: Number of (url, range) records that already existed
+ *                 rangesRemoved:
+ *                   type: integer
+ *                   description: Stored (url, range) records deleted by replaceRanges
  *                 advisoriesCreated:
  *                   type: integer
  *                   description: Advisories stored for the first time
@@ -303,6 +329,16 @@ router.post('/bulk', apiAuth, logApiCall, hasRole(VULNERABILITY_WRITER_ROLES), a
         }
         normalisedRanges.set(i, ranges);
       }
+      if (item.replaceRanges !== undefined) {
+        if (typeof item.replaceRanges !== 'boolean') {
+          errors.push(itemError(i, ERROR_CODES.FIELD_INVALID, 'replaceRanges', 'replaceRanges must be a boolean.'));
+          continue;
+        }
+        if (item.ranges === undefined) {
+          errors.push(itemError(i, ERROR_CODES.CONFLICTING_FIELDS, 'replaceRanges', 'replaceRanges applies only to an item with ranges.'));
+          continue;
+        }
+      }
       if (item.urls === undefined) {
         errors.push(itemError(i, ERROR_CODES.FIELD_REQUIRED, 'urls', 'urls must be a non-empty array.'));
         continue;
@@ -341,6 +377,19 @@ router.post('/bulk', apiAuth, logApiCall, hasRole(VULNERABILITY_WRITER_ROLES), a
     // Caches to avoid redundant lookups within the same batch
     const componentCache = new Map();
     const releaseCache = new Map();
+    // Complete range sets by component and URL, merged across the batch and applied after every item is recorded
+    const replaceSets = new Map();
+    // A rejected item may hold part of a set, so its component and URLs are never replaced in this request
+    const blockedReplaceKeys = new Set();
+    for (const index of invalidIndexes) {
+      const item = items[index];
+      const namesComponent = item && typeof item === 'object' && typeof item.componentTypeSlug === 'string' && typeof item.componentSlug === 'string';
+      if (namesComponent && Array.isArray(item.urls)) {
+        for (const url of item.urls) {
+          blockedReplaceKeys.add(replaceSetKey(item.componentTypeSlug, item.componentSlug, url));
+        }
+      }
+    }
 
     let totalCreated = 0;
     let totalDuplicates = 0;
@@ -348,6 +397,8 @@ router.post('/bulk', apiAuth, logApiCall, hasRole(VULNERABILITY_WRITER_ROLES), a
     let totalRangesDuplicates = 0;
     let totalAdvisoriesCreated = 0;
     let totalAdvisoriesUpdated = 0;
+    let totalRangesRemoved = 0;
+    let totalRemoved = 0;
 
     for (let i = 0; i < items.length; i++) {
       if (invalidIndexes.has(i)) {
@@ -375,6 +426,18 @@ router.post('/bulk', apiAuth, logApiCall, hasRole(VULNERABILITY_WRITER_ROLES), a
         totalDuplicates += result.matched - result.created;
         totalRangesCreated += result.rangesCreated;
         totalRangesDuplicates += result.rangesDuplicates;
+        if (item.replaceRanges === true) {
+          for (const url of item.urls) {
+            const replaceKey = replaceSetKey(componentTypeSlug, item.componentSlug, url);
+            if (blockedReplaceKeys.has(replaceKey)) {
+              continue;
+            }
+            if (!replaceSets.has(replaceKey)) {
+              replaceSets.set(replaceKey, { componentId: comp.id, url, ranges: [] });
+            }
+            replaceSets.get(replaceKey).ranges.push(...normalisedRanges.get(i));
+          }
+        }
       } else {
         // Resolve release (cached, auto-create)
         const version = item.version;
@@ -404,11 +467,19 @@ router.post('/bulk', apiAuth, logApiCall, hasRole(VULNERABILITY_WRITER_ROLES), a
       }
     }
 
+    for (const replaceSet of replaceSets.values()) {
+      const result = await VulnerabilityRange.replaceRanges(replaceSet.componentId, replaceSet.url, replaceSet.ranges);
+      totalRangesRemoved += result.rangesRemoved;
+      totalRemoved += result.removed;
+    }
+
     const response = {
       created: totalCreated,
       duplicates: totalDuplicates,
+      removed: totalRemoved,
       rangesCreated: totalRangesCreated,
       rangesDuplicates: totalRangesDuplicates,
+      rangesRemoved: totalRangesRemoved,
       advisoriesCreated: totalAdvisoriesCreated,
       advisoriesUpdated: totalAdvisoriesUpdated,
     };

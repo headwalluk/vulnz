@@ -59,6 +59,12 @@ Both sides write before they read, so a range and a release created at the same 
 
 Posting a range never creates a release. Posting an exact `version` still creates that release, as it always has, and the new release picks up any stored ranges.
 
+### When an advisory's ranges change
+
+Ranges are stored by a hash of the URL and both bounds, so a corrected range is stored as a new range. By default the old one stays: posting only adds, so an advisory first published as "<= 7.16.1" and corrected to "<= 3.16.1" keeps flagging every release up to 7.16.1.
+
+An item that sets `replaceRanges` (since v1.53.0) declares its ranges the complete set for the component under each URL. After every item in the request is recorded, `vulnerabilityRange.replaceRanges()` deletes the other stored ranges for that component and URL. If any were deleted, it then removes the URL's rows on that component that the remaining ranges do not cover, by the same rule as [reconcile](#cleaning-up-rows-the-ranges-do-not-cover). Items for the same component and URL in one request are merged first, so an advisory split across several items is replaced as a whole. If one of those items is rejected, the set is incomplete, so nothing is replaced for that component and URL in that request. The set must not be split across requests.
+
 ## Comparison rules
 
 Implemented in `src/lib/versionCompare.js`.
@@ -98,9 +104,9 @@ Before v1.40.0, each advisory was attached to a single release, the upper bound 
 - It is **kept, and reported as undecidable,** if no range covers it but at least one comparison could not be decided (see [Undecidable means "not flagged"](#undecidable-means-not-flagged)).
 - It is **removed** if every range definitely excludes its release.
 
-It follows the advisory's structured ranges, not its title. When an advisory has been narrowed since its rows were created, rows outside the current ranges are removed, even if the title still names a wider range. Wordfence advisories occasionally disagree with their own titles, so read the dry-run report before applying it.
+It follows the advisory's structured ranges, not its title. Rows outside the stored ranges are removed, even if the title still names a wider range. It judges rows against every range stored for the URL, so a range the advisory has since dropped still counts until a `replaceRanges` post removes it (see [When an advisory's ranges change](#when-an-advisorys-ranges-change)). Wordfence advisories occasionally disagree with their own titles, so read the dry-run report before applying it.
 
-Run it only after a complete pass of range data. An advisory whose ranges arrive in several items (more than 50 ranges) could otherwise be judged on only some of them. A row removed early is restored when the rest of that advisory's ranges are posted, but it is missing until then.
+Run it only after a complete pass of range data. An advisory whose ranges arrive in several items (more than the client's per-item limit) could otherwise be judged on only some of them. A row removed early is restored when the rest of that advisory's ranges are posted, but it is missing until then.
 
 ## Phantom releases
 

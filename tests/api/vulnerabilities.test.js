@@ -523,6 +523,132 @@ describe('Vulnerabilities API', () => {
       expect(await flaggedVersions(component.id, ADVISORY_URL)).toEqual(['0.9']);
     });
 
+    test('adds a corrected range alongside the old one when replaceRanges is not set', async () => {
+      const componentId = await seedComponent('range-additive', ['3.16.1', '3.16.2']);
+      const item = (to) => ({ componentTypeSlug: TYPE, componentSlug: 'range-additive', urls: [ADVISORY_URL], ranges: [{ from: null, to, toInclusive: true }] });
+
+      await postItems([item('7.16.1')]);
+      const response = await postItems([item('3.16.1')]);
+
+      expect(response.body).toMatchObject({ removed: 0, rangesRemoved: 0 });
+      expect(await db.query('SELECT * FROM vulnerability_ranges WHERE component_id = ?', [componentId])).toHaveLength(2);
+      expect(await flaggedVersions(componentId, ADVISORY_URL)).toEqual(['3.16.1', '3.16.2']);
+    });
+
+    test('replaceRanges deletes a stale range and the rows only it covered', async () => {
+      const componentId = await seedComponent('range-replace', ['3.16', '3.16.1', '3.16.2', '3.17']);
+      const item = (to) => ({
+        componentTypeSlug: TYPE,
+        componentSlug: 'range-replace',
+        urls: [ADVISORY_URL],
+        ranges: [{ from: null, to, toInclusive: true }],
+        replaceRanges: true,
+      });
+
+      await postItems([item('7.16.1')]);
+      expect(await flaggedVersions(componentId, ADVISORY_URL)).toEqual(['3.16', '3.16.1', '3.16.2', '3.17']);
+
+      const response = await postItems([item('3.16.1')]);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({ created: 0, removed: 2, rangesCreated: 1, rangesRemoved: 1 });
+      const ranges = await db.query('SELECT to_version FROM vulnerability_ranges WHERE component_id = ?', [componentId]);
+      expect(ranges.map((range) => range.to_version)).toEqual(['3.16.1']);
+      expect(await flaggedVersions(componentId, ADVISORY_URL)).toEqual(['3.16', '3.16.1']);
+    });
+
+    test('replaceRanges leaves other URLs, other components and undecidable rows alone', async () => {
+      const OTHER_URL = 'https://www.wordfence.com/threat-intel/vulnerabilities/id/other';
+      const componentId = await seedComponent('range-replace-scope', ['1.0', '2.0', '2.0-abc123']);
+      const otherComponentId = await seedComponent('range-replace-other', ['2.0']);
+      const wide = { from: null, to: null };
+      await postItems([
+        { componentTypeSlug: TYPE, componentSlug: 'range-replace-scope', urls: [ADVISORY_URL, OTHER_URL], ranges: [wide] },
+        { componentTypeSlug: TYPE, componentSlug: 'range-replace-other', urls: [ADVISORY_URL], ranges: [wide] },
+      ]);
+
+      const response = await postItems([
+        { componentTypeSlug: TYPE, componentSlug: 'range-replace-scope', urls: [ADVISORY_URL], ranges: [{ from: null, to: '2.0', toInclusive: false }], replaceRanges: true },
+      ]);
+
+      expect(response.body).toMatchObject({ removed: 1, rangesRemoved: 1 });
+      expect(await flaggedVersions(componentId, ADVISORY_URL)).toEqual(['1.0', '2.0-abc123']);
+      expect(await flaggedVersions(componentId, OTHER_URL)).toEqual(['1.0', '2.0', '2.0-abc123']);
+      expect(await flaggedVersions(otherComponentId, ADVISORY_URL)).toEqual(['2.0']);
+    });
+
+    test('replaceRanges merges the items of one batch for the same component and URL', async () => {
+      const componentId = await seedComponent('range-replace-split', ['1.0', '2.0', '3.0']);
+      const rangeItem = (from, to) => ({
+        componentTypeSlug: TYPE,
+        componentSlug: 'range-replace-split',
+        urls: [ADVISORY_URL],
+        ranges: [{ from, fromInclusive: true, to, toInclusive: true }],
+        replaceRanges: true,
+      });
+      await postItems([rangeItem('0.1', '3.0')]);
+
+      const response = await postItems([rangeItem('1.0', '1.0'), rangeItem('3.0', '3.0')]);
+
+      expect(response.body).toMatchObject({ removed: 1, rangesCreated: 2, rangesRemoved: 1 });
+      expect(await db.query('SELECT * FROM vulnerability_ranges WHERE component_id = ?', [componentId])).toHaveLength(2);
+      expect(await flaggedVersions(componentId, ADVISORY_URL)).toEqual(['1.0', '3.0']);
+    });
+
+    test('replaceRanges replaces nothing for a component and URL when one of its items is rejected', async () => {
+      const componentId = await seedComponent('range-replace-rejected', ['1.0', '2.0']);
+      await postItems([{ componentTypeSlug: TYPE, componentSlug: 'range-replace-rejected', urls: [ADVISORY_URL], ranges: [{ from: null, to: null }] }]);
+
+      const response = await postItems([
+        { componentTypeSlug: TYPE, componentSlug: 'range-replace-rejected', urls: [ADVISORY_URL], ranges: [{ from: null, to: '1.0', toInclusive: true }], replaceRanges: true },
+        { componentTypeSlug: TYPE, componentSlug: 'range-replace-rejected', urls: [ADVISORY_URL], ranges: [{ from: null, to: '.2', toInclusive: true }], replaceRanges: true },
+      ]);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({ removed: 0, rangesCreated: 1, rangesRemoved: 0 });
+      expect(response.body.errors[0]).toMatchObject({ index: 1, code: 'UNRECOGNISED_VERSION' });
+      expect(await db.query('SELECT * FROM vulnerability_ranges WHERE component_id = ?', [componentId])).toHaveLength(2);
+      expect(await flaggedVersions(componentId, ADVISORY_URL)).toEqual(['1.0', '2.0']);
+    });
+
+    test('replaceRanges is idempotent', async () => {
+      const componentId = await seedComponent('range-replace-again', ['1.0', '2.0']);
+      const item = {
+        componentTypeSlug: TYPE,
+        componentSlug: 'range-replace-again',
+        urls: [ADVISORY_URL],
+        ranges: [{ from: null, to: '2.0', toInclusive: false }],
+        replaceRanges: true,
+      };
+
+      await postItems([item]);
+      const response = await postItems([item]);
+
+      expect(response.body).toMatchObject({ created: 0, removed: 0, rangesDuplicates: 1, rangesRemoved: 0 });
+      expect(await flaggedVersions(componentId, ADVISORY_URL)).toEqual(['1.0']);
+    });
+
+    test('accepts up to 250 ranges in one item', async () => {
+      const ranges = Array.from({ length: 250 }, (unused, index) => ({ from: `${index + 1}.0`, fromInclusive: true, to: `${index + 1}.5`, toInclusive: true }));
+
+      const accepted = await postItems([{ componentTypeSlug: TYPE, componentSlug: 'range-many', urls: [ADVISORY_URL], ranges }]);
+      const rejected = await postItems([{ componentTypeSlug: TYPE, componentSlug: 'range-many', urls: [ADVISORY_URL], ranges: [...ranges, ranges[0]] }]);
+
+      expect(accepted.body).toMatchObject({ rangesCreated: 250 });
+      expect(rejected.status).toBe(400);
+      expect(rejected.body.errors[0]).toMatchObject({ code: 'FIELD_INVALID', field: 'ranges' });
+    });
+
+    test.each([
+      [{ version: '1.0', replaceRanges: true }, 'CONFLICTING_FIELDS'],
+      [{ ranges: [{ from: null, to: '1.0', toInclusive: true }], replaceRanges: 'yes' }, 'FIELD_INVALID'],
+    ])('rejects a misused replaceRanges %#', async (fields, code) => {
+      const response = await postItems([{ componentTypeSlug: TYPE, componentSlug: 'range-replace-invalid', urls: [ADVISORY_URL], ...fields }]);
+
+      expect(response.status).toBe(400);
+      expect(response.body.errors[0]).toMatchObject({ code, field: 'replaceRanges' });
+    });
+
     test.each([
       [{ version: '1.0', ranges: [{ from: null, to: '1.0', toInclusive: true }] }, /either version or ranges/],
       [{}, /version or ranges is required/],

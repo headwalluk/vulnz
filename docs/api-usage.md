@@ -566,7 +566,7 @@ curl -X POST \
 
 - `from` / `to` are version strings, or `null` for unbounded. Both keys are required.
 - `fromInclusive` / `toInclusive` are required whenever that bound is set. A "fixed in X" advisory is `"to": "X", "toInclusive": false`.
-- An item carries `version` or `ranges`, never both. Up to 50 ranges per item.
+- An item carries `version` or `ranges`, never both. Up to 250 ranges per item (50 before v1.53.0).
 - Range bounds and exact `version` values must be recognisable versions (see [Version Matching](version-matching.md#rejected-versions)), and are stored exactly as given. They are never rewritten.
 - The range is stored and matched against every release VULNZ knows for the component, and against every release that arrives later. Posting a range never creates a release.
 - A version that cannot be placed against a bound (an unrecognised suffix on the bound itself, such as `1.7.5-698baaf` against `< 1.7.5`) is not flagged.
@@ -574,6 +574,8 @@ curl -X POST \
 - Items are validated one by one. An invalid item appears under `errors` with its `index`, a `code` and the offending `field`, and the valid items are still written. The response is `400` only when no item is valid. See [Bulk Error Codes](#bulk-error-codes).
 - Feed-specific mapping (Wordfence, OSV) is in [Version Matching](version-matching.md#mapping-feed-formats).
 - Re-posting the same range is harmless. The response reports `rangesCreated` / `rangesDuplicates` alongside the usual `created` / `duplicates` vulnerability counts.
+- By default, posted ranges are added to the ones already stored, and nothing is removed. When an advisory is corrected, its old range stays and keeps flagging releases. Since v1.53.0, set `"replaceRanges": true` on an item to make its `ranges` the advisory's complete set for that component. For each of the item's URLs, stored ranges not in the set are deleted. So are that URL's vulnerability rows on the component that no remaining range covers, except undecidable ones (see [Cleaning up rows](version-matching.md#cleaning-up-rows-the-ranges-do-not-cover)). The response reports `rangesRemoved` and `removed`.
+- Send an advisory's whole set for a component in one request when using `replaceRanges`. Items in the same request for the same component and URL are merged before replacing, and every one of them must set the flag. If any item naming that component and URL is rejected, nothing is replaced for it in that request, but the valid items' ranges are still added. A set split across two requests would have the second request delete the first request's ranges.
 
 ### Reporting an Advisory's Severity
 
@@ -626,18 +628,18 @@ Since v1.49.0, each `POST /api/vulnerabilities/bulk` item may carry an `advisory
 
 **Branch on `code`, never on `message`.** Codes are part of the API contract, and messages may be reworded between releases. `field` names the offending field (`version`, `ranges[1].to`, `urls[0]`), or is `null` when the whole item is at fault.
 
-| Code                      | Meaning                                                                                                                                                                                                                   |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ITEM_NOT_OBJECT`         | The item is not a JSON object                                                                                                                                                                                             |
-| `FIELD_REQUIRED`          | A required field is missing: `componentTypeSlug`, `componentSlug`, `version` or `ranges`, `urls`, a range's `from`/`to`, or the inclusivity flag of a bound that is set                                                   |
-| `FIELD_INVALID`           | A field has the wrong type or size: a version over 255 characters, `ranges` not an array of 1–50, `urls` not a non-empty array; or an `advisory` field fails validation (`field` is then `advisory.cvss.score` and so on) |
-| `CONFLICTING_FIELDS`      | Both `version` and `ranges` were given                                                                                                                                                                                    |
-| `UNKNOWN_COMPONENT_TYPE`  | `componentTypeSlug` is not a type VULNZ knows                                                                                                                                                                             |
-| `UNRECOGNISED_VERSION`    | A version or range bound cannot be parsed (see [Rejected versions](version-matching.md#rejected-versions)). **Expected for some feed data; log it and count it, don't retry it.**                                         |
-| `EMPTY_RANGE`             | A range's `from` is not below its `to`                                                                                                                                                                                    |
-| `INVALID_URL`             | A URL is malformed or longer than 2048 characters                                                                                                                                                                         |
-| `UNKNOWN_FIELD`           | The item, or its `advisory`, has a field VULNZ does not know (since v1.49.0). `field` names it                                                                                                                            |
-| `UNKNOWN_ADVISORY_SOURCE` | `advisory.source` is not in the `advisory_sources` lookup                                                                                                                                                                 |
+| Code                      | Meaning                                                                                                                                                                                                                                                   |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ITEM_NOT_OBJECT`         | The item is not a JSON object                                                                                                                                                                                                                             |
+| `FIELD_REQUIRED`          | A required field is missing: `componentTypeSlug`, `componentSlug`, `version` or `ranges`, `urls`, a range's `from`/`to`, or the inclusivity flag of a bound that is set                                                                                   |
+| `FIELD_INVALID`           | A field has the wrong type or size: a version over 255 characters, `ranges` not an array of 1–250, `replaceRanges` not a boolean, `urls` not a non-empty array; or an `advisory` field fails validation (`field` is then `advisory.cvss.score` and so on) |
+| `CONFLICTING_FIELDS`      | Both `version` and `ranges` were given, or `replaceRanges` was given without `ranges`                                                                                                                                                                     |
+| `UNKNOWN_COMPONENT_TYPE`  | `componentTypeSlug` is not a type VULNZ knows                                                                                                                                                                                                             |
+| `UNRECOGNISED_VERSION`    | A version or range bound cannot be parsed (see [Rejected versions](version-matching.md#rejected-versions)). **Expected for some feed data; log it and count it, don't retry it.**                                                                         |
+| `EMPTY_RANGE`             | A range's `from` is not below its `to`                                                                                                                                                                                                                    |
+| `INVALID_URL`             | A URL is malformed or longer than 2048 characters                                                                                                                                                                                                         |
+| `UNKNOWN_FIELD`           | The item, or its `advisory`, has a field VULNZ does not know (since v1.49.0). `field` names it                                                                                                                                                            |
+| `UNKNOWN_ADVISORY_SOURCE` | `advisory.source` is not in the `advisory_sources` lookup                                                                                                                                                                                                 |
 
 Request-level errors return `{ "error": "…", "code": "…" }`:
 
