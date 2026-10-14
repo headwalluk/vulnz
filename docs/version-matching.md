@@ -46,7 +46,7 @@ Ranges are only matched reliably for ecosystems whose versions follow the [compa
 
 ### Rejected versions
 
-A bound, or an exact `version`, must be a version the comparison rules can parse (see below), made of letters, digits and `.-+_~`. Nothing is guessed. The feeds contain strings like `.51.1`, `47.0(20-11-2023)`, `v.1.1` and `5 alpha 2`, and an item carrying one is rejected with the code `UNRECOGNISED_VERSION`. Rejection is per item: the rest of the batch is still written, and the response lists each failed item by `index` under `errors`. The request returns 400 only when no item in it is valid, and unknown component types are caught at this stage too. Always read `errors`, even on a 200. Clients should recognise these rejections by `code` (never by message text), log them and count them, and not retry them. See [Bulk Error Codes](api-usage.md#bulk-error-codes) for every code.
+A bound, or an exact `version`, must be a version the comparison rules can parse (see below), made of letters, digits and `.-+_~`. Nothing is guessed. The feeds contain strings like `47.0(20-11-2023)`, `v.1.1` and `5 alpha 2`, and an item carrying one is rejected with the code `UNRECOGNISED_VERSION`. Rejection is per item: the rest of the batch is still written, and the response lists each failed item by `index` under `errors`. The request returns 400 only when no item in it is valid, and unknown component types are caught at this stage too. Always read `errors`, even on a 200. Clients should recognise these rejections by `code` (never by message text), log them and count them, and not retry them. See [Bulk Error Codes](api-usage.md#bulk-error-codes) for every code.
 
 ## How a range reaches the releases
 
@@ -73,7 +73,8 @@ Implemented in `src/lib/versionCompare.js`.
 
 The previous `sanitizeVersion()` rewrote versions (`5.0-RC1` became `5.01`, and `1.0.0-rc.1` became `1.0.0.1`), creating phantom releases and hiding pre-releases from range matching. It has been removed. Rows it created before then may still exist.
 
-- **Parsing.** Trim whitespace, strip a leading `v`, drop semver build metadata (`+…`), then take the numeric core (`\d+(\.\d+)*`). A string with no numeric core cannot be parsed.
+- **Parsing.** Trim whitespace, read a leading dot before a digit as `0.`, strip a leading `v`, drop semver build metadata (`+…`), then take the numeric core (`\d+(\.\d+)*`). A string with no numeric core cannot be parsed.
+- **Leading dot.** Some plugins number releases `.51.1`; BulletProof Security did for `.44` to `.54.5`. WordPress.org lists those releases as `0.51.1`, so `.51.1` is read the same way and the two forms compare equal. Only the comparison changes: the stored text is kept. `v.1.1` and `..1` are still unparseable.
 - **Numeric core.** Compared segment by segment as integers of any length, with missing segments read as `0`. So `1.26.7` equals `1.26.7.0`, and `1.10` is above `1.9`.
 - **Stage suffix.** Ordered the way PHP's `version_compare()` orders them: `dev` < `alpha` < `beta` < `rc` < final release < `patch`/`pl`. Within a stage, the trailing number decides. `6.4-beta2` is below `6.4`, and `5.0-RC1` is below `5.0`.
 - **Bare letters are not stages.** PHP also reads a single `a`, `b` or `p` as alpha, beta or patch. VULNZ does not: plugin authors use `1.0b` for a later build of 1.0 as often as for a beta, so `1.0b`, `0.5a` and `1.6.4.b` have an unrecognised suffix (see the next point) rather than a guessed one. The separators `-`, `.`, `_` and `~` are accepted before the stage word, and `-`, `.` and `_` between the word and its number, so npm's `1.0.0-rc.1` parses. `1.0~rc~1` does not: it is an unrecognised suffix.

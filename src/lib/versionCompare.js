@@ -12,6 +12,8 @@ const MAX_VERSION_LENGTH = 255;
 const STRICT_VERSION_PATTERN = /^[0-9A-Za-z.\-+_~]+$/;
 
 const LEADING_V_PATTERN = /^v/i;
+/** A leading dot before a digit, as in ".51.1", which WordPress.org itself lists as "0.51.1". */
+const LEADING_DOT_PATTERN = /^\.(?=\d)/;
 const BUILD_METADATA_PATTERN = /\+.*$/;
 const NUMERIC_CORE_PATTERN = /^(\d+(?:\.\d+)*)(.*)$/;
 const STAGE_SUFFIX_PATTERN = /^[-._~]?([a-z]+)[-._]?(\d*)$/i;
@@ -90,7 +92,8 @@ function compareDigitStrings(left, right) {
 function parseVersion(version) {
   let parsed = null;
   if (typeof version === 'string') {
-    const cleaned = version.trim().replace(LEADING_V_PATTERN, '').replace(BUILD_METADATA_PATTERN, '');
+    // The dot is read before the v is stripped, so "v.1.1" stays unparseable.
+    const cleaned = version.trim().replace(LEADING_DOT_PATTERN, '0.').replace(LEADING_V_PATTERN, '').replace(BUILD_METADATA_PATTERN, '');
     const coreMatch = cleaned.match(NUMERIC_CORE_PATTERN);
     if (coreMatch) {
       const suffix = coreMatch[2];

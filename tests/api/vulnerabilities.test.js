@@ -601,7 +601,7 @@ describe('Vulnerabilities API', () => {
 
       const response = await postItems([
         { componentTypeSlug: TYPE, componentSlug: 'range-replace-rejected', urls: [ADVISORY_URL], ranges: [{ from: null, to: '1.0', toInclusive: true }], replaceRanges: true },
-        { componentTypeSlug: TYPE, componentSlug: 'range-replace-rejected', urls: [ADVISORY_URL], ranges: [{ from: null, to: '.2', toInclusive: true }], replaceRanges: true },
+        { componentTypeSlug: TYPE, componentSlug: 'range-replace-rejected', urls: [ADVISORY_URL], ranges: [{ from: null, to: 'v.2', toInclusive: true }], replaceRanges: true },
       ]);
 
       expect(response.status).toBe(200);
@@ -677,7 +677,7 @@ describe('Vulnerabilities API', () => {
         .send({
           items: [
             { componentTypeSlug: TYPE, componentSlug: 'per-item-ok', version: '1.0.0', urls: ['https://example.test/per-item-ok'] },
-            { componentTypeSlug: TYPE, componentSlug: 'per-item-dot', urls: ['https://example.test/per-item-dot'], ranges: [{ from: null, to: '.51.1', toInclusive: false }] },
+            { componentTypeSlug: TYPE, componentSlug: 'per-item-dot', urls: ['https://example.test/per-item-dot'], ranges: [{ from: null, to: 'v.1.1', toInclusive: false }] },
             {
               componentTypeSlug: TYPE,
               componentSlug: 'per-item-date',
@@ -691,7 +691,7 @@ describe('Vulnerabilities API', () => {
       expect(response.status).toBe(200);
       expect(response.body.created).toBe(1);
       expect(response.body.errors.map((error) => error.index)).toEqual([1, 2, 3]);
-      expect(response.body.errors[0].message).toMatch(/not a recognisable version: \.51\.1/);
+      expect(response.body.errors[0].message).toMatch(/not a recognisable version: v\.1\.1/);
       const skipped = await db.query("SELECT * FROM components WHERE slug IN ('per-item-dot', 'per-item-date')");
       expect(skipped).toHaveLength(0);
     });
@@ -726,7 +726,7 @@ describe('Vulnerabilities API', () => {
         { componentTypeSlug: 'wordpress-core', componentSlug: 'codes-b', version: '1.0', urls: [URL] },
         { componentTypeSlug: TYPE, componentSlug: 'codes-c', version: '1.0', ranges: [], urls: [URL] },
         { componentTypeSlug: TYPE, componentSlug: 'codes-d', urls: [URL] },
-        { componentTypeSlug: TYPE, componentSlug: 'codes-e', version: '.3.1', urls: [URL] },
+        { componentTypeSlug: TYPE, componentSlug: 'codes-e', version: 'v.3.1', urls: [URL] },
         { componentTypeSlug: TYPE, componentSlug: 'codes-f', ranges: 'nope', urls: [URL] },
         {
           componentTypeSlug: TYPE,

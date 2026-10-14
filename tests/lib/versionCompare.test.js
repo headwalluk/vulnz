@@ -27,6 +27,13 @@ describe('parseVersion', () => {
     expect(parseVersion('1.0.0+build.5')).toMatchObject({ core: ['1', '0', '0'], stageRank: 0 });
   });
 
+  it('reads a leading dot before a digit as 0.', () => {
+    expect(parseVersion('.51.1')).toMatchObject({ core: ['0', '51', '1'], stageRank: 0 });
+    expect(parseVersion('.51')).toMatchObject({ core: ['0', '51'], stageRank: 0 });
+    expect(parseVersion('v.1.1')).toBeNull();
+    expect(parseVersion('..1')).toBeNull();
+  });
+
   it('marks an unrecognised suffix with a null stage', () => {
     expect(parseVersion('1.7.5-698baaf').stageRank).toBeNull();
     expect(parseVersion('2026r3').stageRank).toBeNull();
@@ -43,6 +50,9 @@ describe('compareVersions', () => {
     ['01.2', '1.2', 0],
     ['12345678901234567890.1', '12345678901234567890.0', 1],
     ['v2.2.0', '2.2', 0],
+    ['.51.1', '0.51.1', 0],
+    ['.51', '.48.9', 1],
+    ['.54.5', '1.0', -1],
   ])('orders numeric versions: %s vs %s', (left, right, expected) => {
     expect(compareVersions(left, right)).toBe(expected);
   });
@@ -172,9 +182,10 @@ describe('validateVersion', () => {
     expect(validateVersion('1.26.7', 'to')).toBeNull();
     expect(validateVersion('6.4-beta2', 'to')).toBeNull();
     expect(validateVersion('v2.2.0', 'to')).toBeNull();
+    expect(validateVersion('.51.1', 'to')).toBeNull();
   });
 
-  it.each(['.51.1', '47.0(20-11-2023)', 'v.1.1', '5 alpha 2', '*'])('rejects %p as UNRECOGNISED_VERSION', (version) => {
+  it.each(['47.0(20-11-2023)', 'v.1.1', '..1', '5 alpha 2', '*'])('rejects %p as UNRECOGNISED_VERSION', (version) => {
     expect(validateVersion(version, 'to')).toEqual({ code: 'UNRECOGNISED_VERSION', message: `to is not a recognisable version: ${version}` });
   });
 
