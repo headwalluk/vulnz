@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.53.0 - 2026-10-14
+
+### Fixes
+
+- **A corrected advisory no longer keeps flagging releases.** Ranges were only ever added, so when an advisory's ranges changed, the old range stayed stored next to the new one and kept every release it covered flagged. `vulnerabilities:reconcile` kept those rows too, because the stale range still covered them. A bulk item can now set `"replaceRanges": true` to declare its `ranges` the advisory's complete set for that component: for each of its URLs, other stored ranges are deleted, along with the vulnerability rows only they covered (undecidable rows are kept). Items in one request for the same component and URL are merged before replacing, and a rejected item cancels replacement for its component and URLs in that request. The response adds `rangesRemoved` and `removed`.
+
+### Changes
+
+- **Up to 250 ranges per bulk item**, up from 50, so an advisory's whole set fits in one item and is replaced as one.
+
+### Security
+
+- **Dependency updates** (lockfile only): handlebars 4.7.10 (GHSA-xw65-4hp5-5hc7, GHSA-8r5x-fm3f-whwj, GHSA-p8wg-vrv2-v86f) and source-map-js 1.2.2, through sanitize-html's postcss (GHSA-68fv-2mgg-jv7q). None was reachable: templates are compiled only from the repository's own `.hbs` files, prototype access stays off, and sanitize-html parses styles with source maps disabled. `npm audit --omit=dev` is clean. The remaining moderate findings are in jest's dev-only dependency tree (sprintf-js), where the only offered fix is a downgrade to jest 25.
+
+### Upgrading
+
+- No migrations and no new environment variables.
+- Without `replaceRanges`, posting is additive exactly as before. Ingest clients should send each advisory's ranges for a component in a single item, then set the flag. Never set it on an advisory split across requests: the later request would delete the earlier one's ranges.
+
 ## 1.52.0 - 2026-10-03
 
 ### Features
