@@ -157,6 +157,7 @@ describe('GET /api/websites/:domain/report', () => {
       unrated_vulnerabilities: 1,
       component_count: 6,
       vulnerable_components: 1,
+      patched_components: 0,
       malware_components: 1,
       withdrawn_components: 1,
       components_behind_latest: 1,

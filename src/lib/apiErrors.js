@@ -1,5 +1,5 @@
 /**
- * Machine-readable error codes for bulk endpoint responses. Part of the API contract:
+ * Machine-readable error codes for bulk and patch endpoint responses. Part of the API contract:
  * clients branch on `code`, never on `message`, which may be reworded.
  */
 
@@ -17,6 +17,9 @@ const ERROR_CODES = Object.freeze({
   INVALID_URL: 'INVALID_URL',
   UNKNOWN_FIELD: 'UNKNOWN_FIELD',
   UNKNOWN_ADVISORY_SOURCE: 'UNKNOWN_ADVISORY_SOURCE',
+  COMPONENT_NOT_INSTALLED: 'COMPONENT_NOT_INSTALLED',
+  VERSION_NOT_INSTALLED: 'VERSION_NOT_INSTALLED',
+  PATCH_NOT_FOUND: 'PATCH_NOT_FOUND',
 });
 
 /** A per-item error entry; `field` names the offending field, or is null for the whole item. */

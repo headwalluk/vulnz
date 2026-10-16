@@ -128,8 +128,11 @@ async function assembleReportData(userToSend, isAdministrator, totalWebsites) {
   for (const site of vulnerableWebsites) {
     const wordpressPlugins = await websiteComponent.getPlugins(site.id);
     const wordpressThemes = await websiteComponent.getThemes(site.id);
-    site.vulnerableComponents = [...wordpressPlugins, ...wordpressThemes].filter((c) => c.has_vulnerabilities).map((c) => `${c.title} ${c.version} (${c.slug})`);
+    site.vulnerableComponents = [...wordpressPlugins, ...wordpressThemes]
+      .filter((installed) => installed.has_vulnerabilities)
+      .map((installed) => ({ label: `${installed.title} ${installed.version} (${installed.slug})`, is_patched: installed.is_patched }));
   }
+  const hasPatchedComponents = vulnerableWebsites.some((site) => site.vulnerableComponents.some((installed) => installed.is_patched));
 
   // Get date range for the past 7 days
   const endDate = new Date();
@@ -264,6 +267,7 @@ async function assembleReportData(userToSend, isAdministrator, totalWebsites) {
       domain: site.domain,
       vulnerableComponents: site.vulnerableComponents,
     })),
+    hasPatchedComponents,
     allWebsites: userWebsites.map((site) => ({
       title: site.title,
       domain: site.domain,

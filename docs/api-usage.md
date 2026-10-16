@@ -177,7 +177,8 @@ curl "https://api.vulnz.net/api/components/search?query=easypost&type=wordpress-
       "is_malware": true,
       "malware_summary": "Backdoor file dropper",
       "malware_url": "https://vulnz.net/malware/wordpress-plugin/easypost/",
-      "malware_first_detected_at": "2026-08-13T10:19:33.000Z"
+      "malware_first_detected_at": "2026-08-13T10:19:33.000Z",
+      "is_patched": false
     }
   ]
 }
@@ -312,7 +313,7 @@ The top-level `site_count` counts distinct sites. A site reporting two releases 
 
 ### Website Report Data
 
-`GET /api/websites/{domain}/report?days=7` returns the facts behind the weekly report email for a single website, as JSON: problem components (vulnerable, malware, withdrawn from wordpress.org, behind the latest release), WordPress and PHP against the configured current and minimum versions, file security issues, security events and component changes within the period, and unmaintained or newly published plugins. `days` defaults to 7 and may be at most 90. It sets the period for events and changes only. The report covers every component type, npm included. It holds counts and lists, not recommendations.
+`GET /api/websites/{domain}/report?days=7` returns the facts behind the weekly report email for a single website, as JSON: problem components (vulnerable, malware, withdrawn from wordpress.org, behind the latest release), WordPress and PHP against the configured current and minimum versions, file security issues, security events and component changes within the period, and unmaintained or newly published plugins. `days` defaults to 7 and may be at most 90. It sets the period for events and changes only. The report covers every component type, npm included. It holds counts and lists, not recommendations. Components [patched in place](#patched-components) stay in the vulnerable list, with `is_patched: true`.
 
 ```bash
 curl "http://localhost:3000/api/websites/example.com/report?days=30" \
@@ -320,6 +321,113 @@ curl "http://localhost:3000/api/websites/example.com/report?days=30" \
 ```
 
 `GET /api/websites/{domain}` and this route match the domain leniently: scheme, path, port, trailing dot and case are ignored, and `www.` is added or removed if there is no exact match. Write routes match the stored domain exactly.
+
+### Patched Components
+
+A vulnerable component can be patched in place instead of updated, for example a premium plugin whose licence will not be renewed. Record it against the website, component and installed version, and reports keep listing the component with a "patched" badge.
+
+A mark records that the installed copy was modified. It does not say which vulnerabilities, if any, the patch addresses: it could be a performance fix, or one of several diffs. So **a patched component is still a vulnerable component.** It stays in every vulnerability list, in `vulnerability_count`, in every severity figure and in the weekly email's subject line.
+
+The site owner or an administrator can set and remove marks. These are write routes, so the domain must match the stored domain exactly.
+
+#### Marking a component as patched
+
+```bash
+curl -X POST "http://localhost:3000/api/websites/example.com/patches" \
+  -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"type": "wordpress-plugin", "slug": "premium-forms", "version": "2.0.0"}'
+```
+
+```json
+{ "type": "wordpress-plugin", "slug": "premium-forms", "version": "2.0.0", "is_patched": true, "created": true }
+```
+
+All three fields are required. `type` is a component type slug (`wordpress-plugin`, `wordpress-theme`, `npm-package`), and `version` must be the version the site currently reports. The response is `201` with `created: true` for a new mark, and `200` with `created: false` if that version was already marked. Marking again is safe, and the original time and author are kept.
+
+#### Listing a site's patched components
+
+```bash
+curl "http://localhost:3000/api/websites/example.com/patches" \
+  -H "X-API-Key: your-api-key"
+```
+
+```json
+{
+  "patches": [
+    {
+      "slug": "premium-forms",
+      "title": "Premium Forms",
+      "component_type_slug": "wordpress-plugin",
+      "version": "2.0.0",
+      "patched_at": "2026-10-16T05:52:12.000Z",
+      "patched_by": "admin@example.com"
+    }
+  ]
+}
+```
+
+`patched_by` is the username of the key holder who set the mark, or `null` if that account has since been deleted. This route matches the domain leniently, like `GET /api/websites/{domain}`.
+
+#### Removing a mark
+
+```bash
+curl -X DELETE "http://localhost:3000/api/websites/example.com/patches/wordpress-plugin/premium-forms" \
+  -H "X-API-Key: your-api-key"
+```
+
+```json
+{ "type": "wordpress-plugin", "slug": "premium-forms", "removed": 1 }
+```
+
+This removes the mark from every version of that component on the site.
+
+#### Errors
+
+Errors carry a `code`. Branch on it, not on `error`, which may be reworded.
+
+| Status | Code                      | Meaning                                                                                        |
+| ------ | ------------------------- | ---------------------------------------------------------------------------------------------- |
+| 400    | `FIELD_REQUIRED`          | `type`, `slug` or `version` is missing or empty                                                |
+| 400    | `UNKNOWN_COMPONENT_TYPE`  | `type` is not a type VULNZ knows                                                               |
+| 404    | `COMPONENT_NOT_INSTALLED` | The site does not report that component                                                        |
+| 409    | `VERSION_NOT_INSTALLED`   | The site reports that component at another version; `installed_versions` lists what it reports |
+| 404    | `PATCH_NOT_FOUND`         | `DELETE` only: the component had no mark                                                       |
+
+```json
+{
+  "error": "wordpress-plugin premium-forms 1.9.0 is not installed on example.com.",
+  "code": "VERSION_NOT_INSTALLED",
+  "installed_versions": ["2.0.0"]
+}
+```
+
+A website that does not exist, or belongs to another account, is a plain `404 Website not found`, as on every website route.
+
+#### Where `is_patched` appears
+
+- **`GET /api/websites/{domain}`:** every plugin and theme carries `is_patched`. A component the site reports at two versions mid-upgrade is `true` only when both are marked.
+- **`GET /api/websites/{domain}/report`:** every component entry carries `is_patched` and `patched_at` (null when not patched), and `summary.patched_components` counts the site's patched installs.
+- **Weekly email:** a patched component is listed under its site as usual with a "Patched*" badge, and a footnote warns that a patch is no guarantee the component is clean. The plain-text part marks it `[PATCHED*]`.
+
+```json
+{
+  "slug": "premium-forms",
+  "version": "2.0.0",
+  "has_vulnerabilities": true,
+  "vulnerabilities": ["https://www.wordfence.com/threat-intel/vulnerabilities/id/abcd-1234"],
+  "is_patched": true
+}
+```
+
+#### When a mark is removed automatically
+
+A mark belongs to one installed version. Each time the site syncs its components, marks for versions it no longer reports are deleted:
+
+- **Same version reported again:** the mark stays.
+- **Site updated to another version:** the mark is deleted, and the new version is unpatched.
+- **Component removed:** the mark is deleted.
+- **Old version reinstalled later:** it is not shown as patched. A fresh copy is not the patched copy, so mark it again if it is patched again.
 
 ### Finding a User and Their Websites
 

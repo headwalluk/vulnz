@@ -16,6 +16,7 @@ VULNZ is a security monitoring platform designed for web agencies and hosting pr
 
 - **Track vulnerabilities** in WordPress plugins, themes, and npm packages, by affected version range, so every vulnerable release is flagged and the release that fixes it is not
 - **Flag known malware** and spot plugins **withdrawn from wordpress.org** — often pulled for an unpatched vulnerability, and frequently carrying no CVE at all
+- **Record components patched in place**, so a hand-patched premium plugin still shows its vulnerabilities, with a "patched" badge
 - **Monitor security events** like failed logins and attack attempts
 - **Track software versions** (WordPress core, PHP, Node.js, database)
 - **Trigger fast updates** across a host fleet via a latest-versions manifest that flags which releases are urgent security fixes, so critical WordPress core/plugin patches land within the hour instead of overnight

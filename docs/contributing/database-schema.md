@@ -410,6 +410,25 @@ CREATE TABLE website_components (
 
 ---
 
+### website_component_patches
+
+Installed releases marked as patched in place (M30). Separate from `website_components` because a site sync deletes and re-inserts those rows. Keyed on the release, so a mark applies to one version; rows for releases the site no longer reports are deleted on each sync.
+
+```sql
+CREATE TABLE website_component_patches (
+  website_id BIGINT UNSIGNED NOT NULL,
+  release_id BIGINT UNSIGNED NOT NULL,
+  patched_at DATETIME NOT NULL,
+  patched_by_user_id BIGINT UNSIGNED NULL,
+  PRIMARY KEY (website_id, release_id),
+  FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE,
+  FOREIGN KEY (release_id) REFERENCES releases(id) ON DELETE CASCADE,
+  FOREIGN KEY (patched_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+```
+
+---
+
 ## Security Event Tables
 
 ### security_event_types

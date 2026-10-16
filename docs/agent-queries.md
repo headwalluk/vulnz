@@ -39,6 +39,9 @@ GET /api/websites/{domain}
 
 # Report data: the facts behind the weekly email, for this one site
 GET /api/websites/{domain}/report?days=7
+
+# Components marked as patched in place, with patched_at and patched_by
+GET /api/websites/{domain}/patches
 ```
 
 The domain is matched leniently but never fuzzily. A scheme, path, port, trailing dot and letter case are ignored, and if nothing matches exactly, the same host with `www.` added or removed is tried. A full URL must be URL-encoded. The returned `domain` is the stored one. Anything else is a `404`: search with `q` instead of guessing.
@@ -313,6 +316,12 @@ GET /api/websites?stale_days=7&summary=true
 Neither implies the other. A component flagged as known malware reports `has_vulnerabilities: false` unless an actual vulnerability has also been recorded against that release. Branch on both.
 
 (Between v1.34.0 and v1.35.x they were deliberately coupled; that was removed in v1.36.0. Ignore any older guidance.)
+
+### `is_patched` does not mean fixed
+
+`is_patched: true` (on a site's components and in the report, counted by `summary.patched_components`) means someone recorded that the installed copy of that version was modified by hand. It does not say which vulnerabilities the patch addresses, or that it addresses any: it may be a performance fix. A patched component stays in `vulnerabilities`, `has_vulnerabilities`, `vulnerability_count` and every severity figure. Report it as "vulnerable, patched in place", never as clean.
+
+The mark belongs to one installed version. It is deleted when the site reports a different version or stops reporting the component, so `is_patched: false` after an update is expected.
 
 ### `wporg_status: unknown` does not mean "fine"
 

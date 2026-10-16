@@ -32,13 +32,16 @@ const getComponents = async (websiteId, componentType) => {
   const query = `
         SELECT c.slug, c.title, c.component_type_slug, r.id AS release_id, r.version, v.url as vulnerability_url,
                c.is_malware, c.malware_summary, c.malware_url,
-               a.first_detected_at AS malware_first_detected_at
+               a.first_detected_at AS malware_first_detected_at,
+               p.patched_at
         FROM website_components wc
         JOIN releases r ON wc.release_id = r.id
         JOIN components c ON r.component_id = c.id
         LEFT JOIN vulnerabilities v ON r.id = v.release_id
         LEFT JOIN website_malware_alerts a
           ON a.website_id = wc.website_id AND a.component_id = c.id
+        LEFT JOIN website_component_patches p
+          ON p.website_id = wc.website_id AND p.release_id = wc.release_id
         WHERE wc.website_id = ? AND c.component_type_slug = ?
     `;
   const rows = await db.query(query, [websiteId, componentType]);
@@ -60,9 +63,13 @@ const getComponents = async (websiteId, componentType) => {
         // detections are stamped by the ingest path, not by reads.
         malware_first_detected_at: row.malware_first_detected_at || null,
         releaseIds: new Set(),
+        patchedReleaseIds: new Set(),
       };
     }
     components[row.slug].releaseIds.add(parseInt(row.release_id, 10));
+    if (row.patched_at) {
+      components[row.slug].patchedReleaseIds.add(parseInt(row.release_id, 10));
+    }
     if (row.vulnerability_url) {
       components[row.slug].vulnerabilities.push(row.vulnerability_url);
     }
@@ -71,13 +78,14 @@ const getComponents = async (websiteId, componentType) => {
   const allReleaseIds = Object.values(components).flatMap((component) => [...component.releaseIds]);
   const severityByRelease = await Advisory.severityForReleases(allReleaseIds);
 
-  return Object.values(components).map(({ releaseIds, ...component }) => {
-    // Mid-upgrade a slug can carry two releases; it reports the worse
+  return Object.values(components).map(({ releaseIds, patchedReleaseIds, ...component }) => {
+    // Mid-upgrade a slug can carry two releases; it reports the worse, and is patched only if both are
     const severities = [...releaseIds].map((releaseId) => severityByRelease.get(releaseId)).filter(Boolean);
     const rated = severities.filter((severity) => severity.max_cvss_rating !== null);
     const worst = rated.sort((left, right) => Advisory.RATING_RANK[right.max_cvss_rating] - Advisory.RATING_RANK[left.max_cvss_rating])[0];
     return {
       ...component,
+      is_patched: patchedReleaseIds.size > 0 && patchedReleaseIds.size === releaseIds.size,
       has_vulnerabilities: component.vulnerabilities.length > 0,
       max_cvss_score: worst ? worst.max_cvss_score : null,
       max_cvss_rating: worst ? worst.max_cvss_rating : null,
@@ -178,12 +186,13 @@ const getInventoryForReport = async (websiteId) => {
            c.slug, c.title, c.component_type_slug, c.latest_version,
            c.is_malware, c.malware_summary, c.malware_url,
            c.wporg_status_slug, c.wporg_closure_reason_slug, wcr.is_security_concern,
-           v.url AS vulnerability_url
+           v.url AS vulnerability_url, p.patched_at
     FROM website_components wc
     JOIN releases r ON wc.release_id = r.id
     JOIN components c ON r.component_id = c.id
     LEFT JOIN wporg_closure_reasons wcr ON c.wporg_closure_reason_slug = wcr.slug
     LEFT JOIN vulnerabilities v ON r.id = v.release_id
+    LEFT JOIN website_component_patches p ON p.website_id = wc.website_id AND p.release_id = wc.release_id
     WHERE wc.website_id = ?
     ORDER BY c.component_type_slug ASC, c.slug ASC, v.url ASC
   `;
@@ -207,6 +216,8 @@ const getInventoryForReport = async (websiteId) => {
         wporg_closure_reason: row.wporg_closure_reason_slug || null,
         // null means the closure reason exists but nobody has classified it
         wporg_closure_is_security_concern: row.is_security_concern === null || row.is_security_concern === undefined ? null : !!row.is_security_concern,
+        is_patched: !!row.patched_at,
+        patched_at: row.patched_at || null,
       });
     }
     if (row.vulnerability_url) {

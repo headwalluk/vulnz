@@ -14,6 +14,8 @@ const ComponentType = require('../models/componentType');
 const Component = require('../models/component');
 const Release = require('../models/release');
 const WebsiteComponent = require('../models/websiteComponent');
+const WebsiteComponentPatch = require('../models/websiteComponentPatch');
+const { ERROR_CODES, requestError } = require('../lib/apiErrors');
 const SecurityEvent = require('../models/securityEvent');
 const SecurityEventType = require('../models/securityEventType');
 const FileSecurityIssue = require('../models/fileSecurityIssue');
@@ -703,6 +705,198 @@ router.get('/:domain/report', apiAuth, logApiCall, canReadWebsite, async (req, r
   }
 });
 
+/** Validate a patch request's component type and slug; returns an error body, or null when both are usable. */
+const patchTargetError = async (componentType, slug) => {
+  let error = null;
+  const typeSlugs = (await ComponentType.findAll()).map((type) => type.slug);
+  if (typeof componentType !== 'string' || componentType === '') {
+    error = requestError(ERROR_CODES.FIELD_REQUIRED, `type is required: one of ${typeSlugs.join(', ')}.`);
+  } else if (!typeSlugs.includes(componentType)) {
+    error = requestError(ERROR_CODES.UNKNOWN_COMPONENT_TYPE, `type must be one of: ${typeSlugs.join(', ')}.`);
+  } else if (typeof slug !== 'string' || slug.trim() === '') {
+    error = requestError(ERROR_CODES.FIELD_REQUIRED, 'slug is required.');
+  }
+  return error;
+};
+
+/**
+ * @swagger
+ * /api/websites/{domain}/patches:
+ *   get:
+ *     summary: List patched components on a website
+ *     description: >
+ *       Installed component versions marked as patched in place. A mark says the
+ *       installed copy was modified, not that any vulnerability is resolved.
+ *       The domain is matched as on `GET /api/websites/{domain}`.
+ *     tags:
+ *       - Websites
+ *     parameters:
+ *       - in: path
+ *         name: domain
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: >
+ *           `patches`: one entry per patched install, with `slug`, `title`,
+ *           `component_type_slug`, `version`, `patched_at` and `patched_by`
+ *           (username, or null if the account no longer exists).
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Website not found, or owned by another account
+ */
+router.get('/:domain/patches', apiAuth, logApiCall, canReadWebsite, async (req, res) => {
+  try {
+    const patches = await WebsiteComponentPatch.findForWebsite(parseInt(req.website.id, 10));
+    res.json({ patches });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+/**
+ * @swagger
+ * /api/websites/{domain}/patches:
+ *   post:
+ *     summary: Mark an installed component version as patched
+ *     description: >
+ *       Marks the installed release of one component on this website as patched
+ *       in place. Reports keep listing it, with its vulnerabilities, and show a
+ *       "patched" badge; counts and severity are unchanged. The mark is dropped
+ *       when the website stops reporting that version, so an update or a
+ *       reinstall clears it. Idempotent: an existing mark keeps its original
+ *       time and author. The domain must match the stored domain exactly.
+ *     tags:
+ *       - Websites
+ *     parameters:
+ *       - in: path
+ *         name: domain
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [type, slug, version]
+ *             properties:
+ *               type:
+ *                 type: string
+ *                 example: wordpress-plugin
+ *               slug:
+ *                 type: string
+ *               version:
+ *                 type: string
+ *                 description: Must be the version the website currently reports.
+ *     responses:
+ *       201:
+ *         description: Marked as patched.
+ *       200:
+ *         description: Already marked as patched.
+ *       400:
+ *         description: Missing or invalid field (`code` FIELD_REQUIRED or UNKNOWN_COMPONENT_TYPE).
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: >
+ *           Website not found, or the component is not installed on it
+ *           (`code` COMPONENT_NOT_INSTALLED).
+ *       409:
+ *         description: >
+ *           The component is installed at a different version
+ *           (`code` VERSION_NOT_INSTALLED); `installed_versions` lists what is.
+ */
+router.post('/:domain/patches', apiAuth, logApiCall, canAccessWebsite, async (req, res) => {
+  try {
+    const { type: componentType, slug, version: requestedVersion } = req.body || {};
+    const targetError = await patchTargetError(componentType, slug);
+    if (targetError) {
+      return res.status(400).json(targetError);
+    }
+    const version = normaliseReportedVersion(requestedVersion);
+    if (version === null) {
+      return res.status(400).json(requestError(ERROR_CODES.FIELD_REQUIRED, 'version is required.'));
+    }
+
+    const websiteId = parseInt(req.website.id, 10);
+    const installed = await WebsiteComponentPatch.findInstalledReleases(websiteId, componentType, slug.trim());
+    if (installed.length === 0) {
+      return res.status(404).json(requestError(ERROR_CODES.COMPONENT_NOT_INSTALLED, `${componentType} ${slug} is not installed on ${req.website.domain}.`));
+    }
+    const release = installed.find((candidate) => candidate.version === version);
+    if (!release) {
+      return res.status(409).json({
+        ...requestError(ERROR_CODES.VERSION_NOT_INSTALLED, `${componentType} ${slug} ${version} is not installed on ${req.website.domain}.`),
+        installed_versions: installed.map((candidate) => candidate.version),
+      });
+    }
+
+    const created = await WebsiteComponentPatch.mark(websiteId, release.release_id, req.user.id);
+    res.status(created ? 201 : 200).json({ type: componentType, slug: slug.trim(), version, is_patched: true, created });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+/**
+ * @swagger
+ * /api/websites/{domain}/patches/{type}/{slug}:
+ *   delete:
+ *     summary: Remove a component's patched mark
+ *     description: Removes the patched mark from every version of the component on this website. The domain must match the stored domain exactly.
+ *     tags:
+ *       - Websites
+ *     parameters:
+ *       - in: path
+ *         name: domain
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: type
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Mark removed; `removed` counts the marks deleted.
+ *       400:
+ *         description: Unknown component type (`code` UNKNOWN_COMPONENT_TYPE).
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Website not found, or the component was not marked as patched (`code` PATCH_NOT_FOUND).
+ */
+router.delete('/:domain/patches/:type/:slug', apiAuth, logApiCall, canAccessWebsite, async (req, res) => {
+  try {
+    const { type: componentType, slug } = req.params;
+    const targetError = await patchTargetError(componentType, slug);
+    if (targetError) {
+      return res.status(400).json(targetError);
+    }
+
+    const removed = await WebsiteComponentPatch.unmark(parseInt(req.website.id, 10), componentType, slug);
+    if (removed === 0) {
+      return res.status(404).json(requestError(ERROR_CODES.PATCH_NOT_FOUND, `${componentType} ${slug} is not marked as patched on ${req.website.domain}.`));
+    }
+    res.json({ type: componentType, slug, removed });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
 /**
  * @swagger
  * /api/websites:
@@ -1082,6 +1276,7 @@ router.put('/:domain', apiAuth, logApiCall, canAccessWebsite, async (req, res) =
       componentChangeSummary = await ComponentChange.recordChanges(req.website.id, oldComponents, newComponents, req.user?.id, 'api');
       logger.debug('Component changes recorded:', componentChangeSummary);
 
+      await WebsiteComponentPatch.clearUninstalled(req.website.id);
       await Website.touch(req.website.id);
 
       // Immediate known-malware alert. Only runs when components changed

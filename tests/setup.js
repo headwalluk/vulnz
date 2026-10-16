@@ -593,6 +593,20 @@ async function initializeSchema(db) {
     )
   `);
 
+  // Create website_component_patches table (M30)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS website_component_patches (
+      website_id INTEGER NOT NULL,
+      release_id INTEGER NOT NULL,
+      patched_at DATETIME NOT NULL,
+      patched_by_user_id INTEGER,
+      PRIMARY KEY (website_id, release_id),
+      FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE,
+      FOREIGN KEY (release_id) REFERENCES releases(id) ON DELETE CASCADE,
+      FOREIGN KEY (patched_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+    )
+  `);
+
   // Create security event and file issue tables (site reports)
   await db.exec(`
     CREATE TABLE IF NOT EXISTS security_event_types (

@@ -57,6 +57,8 @@ const reportComponent = (installed) => ({
   wporg_status: installed.wporg_status,
   wporg_closure_reason: installed.wporg_closure_reason,
   wporg_closure_is_security_concern: installed.wporg_closure_is_security_concern,
+  is_patched: installed.is_patched,
+  patched_at: installed.patched_at,
 });
 
 /**
@@ -133,6 +135,7 @@ async function buildSiteReport(website, { owner, days, now = new Date() }) {
       unrated_vulnerabilities: siteSeverity.unrated_vulnerabilities,
       component_count: inventory.length,
       vulnerable_components: vulnerable.length,
+      patched_components: inventory.filter((installed) => installed.is_patched).length,
       malware_components: malware.length,
       withdrawn_components: withdrawn.length,
       components_behind_latest: behindLatest.length,
