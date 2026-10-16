@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.56.0 - 2026-10-16
+
+### Features
+
+- **`SMTP_ENABLED` is a master switch for outgoing email.** With it off, weekly reports are skipped, malware alerts are held back (detections are still recorded, and the alert goes out once email is on), and `POST /api/reports/summary-email` returns 503. The mail module also refuses to send by itself, as a backstop. The server warns at startup while it is off. It defaults to off, so a dev host that holds a copy of production data cannot email real customers.
+
+### Upgrading
+
+- **Set `SMTP_ENABLED=true` in `.env` before deploying 1.56.0 to any server that should send email.** Without it, that server stops sending reports and alerts after the upgrade.
+
 ## 1.55.0 - 2026-10-16
 
 ### Features
