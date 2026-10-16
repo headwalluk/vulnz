@@ -576,6 +576,108 @@ easypost  wordpress-plugin  Backdoor file dropper         2  2026-08-12 19:17:36
 
 ---
 
+## Release Feeds
+
+A release feed says where a component's releases are published, for a plugin wordpress.org doesn't list. The importer reads the feeds from `GET /api/release-feeds`, checks each one, and posts the results back. A result can only move `latest_version` forwards. See the [API usage guide](api-usage.md#release-feeds) for the routes.
+
+Plugins on wordpress.org need no feed: the wordpress.org sync already sets their latest version.
+
+### `component:feed:candidates [--min-sites <n>] [--include-fed] [--limit <n>] [--json]`
+
+Plugins wordpress.org has confirmed it doesn't list, ranked by how many non-dev sites run them. These are the plugins worth a feed. It prints counts and the versions sites report, but no domains or account details.
+
+```bash
+node bin/vulnz.js component:feed:candidates --min-sites 3
+```
+
+Output:
+
+```
+premium-search
+  Premium Search
+  Sites: 5, owners: 1, wordpress.org: absent
+  Versions reported: 2.29.0, 2.30.2
+  Latest version: (none)
+
+1 plugin(s).
+```
+
+`--min-sites` defaults to 2 and `--limit` to 50. Plugins that already have a feed are left out unless you pass `--include-fed`. The versions reported are worth a look before you add a feed: premium folder names aren't unique, so a version line that doesn't match the vendor's may be someone else's plugin with the same slug.
+
+### `component:feed:set <type> <slug> --feed-type <type> --url <url> [--params <json>] [--force]`
+
+Create or replace a component's feed. The component must already exist, which means a site has reported it.
+
+```bash
+node bin/vulnz.js component:feed:set wordpress-plugin quick-2fa \
+  --feed-type github-releases \
+  --url https://api.github.com/repos/headwalluk/quick-2fa/releases/latest
+```
+
+Output:
+
+```
+Created release feed: wordpress-plugin/quick-2fa (component id=36333)
+wordpress-plugin/quick-2fa (component id=36333)
+  Feed type:       github-releases
+  URL:             https://api.github.com/repos/headwalluk/quick-2fa/releases/latest
+  Params:          (none)
+  Latest version:  (none)
+  Last checked:    -
+  Last success:    -
+  Last found:      -
+  Failures in row: 0
+```
+
+- `--url` must be `https://` and at most 2048 characters. It is the URL the importer fetches.
+- `--params` is a JSON object for the feed type's handler, for example `'{"item_id": 1234}'`. **It must not hold a secret**, because every ingest key can read it. Put a licence key in the importer's `.env` and name the variable instead: `'{"license_env": "VENDOR_LICENSE_KEY"}'`. Parameter names that look like credentials (`license_key`, `token`, `password` and so on) are refused.
+- Changing the type or URL clears the feed's check history. Changing only `--params` keeps it.
+- A component that wordpress.org publishes (stored `wporg_status` of `available`) is refused, because the wordpress.org sync and the feed would both set its latest version. `--force` sets it anyway. A `wordpressorg` feed is always allowed: it is for a plugin whose folder name differs from its wordpress.org slug.
+
+### `component:feed:show <type> <slug> [--json]`
+
+The feed, the component's latest version and where that version came from, and the check history: last checked, last success, last version found, and failures in a row with the last error.
+
+### `component:feed:list [--feed-type <type>] [--failing] [--disabled] [--json]`
+
+Every feed, least recently checked first. `--failing` shows only feeds whose last check failed. `--disabled` shows only disabled feeds.
+
+```
+COMPONENT                   TYPE             LATEST  ENABLED  FAILURES  LAST CHECKED
+------------------------------------------------------------------------------------
+wordpress-plugin/quick-2fa  github-releases  1.6.0   yes             0  2026-10-16 18:04:37
+
+1 feed(s).
+```
+
+### `component:feed:enable <type> <slug>` / `component:feed:disable <type> <slug>`
+
+A disabled feed drops out of the importer's work list, and results posted for it are rejected with `FEED_DISABLED`. Use it to pause a feed that is misbehaving without losing its settings.
+
+### `component:feed:remove <type> <slug>`
+
+Delete the feed. The component's latest version stays as it is.
+
+### `component:feed:type:list [--json]` / `component:feed:type:add <slug> <title>`
+
+Feed types are a lookup table. Each type needs a handler in the importer. The seeded types:
+
+| Type              | Source                                                         |
+| ----------------- | -------------------------------------------------------------- |
+| `wordpressorg`    | The wordpress.org plugin directory, for a slug that differs    |
+| `github-releases` | A repository's latest GitHub release                           |
+| `edd-sl`          | Easy Digital Downloads Software Licensing's `get_version` call |
+| `rss`             | An RSS or Atom feed                                            |
+| `html-llm`        | A release notes page, read by an LLM                           |
+
+Add a type once the importer has a handler for it. No release of VULNZ is needed:
+
+```bash
+node bin/vulnz.js component:feed:type:add freemius "Freemius"
+```
+
+---
+
 ## WordPress Fast Update Trigger Commands
 
 Manage the watchlist and version syncs behind the fleet fast-update manifest (`GET /api/wordpress/latest-versions`). See the [Fast Update Triggers guide](fast-update-triggers.md) for how the feature works, the response format, and fleet-side integration — this section is the command reference.

@@ -2,6 +2,7 @@ const db = require('../db');
 const { stripAll } = require('./sanitizer');
 const { parseStr, parseIntEnv } = require('./env');
 const Release = require('../models/release');
+const { FEED_TYPE_WORDPRESSORG } = require('../models/releaseFeed');
 const { normaliseReportedVersion } = require('./versionCompare');
 const logger = require('./logger');
 
@@ -222,7 +223,11 @@ async function recordLatestVersion(componentId, rawVersion, changelog = null) {
   if (!version) {
     return;
   }
-  await db.query('UPDATE components SET latest_version = ?, latest_version_at = CURRENT_TIMESTAMP WHERE id = ?', [version, componentId]);
+  await db.query('UPDATE components SET latest_version = ?, latest_version_at = CURRENT_TIMESTAMP, latest_version_source = ? WHERE id = ?', [
+    version,
+    FEED_TYPE_WORDPRESSORG,
+    componentId,
+  ]);
   await Release.findOrCreate(componentId, version);
 
   if (typeof changelog === 'string' && changelog.trim() !== '') {

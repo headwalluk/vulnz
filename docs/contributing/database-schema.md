@@ -181,6 +181,7 @@ CREATE TABLE components (
   sync_priority_slug VARCHAR(50) NOT NULL DEFAULT 'low',
   latest_version VARCHAR(255) NULL,
   latest_version_at DATETIME NULL,
+  latest_version_source VARCHAR(50) NULL,
   wporg_available TINYINT(1) NULL,
   wporg_status_slug VARCHAR(50) NOT NULL DEFAULT 'unknown',
   wporg_closure_reason_slug VARCHAR(50) NULL,
@@ -206,7 +207,8 @@ CREATE TABLE components (
   FOREIGN KEY (sync_priority_slug) REFERENCES sync_priorities(slug),
   FOREIGN KEY (malware_source_slug) REFERENCES malware_sources(slug),
   FOREIGN KEY (wporg_status_slug) REFERENCES wporg_statuses(slug),
-  FOREIGN KEY (wporg_closure_reason_slug) REFERENCES wporg_closure_reasons(slug)
+  FOREIGN KEY (wporg_closure_reason_slug) REFERENCES wporg_closure_reasons(slug),
+  FOREIGN KEY (latest_version_source) REFERENCES release_feed_types(slug)
 );
 ```
 
@@ -215,12 +217,51 @@ CREATE TABLE components (
 - `component_type_slug`: components are keyed by type **slug**, not a type id, and `(slug, component_type_slug)` is the natural key the ingest path upserts on.
 - `added` / `last_updated` / `requires_php` / `tested` / `synced_from_wporg_at`: metadata synced from wordpress.org.
 - `sync_priority_slug`: which sync lane the component is in — `high` is the hourly watchlist sweep, `low` the background rotation (M12).
-- `latest_version` / `latest_version_at`: current release per wordpress.org, cached here so the fleet manifest is a direct indexed read rather than a `MAX()` over `releases`.
+- `latest_version` / `latest_version_at`: the current release, cached here so the fleet manifest is a direct indexed read rather than a `MAX()` over `releases`. Written by the wordpress.org sync, or by a [release feed](#component_release_feeds) result, which only ever moves it forwards.
+- `latest_version_source`: what last set `latest_version`: `wordpressorg`, or the feed type (M31). Backfilled as `wordpressorg` when added, since the sync was the only writer before then.
 - `wporg_available`: `NULL` unknown / `1` seen on wordpress.org / `0` absent (404). Distinct from `synced_from_wporg`, which only says whether a sync was attempted. **Superseded by `wporg_status_slug`** (M17.7) and kept only because `src/lib/watchlist.js` still reads it; it cannot express the closed/never-listed distinction. Prefer `wporg_status_slug` in new code.
 - `wporg_status_slug` / `wporg_closure_reason_slug` / `wporg_closed_at`: what wordpress.org says about the slug (M17.7). The directory answers HTTP 404 both for a plugin it has never listed and for one it has **withdrawn**, and only the response body separates them — so `absent` and `closed` are recorded distinctly. `closed` is a security signal: plugins are frequently pulled _because_ of an unpatched vulnerability, and `wporg_closure_reason_slug` carries wordpress.org's own reason (`security-issue`, `author-request`, …). A component whose status has not been resolved is `unknown`; `vulnz wporg:reclassify` works through those deliberately.
 - `is_malware` / `malware_summary` / `malware_url` / `malware_source_slug` / `malware_flagged_at`: the known-malware verdict (M14). Component-level rather than per-release, because malware is a property of the artefact — every version is bad, including versions ingested after the flag was set. Set via the CLI only; no API route writes these columns. `malware_url` is an optional link to a write-up, left NULL rather than derived from the slug so that a customer-facing alert never carries a 404. See [Known Malware](../api-usage.md#known-malware).
 
 > **Note:** this table's definition has been verified against the live schema as of v1.39.0. Other tables in this document may still have drifted from the live schema.
+
+### release_feed_types
+
+Lookup of release feed types (M31). Each needs a handler in the importer; new ones are added with `vulnz component:feed:type:add`. Seeded: `wordpressorg`, `github-releases`, `edd-sl`, `rss`, `html-llm`. Also the vocabulary of `components.latest_version_source`.
+
+```sql
+CREATE TABLE release_feed_types (
+  slug VARCHAR(50) NOT NULL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL
+);
+```
+
+### component_release_feeds
+
+Where a component's releases are published, for one wordpress.org does not list (M31). At most one feed per component. Set by the CLI (`component:feed:*`). The status columns are written by `POST /api/release-feeds/results` and cleared when the type or URL changes.
+
+```sql
+CREATE TABLE component_release_feeds (
+  component_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+  feed_type_slug VARCHAR(50) NOT NULL,
+  feed_url VARCHAR(2048) NOT NULL,
+  params JSON NULL,
+  is_enabled TINYINT(1) NOT NULL DEFAULT 1,
+  last_checked_at DATETIME NULL,
+  last_success_at DATETIME NULL,
+  last_version_found VARCHAR(255) NULL,
+  consecutive_failures INT UNSIGNED NOT NULL DEFAULT 0,
+  last_error VARCHAR(1024) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (component_id) REFERENCES components(id) ON DELETE CASCADE,
+  FOREIGN KEY (feed_type_slug) REFERENCES release_feed_types(slug),
+  KEY idx_release_feeds_type (feed_type_slug, is_enabled)
+);
+```
+
+- `params`: a JSON object for the feed type's handler. Never a secret: every ingest key can read it, so a licence key stays in the importer's environment and `params` names the variable (`license_env`).
+- `consecutive_failures`: failed checks since the last success. Above zero means `components.latest_version` may be stale.
 
 ### releases
 

@@ -7,6 +7,8 @@ const ROLE_INGEST = 'ingest';
 const ROLES = [ROLE_USER, ROLE_ADMINISTRATOR, ROLE_INGEST];
 // Roles allowed to write the shared vulnerability database
 const VULNERABILITY_WRITER_ROLES = [ROLE_ADMINISTRATOR, ROLE_INGEST];
+// Roles allowed to read the release feed list and post feed results
+const RELEASE_FEED_ROLES = [ROLE_ADMINISTRATOR, ROLE_INGEST];
 
 async function createTable() {
   const sql = `
@@ -33,4 +35,5 @@ module.exports = {
   ROLE_INGEST,
   ROLES,
   VULNERABILITY_WRITER_ROLES,
+  RELEASE_FEED_ROLES,
 };

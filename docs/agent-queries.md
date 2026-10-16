@@ -163,7 +163,7 @@ One entry per installed version, newest first (values illustrative):
 }
 ```
 
-`site_count` at the top counts distinct sites. A site that reports two releases of the same plugin, which happens mid-upgrade, appears under both versions but is counted once. `vulnerable_only=true` keeps only versions with a recorded vulnerability, and `min_severity=critical` (or `high`, `medium`, `low`) keeps only versions whose worst rated advisory is at least that. `site_count` and `version_count` then count only what is kept, and with `min_severity` the response adds `severity_unknown_versions`. Each version carries `max_cvss_score`, `max_cvss_rating`, `unrated_vulnerabilities` and `advisories[]`. `is_dev=false` leaves dev sites out, and `checked_within_days=N` drops sites that have not reported in N days (or ever). An unknown slug is a `404`, never an empty answer. No component read creates anything (since v1.44.0), so a mistyped slug leaves no trace in the catalogue. `latest_version` is only as good as its source; see `blind_spots` below for premium plugins.
+`site_count` at the top counts distinct sites. A site that reports two releases of the same plugin, which happens mid-upgrade, appears under both versions but is counted once. `vulnerable_only=true` keeps only versions with a recorded vulnerability, and `min_severity=critical` (or `high`, `medium`, `low`) keeps only versions whose worst rated advisory is at least that. `site_count` and `version_count` then count only what is kept, and with `min_severity` the response adds `severity_unknown_versions`. Each version carries `max_cvss_score`, `max_cvss_rating`, `unrated_vulnerabilities` and `advisories[]`. `is_dev=false` leaves dev sites out, and `checked_within_days=N` drops sites that have not reported in N days (or ever). An unknown slug is a `404`, never an empty answer. No component read creates anything (since v1.44.0), so a mistyped slug leaves no trace in the catalogue. `latest_version` is only as good as its source, and `latest_version_source` names it (since v1.55.0): `wordpressorg`, or the type of [release feed](#premium-plugins-and-release-feeds) that set it. `null` with a `null` version means nothing knows the latest release.
 
 ### Which sites run a given plugin?
 
@@ -232,6 +232,19 @@ GET /api/components/wordpress-plugin/<slug>/installs
 ```http
 GET /api/components/wordpress-plugin/<slug>
 ```
+
+#### Premium plugins and release feeds
+
+A plugin wordpress.org doesn't list has a `latest_version` only if an administrator has given it a release feed (since v1.55.0). The feed's checks fill in `latest_version`, and `latest_version_source` is then the feed type (`github-releases`, `edd-sl`, `rss`, `html-llm`). Read it from the component or from `/installs`; `latest-versions` does not carry premium plugins yet, and its `blind_spots` can still list a plugin that has a feed.
+
+To see which plugins have a feed and whether each one is working:
+
+```http
+GET /api/release-feeds?include_disabled=true
+# → feeds[]: slug, feed_type, is_enabled, latest_version, last_success_at, consecutive_failures, last_error
+```
+
+`consecutive_failures` above zero means the last check failed, so the stored `latest_version` may be out of date. A feed's version comes from the vendor's own release page or API, not from wordpress.org.
 
 ### Which sites run malware?
 
@@ -387,7 +400,7 @@ Worth knowing so you do not infer it:
 - **Severity for npm packages.** Advisories from OSV are not rated yet, so npm vulnerabilities always read as unrated. Severity covers WordPress plugins and themes, like `vulnerability_count`.
 - **Whether a site is actually exploited.** Everything here is inventory plus known-bad lists.
 - **A person's name.** Accounts are email addresses. There is no name to search on.
-- **Premium plugin versions.** Anything not on wordpress.org has no `latest_version` unless it arrived via an ingest feed. See `blind_spots`.
+- **Premium plugin versions, mostly.** Anything not on wordpress.org has no `latest_version` unless it has a [release feed](#premium-plugins-and-release-feeds), and most have none.
 - **Theme closure status.** `wporg_status` is populated for `wordpress-plugin` components; wordpress.org's theme endpoint is not wired up.
 - **Fix availability for a withdrawn plugin.** There is none by definition.
 

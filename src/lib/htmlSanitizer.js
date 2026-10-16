@@ -140,6 +140,20 @@ function sanitizeEmailHtml(html) {
   return sanitizeHtml(trimmedHtml, options);
 }
 
+/**
+ * Sanitize a changelog fetched from a vendor, keeping sanitize-html's default text-formatting tags.
+ *
+ * @param {string} html
+ * @returns {string}
+ */
+function sanitizeChangelogHtml(html) {
+  if (!html || typeof html !== 'string') {
+    return '';
+  }
+  return sanitizeHtml(html, { disallowedTagsMode: 'discard' });
+}
+
 module.exports = {
   sanitizeEmailHtml,
+  sanitizeChangelogHtml,
 };

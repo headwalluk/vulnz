@@ -183,7 +183,7 @@ const findVulnerabilityUrlsByRelease = async (releaseIds) => {
 const getInventoryForReport = async (websiteId) => {
   const query = `
     SELECT r.id AS release_id, r.version,
-           c.slug, c.title, c.component_type_slug, c.latest_version,
+           c.slug, c.title, c.component_type_slug, c.latest_version, c.latest_version_source,
            c.is_malware, c.malware_summary, c.malware_url,
            c.wporg_status_slug, c.wporg_closure_reason_slug, wcr.is_security_concern,
            v.url AS vulnerability_url, p.patched_at
@@ -208,6 +208,7 @@ const getInventoryForReport = async (websiteId) => {
         component_type_slug: row.component_type_slug,
         version: row.version,
         latest_version: row.latest_version || null,
+        latest_version_source: row.latest_version_source || null,
         vulnerabilities: [],
         is_malware: !!row.is_malware,
         malware_summary: row.malware_summary || null,

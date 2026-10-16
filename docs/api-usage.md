@@ -277,6 +277,7 @@ curl "http://localhost:3000/api/components/wordpress-plugin/foobar/installs?is_d
     "component_type_slug": "wordpress-plugin",
     "title": "Foobar",
     "latest_version": "2.1.0",
+    "latest_version_source": "wordpressorg",
     "is_malware": false,
     "malware_summary": null,
     "wporg_status": "available",
@@ -758,6 +759,128 @@ Request-level errors return `{ "error": "…", "code": "…" }`:
 | `INTERNAL_ERROR` | 500    | Something failed unexpectedly. Safe to retry later. |
 
 When every item is invalid, the response is `400` with `{ "errors": [...] }`. Always read `errors`, even on a `200`.
+
+### Release Feeds
+
+VULNZ learns a plugin's latest version from wordpress.org. A premium plugin isn't listed there, so without a release feed its `latest_version` stays `null`, and nothing reports a site as running an old copy. A release feed tells the importer where a component's releases are published. The importer checks each feed and posts what it found back to VULNZ.
+
+- An administrator sets feeds with the CLI (`vulnz component:feed:set`, see [CLI](cli.md#release-feeds)). A component has at most one feed, and gets one only once a site has reported it.
+- Plugins on wordpress.org need no feed. The wordpress.org sync keeps setting their latest version.
+- `latest_version_source` says what set `latest_version`: `wordpressorg`, or the type of the feed that set it. It is returned wherever `latest_version` is: the component routes, `/installs` and the site report.
+- **A feed only moves `latest_version` forwards.** A result older than the stored version is reported back, and nothing is written.
+
+Both routes need a key whose account has the `ingest` or `administrator` role.
+
+#### The work list
+
+`GET /api/release-feeds` lists enabled feeds, least recently checked first. Filter with `feed_type` (an unknown type is a `400` with code `UNKNOWN_FEED_TYPE`) and add disabled feeds with `include_disabled=true`. It is paginated with `page` and `limit` (default 100).
+
+```bash
+curl "http://localhost:3000/api/release-feeds?feed_type=github-releases" \
+  -H "X-API-Key: your-ingest-key"
+```
+
+```json
+{
+  "feeds": [
+    {
+      "component_type_slug": "wordpress-plugin",
+      "slug": "quick-2fa",
+      "title": "Quick 2FA",
+      "feed_type": "github-releases",
+      "feed_url": "https://api.github.com/repos/headwalluk/quick-2fa/releases/latest",
+      "params": null,
+      "is_enabled": true,
+      "latest_version": null,
+      "latest_version_source": null,
+      "last_checked_at": null,
+      "last_success_at": null,
+      "last_version_found": null,
+      "consecutive_failures": 0,
+      "last_error": null
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 100,
+  "totalPages": 1
+}
+```
+
+- `feed_url` is the URL to fetch. Several components may share one, for example a vendor endpoint that serves its whole catalogue.
+- `params` is for the feed type's handler, for example `{"item_id": 1234}` for `edd-sl`, or `{"hint": "…"}` for `html-llm`. It never holds a secret. Where a handler needs a licence key, `params` names an environment variable on the importer's side (`{"license_env": "VENDOR_LICENSE_KEY"}`), and the CLI refuses parameter names that look like credentials.
+- Feed types are a lookup table, listed with `vulnz component:feed:type:list`. The seeded types are `wordpressorg`, `github-releases`, `edd-sl`, `rss` and `html-llm`.
+
+#### Posting results
+
+`POST /api/release-feeds/results` takes up to 200 results. Send one per feed checked, **failures included**: `consecutive_failures` is how a quietly broken feed becomes visible.
+
+```bash
+curl -X POST http://localhost:3000/api/release-feeds/results \
+  -H "X-API-Key: your-ingest-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "results": [
+      { "componentTypeSlug": "wordpress-plugin", "componentSlug": "quick-2fa", "feedType": "github-releases",
+        "status": "ok", "version": "v1.6.0", "releaseDate": "2026-09-25", "changelog": "<p>…</p>" },
+      { "componentTypeSlug": "wordpress-plugin", "componentSlug": "premium-forms", "feedType": "edd-sl",
+        "status": "error", "error": "HTTP 403 from feed" }
+    ]
+  }'
+```
+
+```json
+{
+  "advanced": 1,
+  "unchanged": 0,
+  "older": 0,
+  "undecidable": 0,
+  "failures_recorded": 1,
+  "items": [
+    { "index": 0, "outcome": "advanced", "previous_version": null, "latest_version": "1.6.0" },
+    { "index": 1, "outcome": "failure_recorded" }
+  ],
+  "errors": []
+}
+```
+
+| Field               | Required     | Notes                                                                             |
+| ------------------- | ------------ | --------------------------------------------------------------------------------- |
+| `componentTypeSlug` | yes          |                                                                                   |
+| `componentSlug`     | yes          |                                                                                   |
+| `feedType`          | yes          | Echo `feed_type` from the work list                                               |
+| `status`            | yes          | `ok` or `error`                                                                   |
+| `version`           | when `ok`    | A leading `v` before a digit is dropped, so the tag `v1.6.0` is stored as `1.6.0` |
+| `releaseDate`       | no           | `YYYY-MM-DD`                                                                      |
+| `changelog`         | no           | HTML or text. Sanitised and capped at 64 KB                                       |
+| `error`             | when `error` | Short and human-readable, stored as `last_error`. No secrets or stack traces      |
+
+Each applied result has an `outcome`:
+
+| Outcome            | Meaning                                                                                                               |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `advanced`         | Newer than `latest_version`, or there was none. Stored, and known vulnerability ranges are applied to the new release |
+| `unchanged`        | The same version                                                                                                      |
+| `older`            | Below `latest_version`. Nothing written to the component; usually a sign the feed or its parsing is wrong             |
+| `undecidable`      | The versions can't be ordered (see [version matching](version-matching.md)). Nothing written to the component         |
+| `failure_recorded` | A `status: error` result, counted against the feed                                                                    |
+
+Any successful check updates the feed's `last_success_at` and `last_version_found`, and resets `consecutive_failures`, whatever the outcome. A changelog and release date are stored only where the release has none yet, so sending them again is harmless.
+
+Rejected results are listed in `errors`, in the [bulk error](#bulk-error-codes) shape. Nothing is written for them, except where noted:
+
+| Code                     | Meaning                                                                                                    |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `FEED_NOT_CONFIGURED`    | The component has no feed, or doesn't exist. The feed was probably removed since the work list was read    |
+| `FEED_DISABLED`          | The feed has been disabled                                                                                 |
+| `FEED_TYPE_MISMATCH`     | The feed's type changed since the work list was read                                                       |
+| `UNRECOGNISED_VERSION`   | `version` can't be parsed. **This also counts as a failure for the feed**                                  |
+| `FIELD_REQUIRED`         | A required field is missing                                                                                |
+| `FIELD_INVALID`          | `status` is not `ok` or `error`, `releaseDate` is not a real `YYYY-MM-DD` date, or `changelog` is not text |
+| `UNKNOWN_FIELD`          | A field not in the table above                                                                             |
+| `UNKNOWN_COMPONENT_TYPE` | `componentTypeSlug` is not a type VULNZ knows                                                              |
+
+The first three mean "read the work list again next run". The request fails as a whole (`400`, with `ITEMS_INVALID` or `TOO_MANY_ITEMS`) only when `results` is missing, empty or longer than 200. Otherwise the response is `200`, so always read `errors`.
 
 ### Logging Security Events
 

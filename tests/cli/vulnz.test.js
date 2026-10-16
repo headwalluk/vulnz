@@ -54,6 +54,22 @@ const mockWporg = {
   probeWpOrgSlug: jest.fn(),
   syncHighPriorityPlugins: jest.fn(),
   fetchPluginChangelog: jest.fn(),
+  WPORG_STATUS_AVAILABLE: 'available',
+  WPORG_STATUS_CLOSED: 'closed',
+};
+
+const mockReleaseFeed = {
+  FEED_TYPE_WORDPRESSORG: 'wordpressorg',
+  FEED_URL_MAX_LENGTH: 2048,
+  typeExists: jest.fn(),
+  findTypes: jest.fn(),
+  addType: jest.fn(),
+  findByComponentId: jest.fn(),
+  list: jest.fn(),
+  save: jest.fn(),
+  setEnabled: jest.fn(),
+  remove: jest.fn(),
+  findCandidates: jest.fn(),
 };
 
 // ─── Module mocks ─────────────────────────────────────────────────────────────
@@ -67,6 +83,7 @@ jest.mock('../../src/models/apiKey', () => mockApiKey);
 jest.mock('../../src/models/feed', () => mockFeed);
 jest.mock('../../src/models/component', () => mockComponent);
 jest.mock('../../src/lib/wporg', () => mockWporg);
+jest.mock('../../src/models/releaseFeed', () => mockReleaseFeed);
 
 // ─── runCli helper ────────────────────────────────────────────────────────────
 
@@ -153,6 +170,9 @@ beforeEach(() => {
   mockComponent.clearMalwareFlag.mockReset();
   mockComponent.findMalware.mockReset();
   mockWporg.probeWpOrgSlug.mockReset();
+  for (const mockFunction of Object.values(mockReleaseFeed).filter((value) => typeof value === 'function')) {
+    mockFunction.mockReset();
+  }
 });
 
 // ─── user:add ─────────────────────────────────────────────────────────────────
@@ -1074,5 +1094,144 @@ describe('CLI: component:malware:list', () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toMatch(/No components are flagged as malware/);
+  });
+});
+
+// ─── component:feed:* ─────────────────────────────────────────────────────────
+
+describe('CLI: component:feed:*', () => {
+  const PLUGIN_TYPE = 'wordpress-plugin';
+  const FEED_URL = 'https://api.github.com/repos/headwalluk/quick-2fa/releases/latest';
+  const storedFeed = {
+    component_id: 42,
+    component_type_slug: PLUGIN_TYPE,
+    slug: 'quick-2fa',
+    feed_type: 'github-releases',
+    feed_url: FEED_URL,
+    params: null,
+    is_enabled: true,
+    latest_version: '1.6.0',
+    latest_version_source: 'github-releases',
+    last_checked_at: null,
+    last_success_at: null,
+    last_version_found: null,
+    consecutive_failures: 0,
+    last_error: null,
+  };
+  const setFeed = (...extra) => runCli(['component:feed:set', PLUGIN_TYPE, 'quick-2fa', '--feed-type', 'github-releases', '--url', FEED_URL, ...extra]);
+
+  beforeEach(() => {
+    mockReleaseFeed.typeExists.mockResolvedValue(true);
+    mockReleaseFeed.save.mockResolvedValue({ created: true, statusReset: false });
+    mockReleaseFeed.findByComponentId.mockResolvedValue(storedFeed);
+  });
+
+  test('set creates a feed for an existing component', async () => {
+    mockComponent.findByTypeAndSlug.mockResolvedValue({ id: 42, slug: 'quick-2fa', wporg_status_slug: 'absent' });
+
+    const result = await setFeed('--params', '{"repo": "headwalluk/quick-2fa"}');
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/Created release feed: wordpress-plugin\/quick-2fa/);
+    expect(mockReleaseFeed.save).toHaveBeenCalledWith(42, { feedType: 'github-releases', feedUrl: FEED_URL, params: { repo: 'headwalluk/quick-2fa' } });
+  });
+
+  test('set refuses a component nobody has reported', async () => {
+    mockComponent.findByTypeAndSlug.mockResolvedValue(undefined);
+
+    const result = await setFeed();
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/no component found/);
+    expect(mockReleaseFeed.save).not.toHaveBeenCalled();
+  });
+
+  test('set refuses an http URL and a params credential', async () => {
+    mockComponent.findByTypeAndSlug.mockResolvedValue({ id: 42, slug: 'quick-2fa', wporg_status_slug: 'absent' });
+
+    const insecure = await runCli(['component:feed:set', PLUGIN_TYPE, 'quick-2fa', '--feed-type', 'rss', '--url', 'http://example.test/feed']);
+    expect(insecure.exitCode).toBe(1);
+    expect(insecure.stderr).toMatch(/https:\/\//);
+
+    const secret = await setFeed('--params', '{"license_key": "abc"}');
+    expect(secret.exitCode).toBe(1);
+    expect(secret.stderr).toMatch(/must not hold credentials/);
+    expect(mockReleaseFeed.save).not.toHaveBeenCalled();
+  });
+
+  test('set refuses a plugin wordpress.org publishes unless forced', async () => {
+    mockComponent.findByTypeAndSlug.mockResolvedValue({ id: 7, slug: 'relevanssi', wporg_status_slug: 'available' });
+
+    const refused = await setFeed();
+    expect(refused.exitCode).toBe(1);
+    expect(refused.stderr).toMatch(/published on wordpress\.org/);
+    expect(mockReleaseFeed.save).not.toHaveBeenCalled();
+
+    const forced = await setFeed('--force');
+    expect(forced.exitCode).toBe(0);
+    expect(mockReleaseFeed.save).toHaveBeenCalledTimes(1);
+  });
+
+  test('set says when a changed URL cleared the history', async () => {
+    mockComponent.findByTypeAndSlug.mockResolvedValue({ id: 42, slug: 'quick-2fa', wporg_status_slug: 'absent' });
+    mockReleaseFeed.save.mockResolvedValue({ created: false, statusReset: true });
+
+    const result = await setFeed();
+
+    expect(result.stdout).toMatch(/Updated release feed/);
+    expect(result.stdout).toMatch(/check history has been cleared/);
+  });
+
+  test('disable and remove report a missing feed', async () => {
+    mockComponent.findByTypeAndSlug.mockResolvedValue({ id: 42, slug: 'quick-2fa' });
+    mockReleaseFeed.setEnabled.mockResolvedValue(false);
+    mockReleaseFeed.remove.mockResolvedValue(false);
+
+    const disabled = await runCli(['component:feed:disable', PLUGIN_TYPE, 'quick-2fa']);
+    expect(disabled.exitCode).toBe(1);
+    expect(mockReleaseFeed.setEnabled).toHaveBeenCalledWith(42, false);
+
+    const removed = await runCli(['component:feed:remove', PLUGIN_TYPE, 'quick-2fa']);
+    expect(removed.exitCode).toBe(1);
+    expect(removed.stderr).toMatch(/no release feed/);
+  });
+
+  test('candidates sorts the versions and passes the options through', async () => {
+    mockReleaseFeed.findCandidates.mockResolvedValue([
+      {
+        slug: 'premium-search',
+        title: 'Premium Search',
+        site_count: 5,
+        owner_count: 1,
+        wporg_status: 'absent',
+        versions: ['2.9.1', '2.30.2', '2.10.0'],
+        latest_version: null,
+        latest_version_source: null,
+        feed_type: null,
+      },
+    ]);
+
+    const result = await runCli(['component:feed:candidates', '--min-sites', '3', '--json']);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)[0].versions).toEqual(['2.9.1', '2.10.0', '2.30.2']);
+    expect(mockReleaseFeed.findCandidates).toHaveBeenCalledWith({ componentType: PLUGIN_TYPE, minSites: 3, includeFed: false, limit: 50 });
+  });
+
+  test('candidates rejects a non-numeric --min-sites', async () => {
+    const result = await runCli(['component:feed:candidates', '--min-sites', 'two']);
+    expect(result.exitCode).toBe(1);
+    expect(mockReleaseFeed.findCandidates).not.toHaveBeenCalled();
+  });
+
+  test('type:add checks the slug', async () => {
+    mockReleaseFeed.addType.mockResolvedValue(true);
+
+    const refused = await runCli(['component:feed:type:add', 'Free Mius', 'Freemius']);
+    expect(refused.exitCode).toBe(1);
+
+    const added = await runCli(['component:feed:type:add', 'freemius', 'Freemius']);
+    expect(added.exitCode).toBe(0);
+    expect(mockReleaseFeed.addType).toHaveBeenCalledWith('freemius', 'Freemius');
   });
 });

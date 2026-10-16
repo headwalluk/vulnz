@@ -405,6 +405,23 @@ async function initializeSchema(db) {
     await db.run('INSERT OR IGNORE INTO wporg_closure_reasons (slug, title, is_security_concern) VALUES (?, ?, ?)', [reasonSlug, reasonTitle, isSecurityConcern]);
   }
 
+  // Create release_feed_types lookup table (M31)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS release_feed_types (
+      slug TEXT NOT NULL PRIMARY KEY,
+      title TEXT NOT NULL
+    )
+  `);
+  for (const [feedTypeSlug, feedTypeTitle] of [
+    ['wordpressorg', 'wordpress.org plugin directory'],
+    ['github-releases', 'GitHub releases'],
+    ['edd-sl', 'Easy Digital Downloads Software Licensing'],
+    ['rss', 'RSS or Atom feed'],
+    ['html-llm', 'Web page read by an LLM'],
+  ]) {
+    await db.run('INSERT OR IGNORE INTO release_feed_types (slug, title) VALUES (?, ?)', [feedTypeSlug, feedTypeTitle]);
+  }
+
   // Create components table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS components (
@@ -423,6 +440,7 @@ async function initializeSchema(db) {
       sync_priority_slug TEXT NOT NULL DEFAULT 'low',
       latest_version TEXT,
       latest_version_at DATETIME,
+      latest_version_source TEXT,
       wporg_available INTEGER,
       wporg_status_slug TEXT NOT NULL DEFAULT 'unknown',
       wporg_closure_reason_slug TEXT,
@@ -437,7 +455,28 @@ async function initializeSchema(db) {
       FOREIGN KEY (sync_priority_slug) REFERENCES sync_priorities(slug),
       FOREIGN KEY (malware_source_slug) REFERENCES malware_sources(slug),
       FOREIGN KEY (wporg_status_slug) REFERENCES wporg_statuses(slug),
-      FOREIGN KEY (wporg_closure_reason_slug) REFERENCES wporg_closure_reasons(slug)
+      FOREIGN KEY (wporg_closure_reason_slug) REFERENCES wporg_closure_reasons(slug),
+      FOREIGN KEY (latest_version_source) REFERENCES release_feed_types(slug)
+    )
+  `);
+
+  // Create component_release_feeds table (M31)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS component_release_feeds (
+      component_id INTEGER NOT NULL PRIMARY KEY,
+      feed_type_slug TEXT NOT NULL,
+      feed_url TEXT NOT NULL,
+      params TEXT,
+      is_enabled INTEGER NOT NULL DEFAULT 1,
+      last_checked_at DATETIME,
+      last_success_at DATETIME,
+      last_version_found TEXT,
+      consecutive_failures INTEGER NOT NULL DEFAULT 0,
+      last_error TEXT,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (component_id) REFERENCES components(id) ON DELETE CASCADE,
+      FOREIGN KEY (feed_type_slug) REFERENCES release_feed_types(slug)
     )
   `);
 

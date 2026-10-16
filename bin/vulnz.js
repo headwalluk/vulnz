@@ -45,9 +45,12 @@ const notificationSite = require('../src/models/notificationSite');
 const notificationQueue = require('../src/models/notificationQueue');
 const { processQueue } = require('../src/lib/notificationProcessor');
 const { syncWordPressCoreVersion, getWordPressVersionInfo } = require('../src/lib/wpcore');
-const { syncHighPriorityPlugins, fetchPluginChangelog, probeWpOrgSlug, reclassifyUnknown, WPORG_STATUS_CLOSED } = require('../src/lib/wporg');
+const { syncHighPriorityPlugins, fetchPluginChangelog, probeWpOrgSlug, reclassifyUnknown, WPORG_STATUS_CLOSED, WPORG_STATUS_AVAILABLE } = require('../src/lib/wporg');
 const { formatDateOnly } = require('../src/lib/dates');
-const { normaliseReportedVersion } = require('../src/lib/versionCompare');
+const { normaliseReportedVersion, versionSortCompare } = require('../src/lib/versionCompare');
+const releaseFeed = require('../src/models/releaseFeed');
+const { FEED_TYPE_WORDPRESSORG } = releaseFeed;
+const { validateFeedSettings } = require('../src/lib/releaseFeeds');
 const { reconcileRangeVulnerabilities } = require('../src/lib/rangeReconcile');
 const { findPhantomReleaseCandidates } = require('../src/lib/phantomReleases');
 const { sanitizeComponentSlug, stripAll, isUrl } = require('../src/lib/sanitizer');
@@ -67,6 +70,13 @@ const WORDPRESS_PLUGIN_TYPE = 'wordpress-plugin';
 
 // components.malware_summary is VARCHAR(255).
 const MALWARE_SUMMARY_MAX_LENGTH = 255;
+
+// component:feed:candidates defaults: a plugin on one site is rarely worth a feed
+const FEED_CANDIDATE_DEFAULT_MIN_SITES = 2;
+const FEED_CANDIDATE_DEFAULT_LIMIT = 50;
+// release_feed_types.slug is VARCHAR(50)
+const FEED_TYPE_SLUG_MAX_LENGTH = 50;
+const FEED_TYPE_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 program.name('vulnz').description('Vulnz API admin CLI').version(require('../package.json').version);
 
@@ -1049,6 +1059,298 @@ program
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
       await exitAfterOutput(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// component:feed:* — release feeds (M31)
+// ---------------------------------------------------------------------------
+
+/** Print an error and exit 1. */
+async function exitWithError(message) {
+  process.stderr.write(`Error: ${message}\n`);
+  await db.end();
+  await exitAfterOutput(1);
+}
+
+/** Format a stored timestamp as "YYYY-MM-DD HH:MM:SS", or "-" when unset. */
+const formatTimestamp = (value) => (value ? new Date(value).toISOString().substring(0, 19).replace('T', ' ') : '-');
+
+/** Find a component by type and slug, for the feed commands. */
+const findFeedComponent = async (type, rawSlug) => component.findByTypeAndSlug(type, sanitizeComponentSlug(rawSlug));
+
+/** Print one feed in full. */
+function printFeed(feed) {
+  console.log(`${feed.component_type_slug}/${feed.slug} (component id=${feed.component_id})`);
+  console.log(`  Feed type:       ${feed.feed_type}${feed.is_enabled ? '' : ' [DISABLED]'}`);
+  console.log(`  URL:             ${feed.feed_url}`);
+  console.log(`  Params:          ${feed.params === null ? '(none)' : JSON.stringify(feed.params)}`);
+  console.log(`  Latest version:  ${feed.latest_version || '(none)'}${feed.latest_version_source ? ` (from ${feed.latest_version_source})` : ''}`);
+  console.log(`  Last checked:    ${formatTimestamp(feed.last_checked_at)}`);
+  console.log(`  Last success:    ${formatTimestamp(feed.last_success_at)}`);
+  console.log(`  Last found:      ${feed.last_version_found || '-'}`);
+  console.log(`  Failures in row: ${feed.consecutive_failures}${feed.last_error ? ` — ${feed.last_error}` : ''}`);
+}
+
+// ---------------------------------------------------------------------------
+// component:feed:set <type> <slug> --feed-type <t> --url <u> [--params <json>] [--force]
+// ---------------------------------------------------------------------------
+program
+  .command('component:feed:set <type> <slug>')
+  .description('Create or replace the release feed for an existing component')
+  .requiredOption('--feed-type <type>', 'Feed type, e.g. github-releases (see component:feed:type:list)')
+  .requiredOption('--url <url>', 'The https:// URL the importer fetches')
+  .option('--params <json>', 'Handler parameters as a JSON object; never a secret (name an env var instead, e.g. {"license_env": "..."})')
+  .option('--force', 'Set it even though wordpress.org publishes this component')
+  .action(async (type, rawSlug, opts) => {
+    try {
+      const target = await findFeedComponent(type, rawSlug);
+      if (!target) {
+        await exitWithError(`no component found: ${type}/${rawSlug}. A feed attaches only to a component a site has reported.`);
+        return;
+      }
+
+      const { problems, params } = await validateFeedSettings({ feedType: opts.feedType, feedUrl: opts.url, params: opts.params === undefined ? null : opts.params });
+      if (problems.length > 0) {
+        await exitWithError(problems.join('\n       '));
+        return;
+      }
+
+      // Both the wordpress.org sync and the feed would then write latest_version
+      if (target.wporg_status_slug === WPORG_STATUS_AVAILABLE && opts.feedType !== FEED_TYPE_WORDPRESSORG && !opts.force) {
+        await exitWithError(`"${target.slug}" is published on wordpress.org, whose sync already sets its latest version. Re-run with --force to add a feed anyway.`);
+        return;
+      }
+
+      const componentId = parseInt(target.id, 10);
+      const { created, statusReset } = await releaseFeed.save(componentId, { feedType: opts.feedType, feedUrl: opts.url, params });
+      console.log(`${created ? 'Created' : 'Updated'} release feed: ${type}/${target.slug} (component id=${componentId})`);
+      if (statusReset) {
+        console.log('The feed type or URL changed, so its check history has been cleared.');
+      }
+      printFeed(await releaseFeed.findByComponentId(componentId));
+
+      await db.end();
+      await exitAfterOutput(0);
+    } catch (err) {
+      await exitWithError(err.message);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// component:feed:show <type> <slug> [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('component:feed:show <type> <slug>')
+  .description("Show a component's release feed and its check history")
+  .option('--json', 'Output as JSON')
+  .action(async (type, rawSlug, opts) => {
+    try {
+      const target = await findFeedComponent(type, rawSlug);
+      const feed = target ? await releaseFeed.findByComponentId(parseInt(target.id, 10)) : null;
+      if (!feed) {
+        await exitWithError(`no release feed for ${type}/${rawSlug}.`);
+        return;
+      }
+      if (opts.json) {
+        console.log(JSON.stringify(feed, null, 2));
+      } else {
+        printFeed(feed);
+      }
+      await db.end();
+      await exitAfterOutput(0);
+    } catch (err) {
+      await exitWithError(err.message);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// component:feed:list [--feed-type <t>] [--failing] [--disabled] [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('component:feed:list')
+  .description('List release feeds, least recently checked first')
+  .option('--feed-type <type>', 'Only feeds of this type')
+  .option('--failing', 'Only feeds whose last check failed')
+  .option('--disabled', 'Only disabled feeds (the default lists enabled and disabled)')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const feeds = await releaseFeed.list({ feedType: opts.feedType || null, includeDisabled: true, disabledOnly: !!opts.disabled, failingOnly: !!opts.failing });
+
+      if (opts.json) {
+        console.log(JSON.stringify(feeds, null, 2));
+      } else if (feeds.length === 0) {
+        console.log('No release feeds match.');
+      } else {
+        const widths = {
+          component: Math.max(9, ...feeds.map((feed) => `${feed.component_type_slug}/${feed.slug}`.length)),
+          type: Math.max(4, ...feeds.map((feed) => feed.feed_type.length)),
+          latest: Math.max(6, ...feeds.map((feed) => (feed.latest_version || '-').length)),
+        };
+        const pad = (value, length) => String(value).padEnd(length);
+        const header = `${pad('COMPONENT', widths.component)}  ${pad('TYPE', widths.type)}  ${pad('LATEST', widths.latest)}  ENABLED  FAILURES  LAST CHECKED`;
+        console.log(header);
+        console.log('-'.repeat(header.length));
+        for (const feed of feeds) {
+          console.log(
+            `${pad(`${feed.component_type_slug}/${feed.slug}`, widths.component)}  ${pad(feed.feed_type, widths.type)}  ${pad(feed.latest_version || '-', widths.latest)}  ${pad(feed.is_enabled ? 'yes' : 'no', 7)}  ${String(feed.consecutive_failures).padStart(8)}  ${formatTimestamp(feed.last_checked_at)}`
+          );
+        }
+        console.log(`\n${feeds.length} feed(s).`);
+      }
+
+      await db.end();
+      await exitAfterOutput(0);
+    } catch (err) {
+      await exitWithError(err.message);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// component:feed:enable / component:feed:disable <type> <slug>
+// ---------------------------------------------------------------------------
+for (const [commandName, isEnabled, description] of [
+  ['component:feed:enable', true, 'Enable a release feed'],
+  ['component:feed:disable', false, 'Disable a release feed; the importer stops checking it'],
+]) {
+  program
+    .command(`${commandName} <type> <slug>`)
+    .description(description)
+    .action(async (type, rawSlug) => {
+      try {
+        const target = await findFeedComponent(type, rawSlug);
+        const updated = target ? await releaseFeed.setEnabled(parseInt(target.id, 10), isEnabled) : false;
+        if (!updated) {
+          await exitWithError(`no release feed for ${type}/${rawSlug}.`);
+          return;
+        }
+        console.log(`${isEnabled ? 'Enabled' : 'Disabled'} release feed: ${type}/${target.slug}`);
+        await db.end();
+        await exitAfterOutput(0);
+      } catch (err) {
+        await exitWithError(err.message);
+      }
+    });
+}
+
+// ---------------------------------------------------------------------------
+// component:feed:remove <type> <slug>
+// ---------------------------------------------------------------------------
+program
+  .command('component:feed:remove <type> <slug>')
+  .description("Delete a component's release feed; its latest version is kept")
+  .action(async (type, rawSlug) => {
+    try {
+      const target = await findFeedComponent(type, rawSlug);
+      const removed = target ? await releaseFeed.remove(parseInt(target.id, 10)) : false;
+      if (!removed) {
+        await exitWithError(`no release feed for ${type}/${rawSlug}.`);
+        return;
+      }
+      console.log(`Removed release feed: ${type}/${target.slug}. Its latest version (${target.latest_version || 'none'}) is unchanged.`);
+      await db.end();
+      await exitAfterOutput(0);
+    } catch (err) {
+      await exitWithError(err.message);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// component:feed:candidates [--min-sites <n>] [--include-fed] [--limit <n>] [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('component:feed:candidates')
+  .description('Plugins wordpress.org does not list, by number of live sites running them: the ones worth a feed')
+  .option('--min-sites <n>', 'Only plugins on at least this many non-dev sites', String(FEED_CANDIDATE_DEFAULT_MIN_SITES))
+  .option('--include-fed', 'Include plugins that already have a feed')
+  .option('--limit <n>', 'Maximum plugins to list', String(FEED_CANDIDATE_DEFAULT_LIMIT))
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const minSites = parseInt(opts.minSites, 10);
+      const limit = parseInt(opts.limit, 10);
+      if (!/^\d+$/.test(opts.minSites) || minSites < 1 || !/^\d+$/.test(opts.limit) || limit < 1) {
+        await exitWithError('--min-sites and --limit must be positive integers.');
+        return;
+      }
+
+      const candidates = (await releaseFeed.findCandidates({ componentType: WORDPRESS_PLUGIN_TYPE, minSites, includeFed: !!opts.includeFed, limit })).map((candidate) => ({
+        ...candidate,
+        versions: [...candidate.versions].sort(versionSortCompare),
+      }));
+
+      if (opts.json) {
+        console.log(JSON.stringify(candidates, null, 2));
+      } else if (candidates.length === 0) {
+        console.log(`No plugins outside wordpress.org run on ${minSites} or more live sites${opts.includeFed ? '' : ' without a feed'}.`);
+      } else {
+        for (const candidate of candidates) {
+          const feedNote = candidate.feed_type ? ` [feed: ${candidate.feed_type}]` : '';
+          console.log(`${candidate.slug}${feedNote}`);
+          console.log(`  ${candidate.title}`);
+          console.log(`  Sites: ${candidate.site_count}, owners: ${candidate.owner_count}, wordpress.org: ${candidate.wporg_status || 'unknown'}`);
+          console.log(`  Versions reported: ${candidate.versions.join(', ')}`);
+          console.log(`  Latest version: ${candidate.latest_version || '(none)'}${candidate.latest_version_source ? ` (from ${candidate.latest_version_source})` : ''}`);
+        }
+        console.log(`\n${candidates.length} plugin(s).`);
+      }
+
+      await db.end();
+      await exitAfterOutput(0);
+    } catch (err) {
+      await exitWithError(err.message);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// component:feed:type:list [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('component:feed:type:list')
+  .description('List release feed types (each needs a handler in the importer)')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const types = await releaseFeed.findTypes();
+      if (opts.json) {
+        console.log(JSON.stringify(types, null, 2));
+      } else {
+        const width = Math.max(4, ...types.map((feedType) => feedType.slug.length));
+        for (const feedType of types) {
+          console.log(`${feedType.slug.padEnd(width)}  ${feedType.title}`);
+        }
+      }
+      await db.end();
+      await exitAfterOutput(0);
+    } catch (err) {
+      await exitWithError(err.message);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// component:feed:type:add <slug> <title>
+// ---------------------------------------------------------------------------
+program
+  .command('component:feed:type:add <slug> <title>')
+  .description('Add a release feed type, once the importer has a handler for it')
+  .action(async (slug, title) => {
+    try {
+      const cleanTitle = stripAll(title).trim();
+      if (!FEED_TYPE_SLUG_PATTERN.test(slug) || slug.length > FEED_TYPE_SLUG_MAX_LENGTH) {
+        await exitWithError(`"${slug}" is not a usable feed type slug: lower-case letters, digits and single hyphens, at most ${FEED_TYPE_SLUG_MAX_LENGTH} characters.`);
+        return;
+      }
+      if (cleanTitle === '') {
+        await exitWithError('a title is required.');
+        return;
+      }
+      const added = await releaseFeed.addType(slug, cleanTitle);
+      console.log(added ? `Added feed type: ${slug} (${cleanTitle})` : `Feed type already exists: ${slug}`);
+      await db.end();
+      await exitAfterOutput(0);
+    } catch (err) {
+      await exitWithError(err.message);
     }
   });
 

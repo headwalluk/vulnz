@@ -47,6 +47,7 @@ const reportComponent = (installed) => ({
   component_type_slug: installed.component_type_slug,
   version: installed.version,
   latest_version: installed.latest_version,
+  latest_version_source: installed.latest_version_source,
   vulnerabilities: installed.vulnerabilities,
   max_cvss_score: installed.max_cvss_score,
   max_cvss_rating: installed.max_cvss_rating,

@@ -649,7 +649,7 @@ function groupInstallsByVersion(installRows, urlsByRelease, latestVersion, sever
  *     responses:
  *       200:
  *         description: >
- *           `component` (identity, latest_version, malware and wordpress.org
+ *           `component` (identity, latest_version and latest_version_source, malware and wordpress.org
  *           status), `site_count`, `version_count`, and `versions[]`, each with
  *           `version`, `is_latest`, `has_vulnerabilities`, `vulnerabilities`
  *           (URLs), `site_count` and `sites[]` (domain, title, url, user_id,
@@ -722,6 +722,7 @@ router.get('/:componentTypeSlug/:componentSlug/installs', apiAuth, logApiCall, s
         component_type_slug: component.component_type_slug,
         title: component.title,
         latest_version: component.latest_version || null,
+        latest_version_source: component.latest_version_source || null,
         is_malware: !!component.is_malware,
         malware_summary: component.malware_summary || null,
         wporg_status: component.wporg_status_slug || null,
