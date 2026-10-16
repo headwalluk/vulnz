@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.55.0 - 2026-10-16
+
+### Features
+
+- **Release feeds for premium plugins.** VULNZ only learned a plugin's latest version from wordpress.org, so a premium plugin's `latest_version` stayed `null` and a site running an old copy was never reported as behind. An administrator can now give a component a release feed: a feed type, the URL to fetch and handler `params`. The importer reads the list from `GET /api/release-feeds` and posts what it finds to `POST /api/release-feeds/results`. Both routes need the `ingest` or `administrator` role.
+- **A feed only moves `latest_version` forwards.** Each result is answered `advanced`, `unchanged`, `older`, `undecidable` or `failure_recorded`. An advanced version gets a release row with known vulnerability ranges applied, and the changelog and release date are stored where the release has none. Failures count up `consecutive_failures` on the feed, so a broken feed shows. Rejected results carry a `code`: `FEED_NOT_CONFIGURED`, `FEED_DISABLED` and `FEED_TYPE_MISMATCH` mean the feed changed after the work list was read, and `UNRECOGNISED_VERSION` also counts as a failure.
+- **`latest_version_source`** says what set `latest_version`: `wordpressorg`, or the feed type. It appears on the component routes, `/installs` and the site report.
+- **CLI:** `component:feed:set`, `show`, `list`, `enable`, `disable` and `remove`; `component:feed:type:list` and `type:add`; and `component:feed:candidates`, which lists plugins outside wordpress.org by the number of live sites running them, with no domains or account details. `set` accepts only `https://` URLs, refuses credential-like names in `params`, and refuses a plugin wordpress.org publishes unless given `--force`.
+
+### Upgrading
+
+- New migration `20261016120000-create-release-feeds` creates `release_feed_types` (seeded with `wordpressorg`, `github-releases`, `edd-sl`, `rss`, `html-llm`) and `component_release_feeds`, and adds `components.latest_version_source`, backfilled as `wordpressorg` wherever `latest_version` is set. No new environment variables.
+- Feeds do nothing until the importer has handlers for them.
+
 ## 1.54.0 - 2026-10-16
 
 ### Features
