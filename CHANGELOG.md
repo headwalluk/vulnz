@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.54.0 - 2026-10-16
+
+### Features
+
+- **Patched components.** A vulnerable component can be patched in place rather than updated, for example a premium plugin whose licence will not be renewed. `POST /api/websites/{domain}/patches` with `{"type", "slug", "version"}` marks the installed version as patched; the version must be the one the site reports. `GET /api/websites/{domain}/patches` lists the marks with `patched_at` and `patched_by`. `DELETE /api/websites/{domain}/patches/{type}/{slug}` removes one. Errors carry a `code`: `COMPONENT_NOT_INSTALLED`, `VERSION_NOT_INSTALLED` (with `installed_versions`), `PATCH_NOT_FOUND`, `FIELD_REQUIRED`, `UNKNOWN_COMPONENT_TYPE`.
+- **A patched component is still reported as vulnerable**, because a mark does not say which vulnerabilities, if any, the patch addresses. Components on `GET /api/websites/{domain}` and in `/report` gain `is_patched` (the report also gives `patched_at` and `summary.patched_components`). The weekly email shows a "Patched*" badge and a disclaimer. Counts, severity and the subject line are unchanged.
+- **A mark follows the installed version.** It is deleted when the site reports a different version or stops reporting the component, so an update clears it, and reinstalling the old version later does not bring it back.
+
+### Upgrading
+
+- New migration `20261016100000-create-website-component-patches` creates the `website_component_patches` table. No new environment variables.
+
 ## 1.53.1 - 2026-10-14
 
 ### Fixes
