@@ -14,6 +14,7 @@ const { renderVulnerabilityReport } = require('./reportRender');
 const emailer = require('../lib/email');
 const emailLog = require('../models/emailLog');
 const logger = require('./logger');
+const { smtpEnabled } = require('./env');
 
 const SKIP_REASON_NO_WEBSITES = 'no_websites';
 const SKIP_REASON_BLOCKED = 'blocked';
@@ -352,6 +353,11 @@ async function sendSummaryEmail(userToSend) {
 }
 
 async function sendWeeklyReports() {
+  if (!smtpEnabled()) {
+    logger.debug('SMTP_ENABLED is off: skipping weekly reports');
+    return;
+  }
+
   const reportingHour = parseInt(process.env.REPORTING_HOUR, 10);
   if (isNaN(reportingHour) || reportingHour < 0 || reportingHour > 23) {
     console.error('REPORTING_HOUR is not set or is invalid (must be 0-23). Skipping weekly report cron job.');

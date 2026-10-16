@@ -26,6 +26,9 @@ process.env.PASSWORD_MIN_NUMERIC = '1';
 process.env.PASSWORD_MIN_UPPERCASE = '1';
 process.env.PASSWORD_MIN_LOWERCASE = '1';
 
+// Email on, as in production; tests that cover SMTP_ENABLED=false switch it off
+process.env.SMTP_ENABLED = 'true';
+
 // Increase timeout for database operations
 jest.setTimeout(10000);
 

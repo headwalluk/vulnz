@@ -2,6 +2,7 @@ const nodemailer = require('nodemailer');
 const handlebars = require('handlebars');
 const fs = require('fs');
 const path = require('path');
+const { smtpEnabled } = require('./env');
 
 // secure: process.env.SMTP_SECURE === 'true',
 const transportOptions = {
@@ -26,6 +27,14 @@ if (process.env.SMTP_IGNORE_TLS === 'true') {
 
 const transporter = nodemailer.createTransport(transportOptions);
 
+/** Hand a message to the SMTP transport, or throw when SMTP_ENABLED is off. Callers check smtpEnabled() first; this is the backstop. */
+async function deliver(mailOptions) {
+  if (!smtpEnabled()) {
+    throw new Error(`SMTP_ENABLED is off: refusing to send "${mailOptions.subject}"`);
+  }
+  await transporter.sendMail(mailOptions);
+}
+
 /**
  * Send the weekly vulnerability report, rendered by renderVulnerabilityReport(), with HTML and plain-text parts.
  * @param {string} to
@@ -44,7 +53,7 @@ async function sendVulnerabilityReport(to, rendered, cc = []) {
     mailOptions.cc = cc;
   }
 
-  await transporter.sendMail(mailOptions);
+  await deliver(mailOptions);
 }
 
 /**
@@ -79,7 +88,7 @@ async function sendMalwareAlert(to, data) {
     html: html,
   };
 
-  await transporter.sendMail(mailOptions);
+  await deliver(mailOptions);
 }
 
 module.exports = {

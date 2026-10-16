@@ -6,6 +6,7 @@ const { logApiCall } = require('../middleware/logApiCall');
 const { buildSummaryEmail, sendSummaryEmail } = require('../lib/reporting');
 const { renderVulnerabilityReport } = require('../lib/reportRender');
 const { ROLE_ADMINISTRATOR } = require('../models/role');
+const { smtpEnabled } = require('../lib/env');
 
 const USER_ID_PATTERN = /^[1-9][0-9]*$/;
 
@@ -94,6 +95,8 @@ async function resolveReportTarget(caller, { userId, username }) {
  *         description: User not found
  *       500:
  *         description: Server error
+ *       503:
+ *         description: Email is switched off on this server (`SMTP_ENABLED` is not true)
  */
 router.post('/summary-email', apiAuth, logApiCall, async (req, res) => {
   try {
@@ -113,6 +116,10 @@ router.post('/summary-email', apiAuth, logApiCall, async (req, res) => {
       return res
         .status(400)
         .send(`Sending another user's report emails them and their CC list: pass "send": true to confirm, or use GET /api/reports/summary-email/preview to see it without sending`);
+    }
+
+    if (!smtpEnabled()) {
+      return res.status(503).send('Email is switched off on this server (SMTP_ENABLED). Use GET /api/reports/summary-email/preview to see the report.');
     }
 
     const sent = await sendSummaryEmail(resolved.target);

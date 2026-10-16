@@ -156,9 +156,10 @@ node bin/vulnz.js user:add
 
 ### Configure Email (Optional)
 
-To enable weekly vulnerability reports, configure SMTP:
+To enable weekly vulnerability reports, configure SMTP and switch email on with `SMTP_ENABLED=true`. It is off by default, and no email of any kind is sent until it is set:
 
 ```plaintext
+SMTP_ENABLED=true
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -178,7 +179,7 @@ curl -X POST "http://localhost:3000/api/reports/summary-email" \
   -d '{}'
 ```
 
-With an empty body the report goes to the key holder's own account. A `Report sent` response means SMTP accepted it. An account with no websites gets no report, weekly or on demand: the response is `Report not sent: no websites on this account`.
+With an empty body the report goes to the key holder's own account. A `Report sent` response means SMTP accepted it. An account with no websites gets no report, weekly or on demand: the response is `Report not sent: no websites on this account`. With `SMTP_ENABLED` off the request is refused with 503 and nothing is sent.
 
 An administrator can send another user's report by naming them with `user_id` or `username` (give one, not both). Because that emails the client and everyone on their CC list, it must be confirmed with `"send": true`; without it the request is refused and nothing is sent:
 

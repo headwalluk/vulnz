@@ -17,7 +17,8 @@ const mockEmailer = {
 };
 jest.mock('../../src/lib/email', () => mockEmailer);
 
-const { sendSummaryEmail } = require('../../src/lib/reporting');
+const { sendSummaryEmail, sendWeeklyReports } = require('../../src/lib/reporting');
+const userModel = require('../../src/models/user');
 
 describe('sendSummaryEmail with a CC list', () => {
   let db;
@@ -101,5 +102,23 @@ describe('sendSummaryEmail for an account with no websites', () => {
     expect(mockEmailer.sendVulnerabilityReport).not.toHaveBeenCalled();
     const logged = await db.query('SELECT * FROM email_logs WHERE user_id = ?', [emptyAccountId]);
     expect(logged).toHaveLength(0);
+  });
+});
+
+describe('sendWeeklyReports while SMTP_ENABLED is off', () => {
+  afterEach(() => {
+    process.env.SMTP_ENABLED = 'true';
+    jest.restoreAllMocks();
+  });
+
+  test('does not look for users to report to, so nobody is sent or stamped', async () => {
+    process.env.SMTP_ENABLED = 'false';
+    const findUsers = jest.spyOn(userModel, 'findUsersForWeeklyReport');
+    mockEmailer.sendVulnerabilityReport.mockClear();
+
+    await sendWeeklyReports();
+
+    expect(findUsers).not.toHaveBeenCalled();
+    expect(mockEmailer.sendVulnerabilityReport).not.toHaveBeenCalled();
   });
 });

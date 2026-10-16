@@ -123,6 +123,7 @@ CORS_CREDENTIALS=true
 ### Email Configuration
 
 ```plaintext
+SMTP_ENABLED=true
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -131,6 +132,10 @@ SMTP_PASSWORD=your-smtp-password
 SMTP_FROM=vulnz@example.com
 ```
 
+- **SMTP_ENABLED**: Master switch for outgoing email (weekly reports and malware alerts)
+  - **Default**: `false`, so no email is sent until you turn it on
+  - **Set to `true`**: In production. Leave it off on any host that holds a copy of production data, so customers are never emailed from it
+  - While it is off, weekly reports are skipped, malware alerts wait unsent and are sent once it is on, and `POST /api/reports/summary-email` returns 503. The server prints a warning at startup
 - **SMTP_HOST**: SMTP server hostname
 - **SMTP_PORT**: SMTP port (587 for STARTTLS, 465 for SSL)
 - **SMTP_SECURE**: Use SSL/TLS
@@ -303,6 +308,7 @@ CORS_ORIGIN=https://example.com,https://app.example.com
 CORS_CREDENTIALS=true
 
 # Email
+SMTP_ENABLED=true
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_SECURE=false

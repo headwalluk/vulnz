@@ -62,6 +62,21 @@ describe('POST /api/reports/summary-email', () => {
     expect(mockReporting.sendSummaryEmail.mock.calls[0][0].username).toBe('customer@example.com');
   });
 
+  test('refuses to send with 503 while SMTP_ENABLED is off', async () => {
+    process.env.SMTP_ENABLED = 'false';
+    mockReporting.sendSummaryEmail.mockClear();
+
+    try {
+      const response = await request(app).post('/api/reports/summary-email').set('X-API-Key', customerApiKey).send({});
+
+      expect(response.status).toBe(503);
+      expect(response.text).toContain('SMTP_ENABLED');
+      expect(mockReporting.sendSummaryEmail).not.toHaveBeenCalled();
+    } finally {
+      process.env.SMTP_ENABLED = 'true';
+    }
+  });
+
   test('a request with no body at all sends the caller their own report', async () => {
     const response = await request(app).post('/api/reports/summary-email').set('X-API-Key', customerApiKey);
 

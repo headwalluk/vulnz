@@ -248,6 +248,13 @@ function normalizeEnv() {
   // the feature ships inert and cannot start mailing on an upgrade alone.
   process.env.MALWARE_ALERT_ENABLED = parseBool('MALWARE_ALERT_ENABLED', false) ? 'true' : 'false';
 
+  // SMTP_ENABLED normalization: off unless explicitly enabled, so a copy of
+  // production data on a dev host cannot email real customers.
+  process.env.SMTP_ENABLED = parseBool('SMTP_ENABLED', false) ? 'true' : 'false';
+  if (process.env.SMTP_ENABLED !== 'true') {
+    console.warn('SMTP_ENABLED is not true: no email will be sent (weekly reports, malware alerts). Set SMTP_ENABLED=true to send.');
+  }
+
   // Warn early rather than at detection time — the alert is the one email
   // that must not be silently dropped.
   if (process.env.MALWARE_ALERT_ENABLED === 'true' && parseStr('MALWARE_ALERT_EMAIL', '') === '') {
@@ -319,4 +326,21 @@ function isProduction() {
   return nodeEnv() === 'production';
 }
 
-module.exports = { loadEnvFile, getPasswordPolicy, normalizeEnv, checkEnvFilePermissions, parseBool, parseIntEnv, parseEnum, parseStr, nodeEnv, isProduction };
+/** Whether outgoing email is switched on (SMTP_ENABLED, default false). */
+function smtpEnabled() {
+  return parseBool('SMTP_ENABLED', false);
+}
+
+module.exports = {
+  loadEnvFile,
+  getPasswordPolicy,
+  normalizeEnv,
+  checkEnvFilePermissions,
+  parseBool,
+  parseIntEnv,
+  parseEnum,
+  parseStr,
+  nodeEnv,
+  isProduction,
+  smtpEnabled,
+};
