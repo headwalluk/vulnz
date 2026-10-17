@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.57.0 - 2026-10-17
+
+### ⚠️ BREAKING: the CLI is now `bin/vulnz`, not `bin/vulnz.js`
+
+**`bin/vulnz.js` has been renamed to `bin/vulnz`. The old path no longer exists.** Anything that calls the CLI by its old path will fail with "No such file or directory" after you upgrade. Before deploying 1.57.0, check for and update:
+
+- **Cron jobs** (`crontab -l`, and files under `/etc/cron.d/`) that run `bin/vulnz.js` or `node bin/vulnz.js`
+- **Shell scripts, deploy scripts and aliases** that call it
+- **Runbooks and notes** that tell someone to type it
+
+Replace `node bin/vulnz.js <command>` or `./bin/vulnz.js <command>` with `./bin/vulnz <command>`. The commands, their options and their output are unchanged. An npm-installed or `npm link`ed copy is still called `vulnz`.
+
+### Features
+
+- **`email:test <to>`** checks the SMTP settings and sends a short test email. It logs in to the server first, reports failures with nodemailer's error code (`EAUTH`, `ESOCKET`, `ETIMEDOUT`...), and never prints the password. It works even while `SMTP_ENABLED` is `false`: it says that sending is disabled, then sends the test anyway. That lets you test a new mailbox on a new installation before the API server is allowed to send reports and alerts.
+
+### Fixed
+
+- **Email settings documentation.** `SMTP_SECURE` has been removed from `.env.example` and the docs: nothing ever read it, and the connection always starts unencrypted and upgrades with STARTTLS. `.env.example` now uses port `587`, not `465`, which never worked with that connection. The docs also named the password variable `SMTP_PASSWORD`, but VULNZ reads `SMTP_PASS`. You can delete `SMTP_SECURE` from `.env`; it has no effect.
+
+### Development
+
+- ESLint now lints `bin/vulnz` explicitly. Flat config only matches `*.js` by default, so an extensionless file would otherwise be skipped.
+
 ## 1.56.0 - 2026-10-16
 
 ### Features

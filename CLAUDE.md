@@ -16,7 +16,7 @@ source .env && mysql -u "${DB_USER}" -p"${DB_PASSWORD}" "${DB_NAME}" -e "SELECT 
 
 ```bash
 npm run dev           # Start dev server with node --watch
-npm test              # Run all Jest tests (1062 tests, in-memory SQLite; Node 24.9+)
+npm test              # Run all Jest tests (1071 tests, in-memory SQLite; Node 24.9+)
 npm test -- landing   # Run a single test file by name match
 npm run test:watch    # Jest watch mode
 npm run test:coverage # Coverage report (50% threshold)
@@ -42,7 +42,7 @@ There is no `npm run build` step — vulnz-api is a pure CLI + API service with 
 
 **Request flow:** Rate Limiting → Authentication (Passport HeaderAPIKeyStrategy) → Role Check → API Call Logging → Route Handler → Model → Response
 
-**Authentication:** API key-based only via `X-API-Key` header with `HeaderAPIKeyStrategy`. Session-based auth was removed in M10 — there is no web UI, no login form, no password reset flow, no session table. Admin management happens via the CLI (`bin/vulnz.js`) and the `vulnz-woo` WordPress plugin. Most routes use the `apiAuth` middleware (`src/middleware/auth.js`); optional-auth routes use `optionalApiAuth`; admin-only routes use `apiKeyAdminAuth`.
+**Authentication:** API key-based only via `X-API-Key` header with `HeaderAPIKeyStrategy`. Session-based auth was removed in M10 — there is no web UI, no login form, no password reset flow, no session table. Admin management happens via the CLI (`bin/vulnz`) and the `vulnz-woo` WordPress plugin. Most routes use the `apiAuth` middleware (`src/middleware/auth.js`); optional-auth routes use `optionalApiAuth`; admin-only routes use `apiKeyAdminAuth`.
 
 **Landing page (`/`):** a minimal status page served from `src/routes/landing.js` with HTML/JSON content negotiation. Serves static assets from `public/` (favicon only). No other static content.
 
@@ -50,7 +50,7 @@ There is no `npm run build` step — vulnz-api is a pure CLI + API service with 
 
 **Migrations** (`src/migrations/`) run automatically on startup, tracked in a `migrations` table. Forward-only, named with timestamps (YYYYMMDDHHMMSS). No rollback support.
 
-**CLI tool** (`bin/vulnz.js`) imports models directly — does NOT start the Express server. Uses `commander` for arg parsing. Loads `dotenv` before requiring any `src/` modules.
+**CLI tool** (`bin/vulnz`) imports models directly — does NOT start the Express server. Uses `commander` for arg parsing. Loads `dotenv` before requiring any `src/` modules.
 
 **Multi-ecosystem:** Components have an `ecosystem_id` foreign key. Currently supports WordPress (plugins + themes) and npm. Extensible for PyPI, Composer, etc.
 
@@ -68,7 +68,7 @@ Tests mock `src/db` and redirect queries to SQLite. Test files live in `tests/ap
 
 ## Adding Features
 
-**New functionality goes through the CLI** (`bin/vulnz.js`) or a new API endpoint. There is no web UI in vulnz-api — admin UI features are added to the `vulnz-woo` WordPress plugin (separate project) instead. New management commands should be added as CLI subcommands via `commander`.
+**New functionality goes through the CLI** (`bin/vulnz`) or a new API endpoint. There is no web UI in vulnz-api — admin UI features are added to the `vulnz-woo` WordPress plugin (separate project) instead. New management commands should be added as CLI subcommands via `commander`.
 
 **New API endpoint:** Create model in `src/models/`, create route in `src/routes/` with Swagger JSDoc comments, register route in `src/index.js` with `app.use()`, add tests in `tests/api/`.
 

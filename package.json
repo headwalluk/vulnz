@@ -1,13 +1,13 @@
 {
   "name": "vulnz",
-  "version": "1.56.0",
+  "version": "1.57.0",
   "description": "Vulnerability database for WordPress plugins and themes",
   "main": "src/index.js",
   "engines": {
     "node": ">=22.12"
   },
   "bin": {
-    "vulnz": "./bin/vulnz.js"
+    "vulnz": "./bin/vulnz"
   },
   "scripts": {
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
