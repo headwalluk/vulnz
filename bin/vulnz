@@ -59,6 +59,8 @@ const { llmConfig } = require('../src/lib/llm/client');
 const { resolveReportDelivery } = require('../src/lib/reportRecipients');
 const { listTasks } = require('../src/lib/llm/tasks');
 const { buildWatchlist, getBlindSpots, getStaticWatchlist, addStaticWatchlistEntry, removeStaticWatchlistEntry } = require('../src/lib/watchlist');
+const emailer = require('../src/lib/email');
+const { validateEmailAddress } = require('../src/lib/emailValidation');
 const migrations = require('../src/migrations');
 const db = require('../src/db');
 
@@ -2102,6 +2104,52 @@ program
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();
       await exitAfterOutput(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// email:test <to> [--json]
+// ---------------------------------------------------------------------------
+program
+  .command('email:test <to>')
+  .description('Check the SMTP settings and send a test email, even while SMTP_ENABLED is off')
+  .option('--json', 'Output as JSON')
+  .action(async (to, opts) => {
+    try {
+      if (!validateEmailAddress(to).isValid) {
+        await exitWithError(`"${to}" is not a valid email address.`);
+        return;
+      }
+      const settings = emailer.describeTransport();
+      if (!opts.json) {
+        console.log(`SMTP host:     ${settings.host || '(not set)'}:${settings.port || '(no port)'}`);
+        console.log(`SMTP user:     ${settings.user || '(none)'}, password ${settings.passwordSet ? 'set' : 'not set'}`);
+        console.log(`From:          ${settings.from || '(not set)'}`);
+        console.log(`Connection:    ${settings.secure ? 'TLS from the start' : 'STARTTLS when the server offers it'}`);
+        console.log(`SMTP_ENABLED:  ${settings.smtpEnabled}`);
+        if (!settings.smtpEnabled) {
+          console.log('');
+          console.log('SMTP sending is disabled: the API server sends no reports or alerts while SMTP_ENABLED is false.');
+          console.log('Sending this test email anyway.');
+        }
+        console.log('');
+      }
+
+      const result = await emailer.sendTestEmail(to, { version: require('../package.json').version });
+
+      if (opts.json) {
+        console.log(JSON.stringify({ settings, result }, null, 2));
+      } else {
+        console.log(`Sent to ${result.accepted.join(', ') || to}. Server response: ${result.response}`);
+        if (result.rejected.length > 0) {
+          console.log(`Rejected: ${result.rejected.join(', ')}`);
+        }
+      }
+      await db.end();
+      await exitAfterOutput(result.rejected.length > 0 ? 1 : 0);
+    } catch (err) {
+      // nodemailer sets code (EAUTH, ECONNECTION, ETIMEDOUT...) on connection and login failures
+      await exitWithError(err.code ? `${err.code}: ${err.message}` : err.message);
     }
   });
 

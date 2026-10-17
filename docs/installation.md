@@ -102,7 +102,7 @@ npm start
 The first admin account **must be created via the CLI** — there is no web-based setup mode. This ensures only someone with shell access to the server can bootstrap the application.
 
 ```bash
-node bin/vulnz.js user:add --admin
+./bin/vulnz user:add --admin
 ```
 
 You will be prompted for a username, email address, and password. The `--admin` flag grants full administrator privileges.
@@ -151,7 +151,7 @@ REGISTRATION_ENABLED=false
 Restart the application for changes to take effect. Additional users can always be created via the CLI:
 
 ```bash
-node bin/vulnz.js user:add
+./bin/vulnz user:add
 ```
 
 ### Configure Email (Optional)
@@ -162,15 +162,20 @@ To enable weekly vulnerability reports, configure SMTP and switch email on with 
 SMTP_ENABLED=true
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
-SMTP_SECURE=false
 SMTP_USER=your-email@example.com
-SMTP_PASSWORD=your-smtp-password
+SMTP_PASS=your-smtp-password
 SMTP_FROM=vulnz@example.com
 ```
 
 ### Test Email
 
-There is no dashboard button for this — the web UI was removed in v1.31.0. Send a real summary report to yourself with the API instead:
+Check the SMTP settings first with a plain test message. This works even while `SMTP_ENABLED` is still `false`, so you can try them before the server starts sending anything:
+
+```bash
+./bin/vulnz email:test you@example.com
+```
+
+Once that works and `SMTP_ENABLED=true` is set, you can send a real summary report to yourself with the API:
 
 ```bash
 curl -X POST "http://localhost:3000/api/reports/summary-email" \
@@ -310,7 +315,7 @@ bash scripts/generate-session-secret.sh
 **Solution**:
 
 - Set `REGISTRATION_ENABLED=true` in `.env` if you want public registration
-- Or create users directly via the CLI: `node bin/vulnz.js user:add`
+- Or create users directly via the CLI: `./bin/vulnz user:add`
 
 ### Migrations Not Running
 
@@ -322,7 +327,7 @@ bash scripts/generate-session-secret.sh
 - Verify database user has CREATE TABLE privileges
 - Run the migrations directly, without starting the server:
   ```bash
-  node bin/vulnz.js db:migrate
+  ./bin/vulnz db:migrate
   ```
   See the [CLI Reference](cli.md#dbmigrate---json). Migrations are forward-only and tracked in the `migrations` table — there is no rollback.
 

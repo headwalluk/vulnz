@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * CLI Tests — bin/vulnz.js
+ * CLI Tests — bin/vulnz
  *
  * Tests for all user management commands using mocked dependencies.
  * Uses jest.isolateModulesAsync to give Commander a fresh program instance
@@ -72,6 +72,11 @@ const mockReleaseFeed = {
   findCandidates: jest.fn(),
 };
 
+const mockEmailer = {
+  describeTransport: jest.fn(),
+  sendTestEmail: jest.fn(),
+};
+
 // ─── Module mocks ─────────────────────────────────────────────────────────────
 
 jest.mock('dotenv', () => ({ config: jest.fn() }));
@@ -84,13 +89,14 @@ jest.mock('../../src/models/feed', () => mockFeed);
 jest.mock('../../src/models/component', () => mockComponent);
 jest.mock('../../src/lib/wporg', () => mockWporg);
 jest.mock('../../src/models/releaseFeed', () => mockReleaseFeed);
+jest.mock('../../src/lib/email', () => mockEmailer);
 
 // ─── runCli helper ────────────────────────────────────────────────────────────
 
 /**
  * Run a CLI invocation and capture stdout, stderr, and exit code.
  *
- * Sets process.argv to the supplied args, loads bin/vulnz.js inside an
+ * Sets process.argv to the supplied args, loads bin/vulnz inside an
  * isolated module registry (so Commander starts fresh each time), then
  * waits for process.exit() to be called before resolving.
  *
@@ -125,7 +131,7 @@ async function runCli(args) {
   });
 
   const savedArgv = process.argv;
-  process.argv = ['node', 'bin/vulnz.js', ...args];
+  process.argv = ['node', 'bin/vulnz', ...args];
 
   try {
     await jest.isolateModulesAsync(async () => {
@@ -173,6 +179,8 @@ beforeEach(() => {
   for (const mockFunction of Object.values(mockReleaseFeed).filter((value) => typeof value === 'function')) {
     mockFunction.mockReset();
   }
+  mockEmailer.describeTransport.mockReset();
+  mockEmailer.sendTestEmail.mockReset();
 });
 
 // ─── user:add ─────────────────────────────────────────────────────────────────
@@ -1233,5 +1241,83 @@ describe('CLI: component:feed:*', () => {
     const added = await runCli(['component:feed:type:add', 'freemius', 'Freemius']);
     expect(added.exitCode).toBe(0);
     expect(mockReleaseFeed.addType).toHaveBeenCalledWith('freemius', 'Freemius');
+  });
+});
+
+// ─── email:test ───────────────────────────────────────────────────────────────
+
+describe('email:test', () => {
+  const SETTINGS = {
+    host: 'smtp.example.com',
+    port: '587',
+    secure: false,
+    user: 'vulnz@example.com',
+    passwordSet: true,
+    from: 'VULNZ <vulnz@example.com>',
+    ignoreTls: false,
+    smtpEnabled: true,
+  };
+  const SENT = { messageId: '<test@example.com>', accepted: ['admin@example.com'], rejected: [], response: '250 OK queued' };
+
+  test('sends a test email and reports the server response', async () => {
+    mockEmailer.describeTransport.mockReturnValue(SETTINGS);
+    mockEmailer.sendTestEmail.mockResolvedValue(SENT);
+
+    const result = await runCli(['email:test', 'admin@example.com']);
+
+    expect(result.exitCode).toBe(0);
+    expect(mockEmailer.sendTestEmail).toHaveBeenCalledWith('admin@example.com', expect.objectContaining({ version: expect.any(String) }));
+    expect(result.stdout).toContain('250 OK queued');
+    expect(result.stdout).not.toContain('SMTP sending is disabled');
+  });
+
+  test('says SMTP sending is disabled while SMTP_ENABLED is off, and still sends', async () => {
+    mockEmailer.describeTransport.mockReturnValue({ ...SETTINGS, smtpEnabled: false });
+    mockEmailer.sendTestEmail.mockResolvedValue(SENT);
+
+    const result = await runCli(['email:test', 'admin@example.com']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('SMTP sending is disabled');
+    expect(mockEmailer.sendTestEmail).toHaveBeenCalledTimes(1);
+  });
+
+  test('never prints the password', async () => {
+    mockEmailer.describeTransport.mockReturnValue(SETTINGS);
+    mockEmailer.sendTestEmail.mockResolvedValue(SENT);
+
+    const result = await runCli(['email:test', 'admin@example.com', '--json']);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout).settings.passwordSet).toBe(true);
+    expect(result.stdout).not.toMatch(/"pass(word)?"\s*:/);
+  });
+
+  test('refuses an invalid address without connecting', async () => {
+    const result = await runCli(['email:test', 'not-an-address']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/not a valid email address/);
+    expect(mockEmailer.sendTestEmail).not.toHaveBeenCalled();
+  });
+
+  test('reports a login failure with its error code', async () => {
+    mockEmailer.describeTransport.mockReturnValue(SETTINGS);
+    mockEmailer.sendTestEmail.mockRejectedValue(Object.assign(new Error('Invalid login: 535 Authentication failed'), { code: 'EAUTH' }));
+
+    const result = await runCli(['email:test', 'admin@example.com']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('EAUTH: Invalid login');
+  });
+
+  test('exits 1 when the server rejects the recipient', async () => {
+    mockEmailer.describeTransport.mockReturnValue(SETTINGS);
+    mockEmailer.sendTestEmail.mockResolvedValue({ ...SENT, accepted: [], rejected: ['admin@example.com'] });
+
+    const result = await runCli(['email:test', 'admin@example.com']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain('Rejected: admin@example.com');
   });
 });

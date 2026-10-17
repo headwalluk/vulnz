@@ -13,7 +13,7 @@ Authenticate with `X-API-Key` on every request. Keep the key in the environment 
 https --ignore-stdin api.vulnz.net/api/websites "X-API-Key: ${VULNZ_API_KEY}"
 ```
 
-**Scope comes from the account, not the key.** A key belonging to an `administrator` sees every website in the database; any other user sees only their own. There is no read-only tier — the same key that answers these questions can also delete users, websites and components, so treat it as a write-capable credential even when only reading. On the server, `bin/vulnz.js key:show <key>` prints a key's owner, roles and access.
+**Scope comes from the account, not the key.** A key belonging to an `administrator` sees every website in the database; any other user sees only their own. There is no read-only tier — the same key that answers these questions can also delete users, websites and components, so treat it as a write-capable credential even when only reading. On the server, `bin/vulnz key:show <key>` prints a key's owner, roles and access.
 
 All examples below assume an administrator key.
 

@@ -54,7 +54,7 @@ vulnz-api/
 │   ├── emails/           # Handlebars templates for cron-sent reports
 │   └── migrations/       # Forward-only DB migrations
 ├── bin/
-│   └── vulnz.js          # CLI tool — primary admin interface
+│   └── vulnz             # CLI tool — primary admin interface
 ├── public/               # Static assets served at / (just favicons)
 ├── artwork/              # Source brand assets (not served)
 ├── scripts/              # Shell scripts (Wordfence feed ingestion, etc.)
@@ -69,7 +69,7 @@ vulnz-api/
 
 ## CLI Tool
 
-The CLI lives at `bin/vulnz.js`. It is the primary admin interface for vulnz-api — there is no web UI. It must:
+The CLI lives at `bin/vulnz`. It is the primary admin interface for vulnz-api — there is no web UI. It must:
 
 - Load `dotenv` at the top before requiring any src/ modules
 - Import models directly from `src/models/` — do NOT start the Express server

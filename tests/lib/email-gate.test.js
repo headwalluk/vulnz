@@ -4,6 +4,7 @@
 
 const mockTransport = {
   sendMail: jest.fn().mockResolvedValue({}),
+  verify: jest.fn().mockResolvedValue(true),
 };
 jest.mock('nodemailer', () => ({ createTransport: () => mockTransport }));
 
@@ -42,5 +43,39 @@ describe('SMTP_ENABLED', () => {
 
     expect(mockTransport.sendMail).toHaveBeenCalledTimes(1);
     expect(mockTransport.sendMail.mock.calls[0][0]).toMatchObject({ to: 'client@example.com', cc: ['agency@example.net'], subject: RENDERED_REPORT.subject });
+  });
+});
+
+describe('sendTestEmail', () => {
+  afterEach(() => {
+    process.env.SMTP_ENABLED = 'true';
+    mockTransport.sendMail.mockReset().mockResolvedValue({});
+    mockTransport.verify.mockReset().mockResolvedValue(true);
+  });
+
+  test('checks the login, then sends even while SMTP_ENABLED is off', async () => {
+    process.env.SMTP_ENABLED = 'false';
+    mockTransport.sendMail.mockResolvedValue({ messageId: '<id@example.com>', accepted: ['admin@example.com'], rejected: [], response: '250 OK' });
+
+    const result = await emailer.sendTestEmail('admin@example.com', { version: '9.9.9' });
+
+    expect(mockTransport.verify).toHaveBeenCalledTimes(1);
+    expect(mockTransport.sendMail).toHaveBeenCalledTimes(1);
+    expect(mockTransport.sendMail.mock.calls[0][0]).toMatchObject({ to: 'admin@example.com', subject: 'VULNZ test email' });
+    expect(mockTransport.sendMail.mock.calls[0][0].text).toContain('9.9.9');
+    expect(result).toEqual({ messageId: '<id@example.com>', accepted: ['admin@example.com'], rejected: [], response: '250 OK' });
+  });
+
+  test('sends nothing when the login check fails', async () => {
+    mockTransport.verify.mockRejectedValue(Object.assign(new Error('Invalid login'), { code: 'EAUTH' }));
+
+    await expect(emailer.sendTestEmail('admin@example.com', { version: '9.9.9' })).rejects.toThrow('Invalid login');
+    expect(mockTransport.sendMail).not.toHaveBeenCalled();
+  });
+
+  test('describeTransport reports whether a password is set, never the password itself', () => {
+    const settings = emailer.describeTransport();
+
+    expect(Object.keys(settings).sort()).toEqual(['from', 'host', 'ignoreTls', 'passwordSet', 'port', 'secure', 'smtpEnabled', 'user']);
   });
 });

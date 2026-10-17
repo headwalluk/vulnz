@@ -1,4 +1,4 @@
-// Read after loadEnvFile() in the entry point (src/index.js, bin/vulnz.js) has loaded .env.
+// Read after loadEnvFile() in the entry point (src/index.js, bin/vulnz) has loaded .env.
 module.exports = {
   host: process.env.DB_HOST,
   user: process.env.DB_USER,

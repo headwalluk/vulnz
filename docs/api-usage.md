@@ -49,10 +49,10 @@ API keys are issued from the CLI. There is no web interface — it was removed i
 
 ```bash
 # Create the account the key will belong to, if it does not exist yet
-node bin/vulnz.js user:add integration@example.com 'SecurePass123!'
+./bin/vulnz user:add integration@example.com 'SecurePass123!'
 
 # Issue a key for it
-node bin/vulnz.js key:generate integration@example.com
+./bin/vulnz key:generate integration@example.com
 ```
 
 The key is printed once, at generation. Copy it then — it cannot be retrieved later, only revoked (`key:revoke`) and replaced.
@@ -635,7 +635,7 @@ curl -X POST \
 
 ### Reporting a Vulnerability
 
-Writing vulnerability, range or release data — this route, `POST /api/vulnerabilities/bulk` and `POST /api/releases/bulk` — needs a key whose account holds the `ingest` or `administrator` role (since v1.46.0). Other keys get `403`. Grant the role with `bin/vulnz.js user:role:add <email> ingest`.
+Writing vulnerability, range or release data — this route, `POST /api/vulnerabilities/bulk` and `POST /api/releases/bulk` — needs a key whose account holds the `ingest` or `administrator` role (since v1.46.0). Other keys get `403`. Grant the role with `bin/vulnz user:role:add <email> ingest`.
 
 Add vulnerability information for a specific component version:
 

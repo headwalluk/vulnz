@@ -23,8 +23,12 @@ module.exports = [
     },
   },
   {
+    // The CLI has no .js extension, so it is not matched by the default **/*.js
+    files: ['bin/vulnz'],
+  },
+  {
     // Role names come from the constants in src/models/role.js
-    files: ['src/**/*.js', 'bin/**/*.js'],
+    files: ['src/**/*.js', 'bin/**/*.js', 'bin/vulnz'],
     ignores: ['src/models/role.js', 'src/migrations/**'],
     rules: {
       'no-restricted-syntax': [

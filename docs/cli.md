@@ -1,13 +1,13 @@
 # CLI Administration Tool
 
-VULNZ includes a CLI tool (`bin/vulnz.js`) for all administration tasks. It is the only administration surface — the web UI was removed in v1.31.0 — so new management functionality is added here.
+VULNZ includes a CLI tool (`bin/vulnz`) for all administration tasks. It is the only administration surface — the web UI was removed in v1.31.0 — so new management functionality is added here.
 
 ## Running the CLI
 
 From the project root directory (development):
 
 ```bash
-node bin/vulnz.js < command > [arguments]
+./bin/vulnz < command > [arguments]
 ```
 
 If installed globally via npm, use `vulnz` directly:
@@ -17,6 +17,8 @@ vulnz < command > [arguments]
 ```
 
 The CLI reads your `.env` file automatically. Run it from the project root directory where `.env` lives.
+
+> **Renamed in v1.57.0.** The CLI was `bin/vulnz.js` until v1.57.0. Update any cron job, script or alias that calls `bin/vulnz.js` or `node bin/vulnz.js` to call `./bin/vulnz` instead.
 
 ---
 
@@ -28,10 +30,10 @@ Create a new user account. Pass `--admin` to grant the administrator role.
 
 ```bash
 # Create a standard user
-node bin/vulnz.js user:add alice@example.com 'SecurePass123!'
+./bin/vulnz user:add alice@example.com 'SecurePass123!'
 
 # Create an administrator
-node bin/vulnz.js user:add admin@example.com 'SecurePass123!' --admin
+./bin/vulnz user:add admin@example.com 'SecurePass123!' --admin
 ```
 
 Output:
@@ -49,10 +51,10 @@ List all user accounts in a formatted table. Pass `--json` for machine-readable 
 
 ```bash
 # Formatted table
-node bin/vulnz.js user:list
+./bin/vulnz user:list
 
 # JSON output (useful for scripting)
-node bin/vulnz.js user:list --json
+./bin/vulnz user:list --json
 ```
 
 Output:
@@ -72,7 +74,7 @@ ID  USERNAME               ROLES              STATUS
 Permanently delete a user account. This cannot be undone.
 
 ```bash
-node bin/vulnz.js user:delete alice@example.com
+./bin/vulnz user:delete alice@example.com
 ```
 
 Output:
@@ -88,7 +90,7 @@ Deleted user: alice@example.com (id=2)
 Block a user account, preventing them from logging in and disabling their API keys. Their data is preserved.
 
 ```bash
-node bin/vulnz.js user:block alice@example.com
+./bin/vulnz user:block alice@example.com
 ```
 
 Output:
@@ -104,7 +106,7 @@ Blocked user: alice@example.com (id=2)
 Unblock a previously blocked user, restoring their access.
 
 ```bash
-node bin/vulnz.js user:unblock alice@example.com
+./bin/vulnz user:unblock alice@example.com
 ```
 
 Output:
@@ -120,7 +122,7 @@ Unblocked user: alice@example.com (id=2)
 Reset the password for an existing user account.
 
 ```bash
-node bin/vulnz.js user:reset-password alice@example.com 'NewSecurePass456!'
+./bin/vulnz user:reset-password alice@example.com 'NewSecurePass456!'
 ```
 
 Output:
@@ -137,10 +139,10 @@ Show full account details including status, roles, reporting preferences, API ke
 
 ```bash
 # Table view
-node bin/vulnz.js user:info alice@example.com
+./bin/vulnz user:info alice@example.com
 
 # JSON output
-node bin/vulnz.js user:info alice@example.com --json
+./bin/vulnz user:info alice@example.com --json
 ```
 
 Output:
@@ -173,10 +175,10 @@ List all API keys associated with a user account.
 
 ```bash
 # Formatted table
-node bin/vulnz.js key:list alice@example.com
+./bin/vulnz key:list alice@example.com
 
 # JSON output (useful for scripting)
-node bin/vulnz.js key:list alice@example.com --json
+./bin/vulnz key:list alice@example.com --json
 ```
 
 Output:
@@ -195,7 +197,7 @@ ID  API KEY                               CREATED
 Generate a new API key for a user account. The new key is printed to stdout — copy it immediately, as it cannot be retrieved later.
 
 ```bash
-node bin/vulnz.js key:generate alice@example.com
+./bin/vulnz key:generate alice@example.com
 ```
 
 Output:
@@ -211,7 +213,7 @@ Generated API key for alice@example.com: abc123def456abc123def456abc123def456
 Permanently revoke an API key. Any client using this key will immediately lose API access.
 
 ```bash
-node bin/vulnz.js key:revoke abc123def456abc123def456abc123def456
+./bin/vulnz key:revoke abc123def456abc123def456abc123def456
 ```
 
 Output:
@@ -227,7 +229,7 @@ Revoked API key: abc123def456abc123def456abc123def456
 Show who an API key belongs to and what it can do. Keys carry no permissions of their own. A key's access is exactly its owner's roles: an `administrator` key reads and writes every account's data, and any other key sees only its owner's websites.
 
 ```bash
-node bin/vulnz.js key:show abc123def456abc123def456abc123def456
+./bin/vulnz key:show abc123def456abc123def456abc123def456
 ```
 
 Output:
@@ -257,8 +259,8 @@ Grant or withdraw a role. This is how to change what a user's API keys can do. A
 A role added in a new release can be granted from the CLI before the server has been restarted on that release.
 
 ```bash
-node bin/vulnz.js user:role:add agent@example.com administrator
-node bin/vulnz.js user:role:remove agent@example.com administrator
+./bin/vulnz user:role:add agent@example.com administrator
+./bin/vulnz user:role:remove agent@example.com administrator
 ```
 
 Output:
@@ -276,7 +278,7 @@ Granted 'administrator' to agent@example.com. Roles: user, administrator
 Apply any pending migrations without starting the server. Migrations also run automatically at API startup, so this is for applying a schema change ahead of a deploy, or for working with the CLI on a database that is not yet up to date (CLI commands do **not** run migrations themselves).
 
 ```bash
-node bin/vulnz.js db:migrate
+./bin/vulnz db:migrate
 ```
 
 Output:
@@ -305,7 +307,7 @@ VULNZ stores runtime configuration in the database. These commands manage the ke
 Get a setting value. The value is automatically cast to its stored type.
 
 ```bash
-node bin/vulnz.js setting:get notifications.processing_mode
+./bin/vulnz setting:get notifications.processing_mode
 ```
 
 Output:
@@ -322,13 +324,13 @@ Set a setting value. The `--type` flag defaults to `string`.
 
 ```bash
 # String setting
-node bin/vulnz.js setting:set notifications.processing_mode immediate
+./bin/vulnz setting:set notifications.processing_mode immediate
 
 # Boolean setting
-node bin/vulnz.js setting:set feature.beta true --type boolean --category features
+./bin/vulnz setting:set feature.beta true --type boolean --category features
 
 # Integer with description
-node bin/vulnz.js setting:set retention.days 30 --type integer --description "Data retention period"
+./bin/vulnz setting:set retention.days 30 --type integer --description "Data retention period"
 ```
 
 Output:
@@ -345,13 +347,13 @@ List all settings, optionally filtered by category.
 
 ```bash
 # All settings
-node bin/vulnz.js setting:list
+./bin/vulnz setting:list
 
 # Filter by category
-node bin/vulnz.js setting:list --category notifications
+./bin/vulnz setting:list --category notifications
 
 # JSON output
-node bin/vulnz.js setting:list --json
+./bin/vulnz setting:list --json
 ```
 
 Output:
@@ -365,6 +367,37 @@ wordpress.current_version        6.7.1   string   wordpress
 
 ---
 
+## Email Commands
+
+### `email:test <to> [--json]`
+
+Check the SMTP settings and send a short test email to `<to>`. Use it to test a new mailbox or new `SMTP_*` settings before switching email on.
+
+It works even while `SMTP_ENABLED` is `false`, so you can test a new installation's settings knowing the API server will not send any reports or alerts yet. When `SMTP_ENABLED` is off it says so, then sends the test anyway.
+
+```bash
+./bin/vulnz email:test admin@example.com
+```
+
+Output:
+
+```
+SMTP host:     smtp.example.com:587
+SMTP user:     vulnz@example.com, password set
+From:          VULNZ <vulnz@example.com>
+Connection:    STARTTLS when the server offers it
+SMTP_ENABLED:  false
+
+SMTP sending is disabled: the API server sends no reports or alerts while SMTP_ENABLED is false.
+Sending this test email anyway.
+
+Sent to admin@example.com. Server response: 250 2.0.0 Ok: queued
+```
+
+It logs in to the SMTP server before sending, so a wrong host, port or password fails before any message is built. The error carries nodemailer's code, such as `EAUTH` for a rejected login or `ESOCKET` and `ETIMEDOUT` for connection problems. The password is never printed, in either output format. It exits `1` if the login or the send fails, or if the server rejects the recipient.
+
+---
+
 ## Diagnostic Commands
 
 These commands query the database directly and are useful for checking ingestion health and inspecting component data.
@@ -375,10 +408,10 @@ Show database statistics and the last Wordfence sync timestamp.
 
 ```bash
 # Formatted output
-node bin/vulnz.js feed:status
+./bin/vulnz feed:status
 
 # JSON output
-node bin/vulnz.js feed:status --json
+./bin/vulnz feed:status --json
 ```
 
 Output:
@@ -402,10 +435,10 @@ Look up a component by its slug. Returns all matches — a slug may exist as bot
 
 ```bash
 # Formatted table
-node bin/vulnz.js component:find woocommerce
+./bin/vulnz component:find woocommerce
 
 # JSON output
-node bin/vulnz.js component:find woocommerce --json
+./bin/vulnz component:find woocommerce --json
 ```
 
 Output:
@@ -426,10 +459,10 @@ List all known releases for a component slug, with per-release vulnerability cou
 
 ```bash
 # Formatted table
-node bin/vulnz.js release:list woocommerce
+./bin/vulnz release:list woocommerce
 
 # JSON output
-node bin/vulnz.js release:list woocommerce --json
+./bin/vulnz release:list woocommerce --json
 ```
 
 Output:
@@ -459,8 +492,8 @@ Remove vulnerability rows that their advisory's stored ranges do not cover. Befo
 It is a **dry run unless `--apply` is given**. Run it after a complete pass of range data has been imported, and read the report before applying.
 
 ```bash
-node bin/vulnz.js vulnerabilities:reconcile
-node bin/vulnz.js vulnerabilities:reconcile --apply
+./bin/vulnz vulnerabilities:reconcile
+./bin/vulnz vulnerabilities:reconcile --apply
 ```
 
 Output (dry run):
@@ -493,7 +526,7 @@ Dry run: nothing was deleted. Re-run with --apply to delete the rows not covered
 Read-only. Lists releases that the pre-1.40.0 version rewrite may have created, such as `3.0.0.1` from `3.0.0-beta.1`. For each one it shows how many sites run the suspect version and how many vulnerability rows it carries. It changes nothing. See [Version Matching](version-matching.md#phantom-releases).
 
 ```bash
-node bin/vulnz.js releases:phantoms
+./bin/vulnz releases:phantoms
 ```
 
 ---
@@ -509,7 +542,7 @@ These are CLI-only by design. There is no API write path for the malware flag: `
 Flag a component as known malware, creating it first if the slug has never been ingested.
 
 ```bash
-node bin/vulnz.js component:malware:add wordpress-plugin easypost \
+./bin/vulnz component:malware:add wordpress-plugin easypost \
   --summary "Backdoor file dropper" \
   --url "https://vulnz.net/malware/wordpress-plugin/easypost/"
 ```
@@ -553,7 +586,7 @@ Re-running against an already-flagged component updates the summary and the time
 Clear a verdict — for a slug flagged in error.
 
 ```bash
-node bin/vulnz.js component:malware:remove wordpress-plugin easypost
+./bin/vulnz component:malware:remove wordpress-plugin easypost
 ```
 
 ### `component:malware:list [--json]`
@@ -561,7 +594,7 @@ node bin/vulnz.js component:malware:remove wordpress-plugin easypost
 List every flagged component, most recently flagged first.
 
 ```bash
-node bin/vulnz.js component:malware:list
+./bin/vulnz component:malware:list
 ```
 
 Output:
@@ -587,7 +620,7 @@ Plugins on wordpress.org need no feed: the wordpress.org sync already sets their
 Plugins wordpress.org has confirmed it doesn't list, ranked by how many non-dev sites run them. These are the plugins worth a feed. It prints counts and the versions sites report, but no domains or account details.
 
 ```bash
-node bin/vulnz.js component:feed:candidates --min-sites 3
+./bin/vulnz component:feed:candidates --min-sites 3
 ```
 
 Output:
@@ -609,7 +642,7 @@ premium-search
 Create or replace a component's feed. The component must already exist, which means a site has reported it.
 
 ```bash
-node bin/vulnz.js component:feed:set wordpress-plugin quick-2fa \
+./bin/vulnz component:feed:set wordpress-plugin quick-2fa \
   --feed-type github-releases \
   --url https://api.github.com/repos/headwalluk/quick-2fa/releases/latest
 ```
@@ -673,7 +706,7 @@ Feed types are a lookup table. Each type needs a handler in the importer. The se
 Add a type once the importer has a handler for it. No release of VULNZ is needed:
 
 ```bash
-node bin/vulnz.js component:feed:type:add freemius "Freemius"
+./bin/vulnz component:feed:type:add freemius "Freemius"
 ```
 
 ---
@@ -687,7 +720,7 @@ Manage the watchlist and version syncs behind the fleet fast-update manifest (`G
 Show the current high-priority watchlist: the WordPress core latest version, each watched plugin with its latest version, and any blind spots (watchlist slugs that cannot be tracked via wordpress.org).
 
 ```bash
-node bin/vulnz.js wporg:watchlist
+./bin/vulnz wporg:watchlist
 ```
 
 Output:
@@ -711,7 +744,7 @@ Blind spots (0): none
 Rebuild the watchlist now: the static "always monitor" list unioned with the top-N most-installed watchable plugins. Run this after editing the static list to apply the change immediately (otherwise it happens on the 6-hourly schedule).
 
 ```bash
-node bin/vulnz.js wporg:watchlist:rebuild
+./bin/vulnz wporg:watchlist:rebuild
 ```
 
 Output:
@@ -727,7 +760,7 @@ Watchlist rebuilt: 6 high-priority (6 static, 0 derived), 0 blind spot(s), 0 pro
 List the static "always monitor" watchlist slugs. These are always kept in the high-priority lane regardless of install count.
 
 ```bash
-node bin/vulnz.js wporg:watchlist:static:list
+./bin/vulnz wporg:watchlist:static:list
 ```
 
 Output:
@@ -749,7 +782,7 @@ Static watchlist (6):
 Add a plugin slug to the static list. The slug must be a valid wordpress.org directory slug (lowercase letters, numbers, and hyphens). Idempotent — adding an existing slug is a no-op.
 
 ```bash
-node bin/vulnz.js wporg:watchlist:static:add wordfence
+./bin/vulnz wporg:watchlist:static:add wordfence
 ```
 
 Output:
@@ -768,7 +801,7 @@ An invalid slug is rejected with a non-zero exit code.
 Remove a plugin slug from the static list. Idempotent — removing an absent slug is a no-op.
 
 ```bash
-node bin/vulnz.js wporg:watchlist:static:remove akismet
+./bin/vulnz wporg:watchlist:static:remove akismet
 ```
 
 Output:
@@ -785,7 +818,7 @@ Run "vulnz wporg:watchlist:rebuild" to apply the change now.
 Sync every high-priority (watchlist) plugin from wordpress.org now, instead of waiting for the hourly run.
 
 ```bash
-node bin/vulnz.js wporg:sync-high
+./bin/vulnz wporg:sync-high
 ```
 
 Output:
@@ -803,7 +836,7 @@ Resolve components whose wordpress.org status is still `unknown`, deciding for e
 wordpress.org answers HTTP 404 for both, and only the response body separates them. Before M17.7 the sync branched on the status code alone, so every 404 was recorded identically — which is why existing components start as `unknown` rather than being guessed at. This command works through that backlog deliberately; the background rotation would get there eventually, but at `WPORG_UPDATE_BATCH_SIZE` per run that takes weeks.
 
 ```bash
-node bin/vulnz.js wporg:reclassify --limit 100
+./bin/vulnz wporg:reclassify --limit 100
 ```
 
 Output:
@@ -833,7 +866,7 @@ List components wordpress.org has withdrawn, with how many monitored sites still
 A plugin is often pulled from the directory _because_ of an unpatched vulnerability, so this is a security report and not just an inventory. `--security-only` narrows it to closures wordpress.org itself attributes to a security issue.
 
 ```bash
-node bin/vulnz.js wporg:closed --security-only
+./bin/vulnz wporg:closed --security-only
 ```
 
 Output:
@@ -858,7 +891,7 @@ Sorted by install count first, so whatever is actually on the fleet appears at t
 Refresh the WordPress core version from wordpress.org now. Updates the `wordpress.current_version` and `wordpress.safe_versions` settings, which the sync owns — do not set them by hand.
 
 ```bash
-node bin/vulnz.js wporg:sync-core
+./bin/vulnz wporg:sync-core
 ```
 
 Output:
@@ -880,7 +913,7 @@ Manage the classification that decides whether a plugin release is an emergency 
 Show provider configuration and the size of the classification backlog. Useful for confirming a deployment picked up its API key.
 
 ```bash
-node bin/vulnz.js llm:status
+./bin/vulnz llm:status
 ```
 
 Output:
@@ -900,7 +933,7 @@ Tasks:
 Classify a single wordpress.org plugin release. **Dry run by default** — pass `--save` to persist the verdict against the stored release.
 
 ```bash
-node bin/vulnz.js llm:classify-release woocommerce 10.9.5
+./bin/vulnz llm:classify-release woocommerce 10.9.5
 ```
 
 Output:
@@ -922,8 +955,8 @@ The changelog is read from the stored release if VULNZ already has one. Otherwis
 Classify watchlist releases that have no verdict yet — the same work the hourly cron does, run on demand. Useful straight after enabling `LLM_ENABLED`, to populate the manifest without waiting for the next scheduled pass.
 
 ```bash
-node bin/vulnz.js wporg:sync-high # capture current changelogs first
-node bin/vulnz.js llm:classify-pending
+./bin/vulnz wporg:sync-high # capture current changelogs first
+./bin/vulnz llm:classify-pending
 ```
 
 Output:
@@ -945,10 +978,10 @@ Manage WordPress/WooCommerce sites that send subscription notifications to this 
 Register a new notification site. The `data-secret` is the shared secret used when this API calls the site's REST API for customer/subscription data.
 
 ```bash
-node bin/vulnz.js site:add https://vulnz.net sk_secret_here
+./bin/vulnz site:add https://vulnz.net sk_secret_here
 
 # With IP restriction
-node bin/vulnz.js site:add https://vulnz.net sk_secret_here --ip-allowlist "203.0.113.10,198.51.100.20"
+./bin/vulnz site:add https://vulnz.net sk_secret_here --ip-allowlist "203.0.113.10,198.51.100.20"
 ```
 
 Output:
@@ -964,7 +997,7 @@ Registered site: https://vulnz.net (id=1)
 List all registered notification sites.
 
 ```bash
-node bin/vulnz.js site:list
+./bin/vulnz site:list
 ```
 
 Output:
@@ -982,7 +1015,7 @@ ID  SITE URL            ACTIVE  IP ALLOWLIST
 Remove a registered notification site. This also removes any queued notifications for the site.
 
 ```bash
-node bin/vulnz.js site:remove https://vulnz.net
+./bin/vulnz site:remove https://vulnz.net
 ```
 
 Output:
@@ -1002,7 +1035,7 @@ Monitor and process the notification queue. Notifications are queued when WordPr
 Show the current state of the notification queue.
 
 ```bash
-node bin/vulnz.js queue:status
+./bin/vulnz queue:status
 ```
 
 Output:
@@ -1024,10 +1057,10 @@ Process pending notifications from the queue. Defaults to a batch size of 10.
 
 ```bash
 # Process up to 10
-node bin/vulnz.js queue:process
+./bin/vulnz queue:process
 
 # Process up to 50
-node bin/vulnz.js queue:process --batch-size 50
+./bin/vulnz queue:process --batch-size 50
 ```
 
 Output:

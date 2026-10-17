@@ -45,8 +45,8 @@ npm run dev
 Visit `http://localhost:3000/` to see the status landing page, or `http://localhost:3000/doc` for the Swagger UI. Create your first administrator account from the CLI:
 
 ```bash
-node bin/vulnz.js user:add admin@example.com 'your-password' --admin
-node bin/vulnz.js key:generate admin@example.com
+./bin/vulnz user:add admin@example.com 'your-password' --admin
+./bin/vulnz key:generate admin@example.com
 ```
 
 Then use the generated API key with `X-API-Key: <key>` to authenticate against the API.

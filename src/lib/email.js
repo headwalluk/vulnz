@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { smtpEnabled } = require('./env');
 
-// secure: process.env.SMTP_SECURE === 'true',
+// Always plain SMTP upgraded with STARTTLS when offered: implicit TLS (port 465) is not supported
 const transportOptions = {
   host: process.env.SMTP_HOST,
   port: process.env.SMTP_PORT,
@@ -91,7 +91,49 @@ async function sendMalwareAlert(to, data) {
   await deliver(mailOptions);
 }
 
+/**
+ * The SMTP settings the transport was built from, without the password.
+ * @returns {{host: string|null, port: string|null, secure: boolean, user: string|null, passwordSet: boolean, from: string|null, ignoreTls: boolean, smtpEnabled: boolean}}
+ */
+function describeTransport() {
+  return {
+    host: transportOptions.host || null,
+    port: transportOptions.port || null,
+    secure: transportOptions.secure,
+    user: transportOptions.auth.user || null,
+    passwordSet: Boolean(transportOptions.auth.pass),
+    from: process.env.SMTP_FROM || null,
+    ignoreTls: Boolean(transportOptions.tls),
+    smtpEnabled: smtpEnabled(),
+  };
+}
+
+/**
+ * Check the SMTP connection and login, then send a short test message. Ignores SMTP_ENABLED: for the admin CLI only.
+ * @param {string} to
+ * @param {{version: string}} details shown in the message body
+ * @returns {Promise<{messageId: string, accepted: string[], rejected: string[], response: string}>}
+ */
+async function sendTestEmail(to, { version }) {
+  await transporter.verify();
+  const sentAt = new Date().toISOString();
+  const info = await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: to,
+    subject: 'VULNZ test email',
+    text: `This is a test email from VULNZ ${version}, sent at ${sentAt} by the vulnz email:test command.\n\nIf you can read this, the SMTP settings work.\n`,
+  });
+  return {
+    messageId: info.messageId,
+    accepted: info.accepted || [],
+    rejected: info.rejected || [],
+    response: info.response || '',
+  };
+}
+
 module.exports = {
   sendVulnerabilityReport,
   sendMalwareAlert,
+  describeTransport,
+  sendTestEmail,
 };

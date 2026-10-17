@@ -126,9 +126,8 @@ CORS_CREDENTIALS=true
 SMTP_ENABLED=true
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
-SMTP_SECURE=false
 SMTP_USER=your-email@example.com
-SMTP_PASSWORD=your-smtp-password
+SMTP_PASS=your-smtp-password
 SMTP_FROM=vulnz@example.com
 ```
 
@@ -137,12 +136,9 @@ SMTP_FROM=vulnz@example.com
   - **Set to `true`**: In production. Leave it off on any host that holds a copy of production data, so customers are never emailed from it
   - While it is off, weekly reports are skipped, malware alerts wait unsent and are sent once it is on, and `POST /api/reports/summary-email` returns 503. The server prints a warning at startup
 - **SMTP_HOST**: SMTP server hostname
-- **SMTP_PORT**: SMTP port (587 for STARTTLS, 465 for SSL)
-- **SMTP_SECURE**: Use SSL/TLS
-  - `true`: Port 465 (SMTPS)
-  - `false`: Port 587 (STARTTLS)
+- **SMTP_PORT**: SMTP port, normally `587`. The connection starts unencrypted and upgrades with STARTTLS when the server offers it. Port 465 (implicit TLS, "SMTPS") is not supported
 - **SMTP_USER**: SMTP username
-- **SMTP_PASSWORD**: SMTP password
+- **SMTP_PASS**: SMTP password
 - **SMTP_FROM**: Sender email address
 
 **Common SMTP Providers:**
@@ -152,7 +148,6 @@ SMTP_FROM=vulnz@example.com
   ```plaintext
   SMTP_HOST=smtp.gmail.com
   SMTP_PORT=587
-  SMTP_SECURE=false
   ```
 
 - **SendGrid**:
@@ -160,16 +155,14 @@ SMTP_FROM=vulnz@example.com
   ```plaintext
   SMTP_HOST=smtp.sendgrid.net
   SMTP_PORT=587
-  SMTP_SECURE=false
   SMTP_USER=apikey
-  SMTP_PASSWORD=your-sendgrid-api-key
+  SMTP_PASS=your-sendgrid-api-key
   ```
 
 - **Mailgun**:
   ```plaintext
   SMTP_HOST=smtp.mailgun.org
   SMTP_PORT=587
-  SMTP_SECURE=false
   ```
 
 ### WordPress.org Sync
@@ -311,9 +304,8 @@ CORS_CREDENTIALS=true
 SMTP_ENABLED=true
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
-SMTP_SECURE=false
 SMTP_USER=vulnz@example.com
-SMTP_PASSWORD=smtp-password-here
+SMTP_PASS=smtp-password-here
 SMTP_FROM=vulnz@example.com
 
 # Sync
