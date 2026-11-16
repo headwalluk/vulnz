@@ -74,7 +74,17 @@ const mockReleaseFeed = {
 
 const mockWebsite = {
   findAllByDomain: jest.fn(),
+  findByDomain: jest.fn(),
+  findAll: jest.fn(),
+  countAll: jest.fn(),
   remove: jest.fn(),
+  SORTS: ['newest', 'vulnerabilities', 'malware', 'severity'],
+  SORT_NEWEST: 'newest',
+};
+
+const mockWebsiteComponent = {
+  getPlugins: jest.fn(),
+  getThemes: jest.fn(),
 };
 
 const mockEmailer = {
@@ -96,6 +106,7 @@ jest.mock('../../src/lib/wporg', () => mockWporg);
 jest.mock('../../src/models/releaseFeed', () => mockReleaseFeed);
 jest.mock('../../src/lib/email', () => mockEmailer);
 jest.mock('../../src/models/website', () => mockWebsite);
+jest.mock('../../src/models/websiteComponent', () => mockWebsiteComponent);
 
 // ─── runCli helper ────────────────────────────────────────────────────────────
 
@@ -187,8 +198,11 @@ beforeEach(() => {
   }
   mockEmailer.describeTransport.mockReset();
   mockEmailer.sendTestEmail.mockReset();
-  mockWebsite.findAllByDomain.mockReset();
-  mockWebsite.remove.mockReset();
+  for (const mockFunction of [...Object.values(mockWebsite), ...Object.values(mockWebsiteComponent)].filter((value) => typeof value === 'function')) {
+    mockFunction.mockReset();
+  }
+  mockUser.findUserById.mockReset();
+  mockUser.findUserByUsername.mockReset();
 });
 
 // ─── user:add ─────────────────────────────────────────────────────────────────
@@ -1411,5 +1425,199 @@ describe('CLI: website:remove', () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toMatch(/Error: Query timeout/);
+  });
+});
+
+// ─── website:list ─────────────────────────────────────────────────────────────
+
+describe('CLI: website:list', () => {
+  const LIST_ROWS = [
+    { id: 11, domain: 'one.example.com', title: 'One', user_id: 5, is_dev: 0, vulnerability_count: 2, malware_count: 0, versions_last_checked_at: '2026-11-01T10:00:00Z' },
+    { id: 12, domain: 'two.example.com', title: 'Two', user_id: 6, is_dev: 1, vulnerability_count: 0, malware_count: 1, versions_last_checked_at: null },
+  ];
+
+  beforeEach(() => {
+    mockUser.findUserById.mockImplementation(async (userId) => ({ id: userId, username: userId === 5 ? 'alice@example.com' : 'bob@example.com' }));
+  });
+
+  test('lists websites across every account with owner and counts', async () => {
+    mockWebsite.findAll.mockResolvedValue(LIST_ROWS);
+    mockWebsite.countAll.mockResolvedValue(40);
+
+    const result = await runCli(['website:list']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/one\.example\.com\s+alice@example\.com\s+no\s+2\s+0\s+2026-11-01 10:00:00/);
+    expect(result.stdout).toMatch(/two\.example\.com\s+bob@example\.com\s+yes\s+0\s+1\s+-/);
+    expect(result.stdout).toMatch(/Showing 2 of 40\./);
+    expect(mockWebsite.findAll).toHaveBeenCalledWith(null, 50, 0, null, false, expect.objectContaining({ ownerId: null, isDev: null, staleDays: null, sort: 'newest' }));
+  });
+
+  test('passes filters through to the model', async () => {
+    mockUser.findUserByUsername.mockResolvedValue({ id: 5, username: 'alice@example.com' });
+    mockWebsite.findAll.mockResolvedValue([]);
+    mockWebsite.countAll.mockResolvedValue(0);
+
+    const result = await runCli([
+      'website:list',
+      '--owner',
+      'alice@example.com',
+      '--search',
+      'shop',
+      '--component',
+      'akismet',
+      '--vulnerable',
+      '--live',
+      '--stale',
+      '30',
+      '--sort',
+      'severity',
+      '--limit',
+      '10',
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/No websites match/);
+    expect(mockWebsite.findAll).toHaveBeenCalledWith(null, 10, 0, 'shop', true, {
+      ownerId: 5,
+      isDev: false,
+      staleDays: 30,
+      sort: 'severity',
+      componentSlug: 'akismet',
+    });
+  });
+
+  test('--json prints websites and total', async () => {
+    mockWebsite.findAll.mockResolvedValue([LIST_ROWS[0]]);
+    mockWebsite.countAll.mockResolvedValue(1);
+
+    const result = await runCli(['website:list', '--json']);
+    const parsed = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(parsed.total).toBe(1);
+    expect(parsed.websites[0]).toMatchObject({ id: 11, domain: 'one.example.com', owner: 'alice@example.com', is_dev: false, vulnerability_count: 2 });
+  });
+
+  test('reports every invalid option at once and queries nothing', async () => {
+    mockUser.findUserByUsername.mockResolvedValue(null);
+
+    const result = await runCli(['website:list', '--limit', '0', '--stale', 'soon', '--sort', 'bogus', '--dev', '--live', '--owner', 'ghost@example.com']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/--limit must be a positive integer/);
+    expect(result.stderr).toMatch(/--stale must be a positive integer/);
+    expect(result.stderr).toMatch(/--sort must be one of: newest, vulnerabilities, malware, severity/);
+    expect(result.stderr).toMatch(/--dev and --live cannot be used together/);
+    expect(result.stderr).toMatch(/User 'ghost@example\.com' not found/);
+    expect(mockWebsite.findAll).not.toHaveBeenCalled();
+  });
+
+  test('writes to stderr and exits 1 on unexpected error', async () => {
+    mockWebsite.findAll.mockRejectedValue(new Error('Query timeout'));
+
+    const result = await runCli(['website:list']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/Error: Query timeout/);
+  });
+});
+
+// ─── website:show ─────────────────────────────────────────────────────────────
+
+describe('CLI: website:show', () => {
+  const ALICE_COPY = { id: 11, domain: 'one.example.com', title: 'One', user_id: 5, owner: 'alice@example.com', component_count: 3 };
+  const BOB_COPY = { id: 12, domain: 'one.example.com', title: 'One', user_id: 6, owner: 'bob@example.com', component_count: 0 };
+  const FULL_ROW = {
+    id: 11,
+    domain: 'one.example.com',
+    title: 'One',
+    user_id: 5,
+    is_dev: 0,
+    is_ssl: 1,
+    wordpress_version: '6.8.1',
+    php_version: '8.3',
+    db_server_type: 'mariadb',
+    db_server_version: '11.4.2',
+    versions_last_checked_at: '2026-11-01T10:00:00Z',
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2026-11-01T10:00:00Z',
+  };
+  const component = (overrides) => ({
+    component_type_slug: 'wordpress-plugin',
+    version: '1.0.0',
+    is_malware: false,
+    has_vulnerabilities: false,
+    is_patched: false,
+    max_cvss_rating: null,
+    ...overrides,
+  });
+
+  test('shows details and each component with its status', async () => {
+    mockWebsite.findAllByDomain.mockResolvedValue([ALICE_COPY]);
+    mockWebsite.findByDomain.mockResolvedValue(FULL_ROW);
+    mockWebsiteComponent.getPlugins.mockResolvedValue([
+      component({ slug: 'safe-plugin' }),
+      component({ slug: 'bad-plugin', has_vulnerabilities: true, max_cvss_rating: 'high' }),
+      component({ slug: 'fixed-plugin', has_vulnerabilities: true, is_patched: true, max_cvss_rating: 'medium' }),
+      component({ slug: 'unrated-plugin', has_vulnerabilities: true }),
+      component({ slug: 'evil-plugin', is_malware: true }),
+    ]);
+    mockWebsiteComponent.getThemes.mockResolvedValue([component({ slug: 'a-theme', component_type_slug: 'wordpress-theme' })]);
+
+    const result = await runCli(['website:show', 'one.example.com']);
+
+    expect(result.exitCode).toBe(0);
+    expect(mockWebsite.findByDomain).toHaveBeenCalledWith('one.example.com', 5);
+    expect(result.stdout).toMatch(/Owner:\s+alice@example\.com/);
+    expect(result.stdout).toMatch(/WordPress:\s+6\.8\.1/);
+    expect(result.stdout).toMatch(/Database:\s+mariadb 11\.4\.2/);
+    expect(result.stdout).toMatch(/Last report:\s+2026-11-01 10:00:00/);
+    expect(result.stdout).toMatch(/safe-plugin\s+1\.0\.0\s+ok/);
+    expect(result.stdout).toMatch(/bad-plugin\s+1\.0\.0\s+VULNERABLE \(high\)/);
+    expect(result.stdout).toMatch(/fixed-plugin\s+1\.0\.0\s+vulnerable \(patched\)/);
+    expect(result.stdout).toMatch(/unrated-plugin\s+1\.0\.0\s+VULNERABLE \(unrated\)/);
+    expect(result.stdout).toMatch(/evil-plugin\s+1\.0\.0\s+MALWARE/);
+    expect(result.stdout).toMatch(/wordpress-theme\s+a-theme/);
+    expect(result.stdout).toMatch(/6 components, 3 vulnerable, 1 malware\./);
+  });
+
+  test("shows every account's copy of a shared domain unless --owner narrows it", async () => {
+    mockWebsite.findAllByDomain.mockResolvedValue([ALICE_COPY, BOB_COPY]);
+    mockWebsite.findByDomain.mockImplementation(async (domain, userId) => ({ ...FULL_ROW, id: userId === 5 ? 11 : 12, user_id: userId }));
+    mockWebsiteComponent.getPlugins.mockResolvedValue([]);
+    mockWebsiteComponent.getThemes.mockResolvedValue([]);
+
+    const both = await runCli(['website:show', 'one.example.com']);
+    expect(both.exitCode).toBe(0);
+    expect(both.stdout).toMatch(/registered by 2 accounts/);
+    expect(both.stdout).toMatch(/Owner:\s+alice@example\.com/);
+    expect(both.stdout).toMatch(/Owner:\s+bob@example\.com/);
+    expect(both.stdout).toMatch(/No components recorded/);
+
+    const narrowed = await runCli(['website:show', 'one.example.com', '--owner', 'bob@example.com', '--json']);
+    const parsed = JSON.parse(narrowed.stdout);
+    expect(narrowed.exitCode).toBe(0);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0]).toMatchObject({ id: 12, owner: 'bob@example.com', is_ssl: true, components: [] });
+  });
+
+  test('exits 1 when the domain is not found', async () => {
+    mockWebsite.findAllByDomain.mockResolvedValue([]);
+
+    const result = await runCli(['website:show', 'missing.example.com']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/'missing\.example\.com' not found/);
+  });
+
+  test('exits 1 when --owner matches no copy', async () => {
+    mockWebsite.findAllByDomain.mockResolvedValue([ALICE_COPY]);
+
+    const result = await runCli(['website:show', 'one.example.com', '--owner', 'carol@example.com']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/not owned by carol@example\.com \(owners: alice@example\.com\)/);
+    expect(mockWebsite.findByDomain).not.toHaveBeenCalled();
   });
 });

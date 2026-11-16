@@ -273,6 +273,88 @@ Granted 'administrator' to agent@example.com. Roles: user, administrator
 
 ## Website Commands
 
+### `website:list [filters] [--sort <sort>] [--limit <n>] [--json]`
+
+List monitored websites across every account, newest first, with each website's owner, dev flag, vulnerable and malware component counts, and when it last reported.
+
+```bash
+# The 50 newest websites
+./bin/vulnz website:list
+
+# One account's websites
+./bin/vulnz website:list --owner alice@example.com
+
+# The most at-risk live websites
+./bin/vulnz website:list --vulnerable --live --sort severity
+
+# Who runs a plugin
+./bin/vulnz website:list --component akismet
+
+# Websites that have not reported for 30 days
+./bin/vulnz website:list --stale 30
+```
+
+Output:
+
+```
+ID  DOMAIN           OWNER              DEV  VULNS  MALWARE  LAST REPORT
+------------------------------------------------------------------------------
+12  two.example.com  bob@example.com    yes  0      1        -
+11  one.example.com  alice@example.com  no   2      0        2026-11-01 10:00:00
+
+Showing 2 of 2.
+```
+
+| Option               | Effect                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| `--owner <email>`    | Only websites owned by this account                                                      |
+| `--search <text>`    | Only websites whose domain or title contains this text                                   |
+| `--component <slug>` | Only websites running this plugin or theme                                               |
+| `--vulnerable`       | Only websites with a vulnerable component                                                |
+| `--dev` / `--live`   | Only dev sites, or only live sites                                                       |
+| `--stale <days>`     | Only websites that have not reported for this many days (including ones that never have) |
+| `--sort <sort>`      | `newest` (default), `vulnerabilities`, `malware` or `severity`                           |
+| `--limit <n>`        | Maximum websites to list (default 50). The last line shows how many match in total.      |
+| `--json`             | Output `{ websites, total }` as JSON                                                     |
+
+---
+
+### `website:show <domain> [--owner <email>] [--json]`
+
+Show one website's details and every installed plugin and theme, with each component's status: `ok`, `VULNERABLE (<worst CVSS rating>)`, `vulnerable (patched)` or `MALWARE`.
+
+```bash
+./bin/vulnz website:show one.example.com
+```
+
+Output:
+
+```
+Domain:       one.example.com
+ID:           11
+Title:        One
+Owner:        alice@example.com
+Dev site:     no
+SSL:          yes
+WordPress:    6.8.1
+PHP:          8.3
+Database:     mariadb 11.4.2
+Last report:  2026-11-01 10:00:00
+Created:      2025-01-01 00:00:00
+Updated:      2026-11-01 10:00:00
+
+TYPE              SLUG          VERSION  STATUS
+------------------------------------------------------------
+wordpress-plugin  akismet       5.3      ok
+wordpress-plugin  bad-plugin    1.0.0    VULNERABLE (high)
+
+2 components, 1 vulnerable, 0 malware.
+```
+
+When the same domain is registered by more than one account, every copy is shown. Use `--owner <email>` to show just one. `--json` outputs an array with one entry per copy.
+
+---
+
 ### `website:remove <domains...> [--owner <email>] [--yes]`
 
 Permanently remove one or more monitored websites. This also deletes each website's installed components, patches, malware alerts, security events, file security issues and component change history. It cannot be undone.
