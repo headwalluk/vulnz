@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.58.0 - 2026-11-16
+
+### Features
+
+- **`website:remove <domains...>`** removes monitored websites from the CLI. Until now the only way was `DELETE /api/websites/:domain` with the owning account's API key. The command takes one or more domains and is a dry run unless you pass `--yes`: it lists each website with its id, owner and component count, and deletes nothing. A domain registered by more than one account is refused unless `--owner <email>` says which copy to remove. If any domain is missing or ambiguous, the command reports every problem and removes nothing. Deleting a website also deletes its components, patches, malware alerts, security events, file security issues and component change history.
+
+### Security
+
+- **`npm audit --omit=dev` is clean.** Ten runtime advisories cleared:
+  - `body-parser` 2.4.0 (high), through express 5.3.0
+  - `qs` 6.17.1, `fast-uri` 3.1.9, `ip-address` 10.7.6 (through express-rate-limit 8.7.4) and `nodemailer` 10.6.0 (three addressparser advisories)
+  - `deepmerge`, removed by `sanitize-html` 2.18.2. The exact pin moves from 2.17.7 to 2.18.2.
+  - `glob` and `minimatch`, through swagger-jsdoc. The `glob` override in `package.json` moves from `^10.0.0` to `^14.0.6`. swagger-jsdoc only calls `glob.sync()`, and the generated OpenAPI spec still covers all 43 paths.
+- The 18 remaining advisories (`deepmerge`, `minimatch`) are in Jest's dev-only dependency tree, where the only offered fix is a forced downgrade.
+
+### Dependencies
+
+- In-range updates: express 5.3.0, express-rate-limit 8.7.4, mariadb 3.5.5, maxmind 5.1.0, nodemailer 10.6.0, swagger-jsdoc 6.3.0; dev: prettier 3.10.1, supertest 7.3.2.
+- Major versions not taken: commander 15, dotenv 18, eslint 10 (with `@eslint/js` 10, `globals` 17), prettier-plugin-sh 0.20.
+
 ## 1.57.0 - 2026-10-17
 
 ### ⚠️ BREAKING: the CLI is now `bin/vulnz`, not `bin/vulnz.js`
