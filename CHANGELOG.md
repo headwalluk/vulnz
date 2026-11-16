@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.59.0 - 2026-11-16
+
+### Features
+
+- **`website:list`** lists monitored websites across every account, with each website's owner, dev flag, vulnerable and malware component counts, and when it last reported. Filter with `--owner`, `--search`, `--component <slug>`, `--vulnerable`, `--dev` / `--live` and `--stale <days>`, and sort with `--sort newest|vulnerabilities|malware|severity`. It shows 50 by default (`--limit`) and says how many match in total. `--json` is supported.
+- **`website:show <domain>`** shows one website's details (owner, WordPress, PHP and database versions, last report) and every installed plugin and theme with its status: `ok`, `VULNERABLE (<worst CVSS rating>)`, `vulnerable (patched)` or `MALWARE`. A domain registered by more than one account shows every copy unless `--owner <email>` picks one. `--json` is supported.
+
+Together with `website:remove` (1.58.0), you can find a website, check it and remove it without the API.
+
 ## 1.58.0 - 2026-11-16
 
 ### Features
