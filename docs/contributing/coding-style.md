@@ -229,14 +229,17 @@ module.exports = router;
 ### Authentication Middleware
 
 ```javascript
-// API key OR session authentication
+// API key required
 router.get('/', apiAuth, logApiCall, async (req, res) => { ... });
 
-// Session only (web pages)
-router.get('/dashboard', isAuthenticatedPage, async (req, res) => { ... });
+// API key optional: req.user is set when a valid key is sent
+router.get('/', optionalApiAuth, logApiCall, async (req, res) => { ... });
 
-// Admin only
-router.get('/admin/users', apiKeyOrSessionAdminAuth, logApiCall, async (req, res) => { ... });
+// Administrator API key required
+router.get('/', apiKeyAdminAuth, logApiCall, async (req, res) => { ... });
+
+// API key plus a role (or any of an array of roles)
+router.get('/', apiAuth, logApiCall, hasRole(ROLE_ADMINISTRATOR), async (req, res) => { ... });
 ```
 
 ### Request Validation

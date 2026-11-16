@@ -195,7 +195,7 @@ router.get('/api/users', apiKeyAdminAuth, logApiCall, handler);
    Body: { domain: "example.com", title: "My Site" }
 
 2. Middleware chain:
-   - apiOrSessionAuth → validates user
+   - apiAuth → validates the X-API-Key header
    - logApiCall → logs request
 
 3. Route handler:

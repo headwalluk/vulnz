@@ -566,6 +566,25 @@ Returns "No component found with slug: ..." if the slug is not in the database.
 
 ---
 
+### `component:add <type> <slug> <versions> [--title <title>]`
+
+Create a component, if it does not exist, and add releases to it. `<versions>` is a comma-separated list. Each version is normalised the same way as a version reported by a website, and releases that already exist are skipped. Use it to record a premium or private component that no feed knows about.
+
+```bash
+./bin/vulnz component:add wordpress-plugin my-premium-plugin 2.1.0,2.1.1 --title "My Premium Plugin"
+```
+
+Output:
+
+```
+Created component: my-premium-plugin (id=4120, type=wordpress-plugin)
+Releases: 2 added, 0 already existed.
+```
+
+`--title` defaults to the slug, and is used only when the component is created.
+
+---
+
 ### `release:list <slug> [--json]`
 
 List all known releases for a component slug, with per-release vulnerability counts.

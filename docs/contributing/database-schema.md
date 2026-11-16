@@ -17,8 +17,6 @@ users ──┬── api_keys
         │              ├── file_security_issues
         │              └── component_changes
         ├── user_roles ── roles
-        ├── sessions
-        ├── password_reset_tokens
         └── email_logs
 
 components ──┬── releases ──┬── vulnerabilities
@@ -111,34 +109,6 @@ CREATE TABLE api_keys (
   user_id BIGINT UNSIGNED NOT NULL,
   api_key VARCHAR(255) NOT NULL UNIQUE,
   name VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-```
-
-### sessions
-
-User sessions (managed by express-session).
-
-```sql
-CREATE TABLE sessions (
-  session_id VARCHAR(128) PRIMARY KEY,
-  expires BIGINT UNSIGNED NOT NULL,
-  data TEXT,
-  KEY expires_idx (expires)
-);
-```
-
-### password_reset_tokens
-
-Tokens for password reset functionality.
-
-```sql
-CREATE TABLE password_reset_tokens (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  user_id BIGINT UNSIGNED NOT NULL,
-  token VARCHAR(255) NOT NULL UNIQUE,
-  expires_at TIMESTAMP NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
@@ -751,7 +721,6 @@ Key indexes for performance:
 - `components`: `type_slug` composite (UNIQUE)
 - `releases`: `component_version` composite (UNIQUE)
 - `security_events`: `dedup_constraint` composite (UNIQUE)
-- `sessions`: `expires`
 - `user_roles`: `reporting_weekday_idx`
 
 ---

@@ -102,7 +102,6 @@ migrations
 - **roles**: User roles (administrator, user)
 - **user_roles**: User-to-role mapping
 - **api_keys**: API authentication keys
-- **sessions**: User sessions
 
 ### Component Tables
 
@@ -125,7 +124,6 @@ migrations
 - **app_settings**: Global configuration
 - **api_call_logs**: API request audit trail
 - **email_logs**: Email send history
-- **password_reset_tokens**: Password reset tokens
 - **migrations**: Migration tracking
 
 ---

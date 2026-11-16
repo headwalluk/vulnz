@@ -6,19 +6,9 @@ Testing patterns and practices for VULNZ.
 
 ## Test Status
 
-**Current Coverage**: 202/202 tests passing (10 intentionally skipped)
+As of v1.59.0: 49 suites, 1094 tests, 1087 passing and 7 intentionally skipped. Run `npm test` for the current figures.
 
-- ✅ Auth API: 22/22 passing (2 skipped - rate limiting)
-- ✅ Components API: 30/30 passing (4 skipped - production behavior differences)
-- ✅ Ecosystems API: 9/9 passing
-- ✅ Notifications API: 18/18 passing
-- ✅ Settings API: 21/21 passing
-- ✅ Users API: 29/29 passing (4 skipped - production behavior differences)
-- ✅ Websites API: 12/12 passing
-- ✅ Websites npm API: 18/18 passing
-- ✅ CLI: 43/43 passing
-
-**Last Updated**: March 28, 2026
+Tests live in `tests/api/` (API routes, through Supertest), `tests/lib/` (library modules) and `tests/cli/` (the `bin/vulnz` commands, with mocked models).
 
 ---
 

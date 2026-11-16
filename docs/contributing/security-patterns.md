@@ -192,63 +192,44 @@ const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
 
 ### Resource Ownership Check
 
-```javascript
-router.get('/api/websites/:domain', apiOrSessionAuth, async (req, res) => {
-  const website = await Website.findByDomain(req.params.domain);
+A caller may see their own websites; an administrator may see any. Someone else's website is reported exactly like a missing one, with `404`, so an API key cannot probe which domains are monitored. `src/routes/websites.js` builds this as middleware:
 
-  if (!website) {
+```javascript
+const authoriseWebsite = (findWebsite) => async (req, res, next) => {
+  const website = await findWebsite(req.params.domain, req.user.id);
+
+  const roles = website ? await User.getRoles(req.user.id) : [];
+  if (!website || (String(website.user_id) !== String(req.user.id) && !roles.includes(ROLE_ADMINISTRATOR))) {
     return res.status(404).send('Website not found');
-  }
-
-  // Check ownership or admin role
-  const roles = await User.getRoles(req.user.id);
-  if (website.user_id !== req.user.id && !roles.includes('administrator')) {
-    return res.status(403).send('Forbidden');
-  }
-
-  // User has access
-  res.json(website);
-});
-```
-
-### Role-Based Access Control
-
-```javascript
-const { hasRole } = require('./middleware/auth');
-
-// Admin-only endpoint
-router.get('/api/admin/users', hasRole('administrator'), async (req, res) => {
-  const users = await User.findAll();
-  res.json(users);
-});
-```
-
-### Middleware for Resource Access
-
-```javascript
-const canAccessWebsite = async (req, res, next) => {
-  const { domain } = req.params;
-  const website = await Website.findByDomain(domain);
-
-  if (!website) {
-    return res.status(404).send('Website not found');
-  }
-
-  const roles = await User.getRoles(req.user.id);
-  if (website.user_id !== req.user.id && !roles.includes('administrator')) {
-    return res.status(403).send('Unauthorized');
   }
 
   req.website = website;
   next();
 };
 
-// Use in route
-router.delete('/api/websites/:domain', apiOrSessionAuth, canAccessWebsite, async (req, res) => {
+const canAccessWebsite = authoriseWebsite((domain, preferredUserId) => Website.findByDomain(domain, preferredUserId));
+
+router.delete('/:domain', apiAuth, logApiCall, canAccessWebsite, async (req, res) => {
   await Website.remove(req.website.id);
-  res.status(204).send();
+  res.send('Website deleted');
 });
 ```
+
+Domains are unique per account, not globally, so `findByDomain()` prefers the caller's own copy of a domain when several accounts hold it.
+
+### Role-Based Access Control
+
+```javascript
+const { apiAuth, hasRole } = require('../middleware/auth');
+const { ROLE_ADMINISTRATOR } = require('../models/role');
+
+// Administrator-only endpoint: 401 without a valid key, 403 without the role
+router.get('/', apiAuth, logApiCall, hasRole(ROLE_ADMINISTRATOR), async (req, res) => {
+  // ...
+});
+```
+
+`hasRole()` also takes an array, allowing any one of several roles.
 
 ---
 
@@ -503,9 +484,8 @@ Before adding a new package:
 
 Before deploying:
 
-- [ ] `SETUP_MODE=false` in production
-- [ ] `REGISTRATION_ENABLED=false` (or controlled)
-- [ ] Strong `SESSION_SECRET` (48+ characters)
+- [ ] `VULNZ_NOTIFY_SECRET` generated with `openssl rand -hex 32`, or left unset
+- [ ] `PASSWORD_MIN_*` policy suits your users
 - [ ] Database user has minimum necessary privileges
 - [ ] `.env` file has `0600` permissions
 - [ ] HTTPS enabled (via reverse proxy)

@@ -9,7 +9,7 @@ Complete installation instructions for VULNZ.
 - **Node.js**: v22.12 or higher to run VULNZ; v24.9 or higher to run the test suite
 - **MySQL** or **MariaDB**: Any recent version
 - **npm**: Comes with Node.js
-- **BASH**: For utility scripts (backup, session secret generation)
+- **BASH**: For the utility scripts in `scripts/` (database backup, feed processing)
 
 ---
 
@@ -28,7 +28,7 @@ cd vulnz
 npm install
 ```
 
-This will install all required Node.js packages and copy vendor dependencies to `public/vendor/`.
+This installs the Node.js packages. There is no build step.
 
 ### 3. Create Database
 
@@ -63,7 +63,6 @@ Edit `.env` and configure at minimum:
 ```plaintext
 # Database connection
 DB_HOST=localhost
-DB_PORT=3306
 DB_USER=vulnz
 DB_PASSWORD=your-secure-password
 DB_NAME=vulnz
@@ -73,17 +72,9 @@ HTTP_LISTEN_PORT=3000
 BASE_URL=http://localhost:3000
 ```
 
-### 5. Generate Session Secret
+See the [Configuration Reference](configuration.md) for every other setting. Two worth setting now: `CRON_ENABLE=true` to run the scheduled jobs, and `SMTP_ENABLED=true` with the `SMTP_*` settings on a server that should send email.
 
-Generate a cryptographically secure session secret:
-
-```bash
-bash scripts/generate-session-secret.sh
-```
-
-This will automatically add `SESSION_SECRET` to your `.env` file.
-
-### 6. Start the Application
+### 5. Start the Application
 
 For development:
 
@@ -97,15 +88,15 @@ For production, set `NODE_ENV=production` in `.env` (there is no build step):
 npm start
 ```
 
-### 7. Create Administrator Account
+### 6. Create Administrator Account
 
 The first admin account **must be created via the CLI** — there is no web-based setup mode. This ensures only someone with shell access to the server can bootstrap the application.
 
 ```bash
-./bin/vulnz user:add --admin
+./bin/vulnz user:add admin@example.com 'a-strong-password' --admin
 ```
 
-You will be prompted for a username, email address, and password. The `--admin` flag grants full administrator privileges.
+The email address is the username. The password must meet the `PASSWORD_MIN_*` policy. The `--admin` flag grants the administrator role. Then generate the account's API key with `./bin/vulnz key:generate admin@example.com`. See the [CLI Reference](cli.md).
 
 > **Why CLI-only?** A web-based setup mode (e.g. `SETUP_MODE=true`) creates a window where any visitor could initialize the database and create themselves an admin account. The CLI approach eliminates that risk entirely — if you can run this command, you already have shell access.
 
@@ -123,11 +114,9 @@ vulnz/
 │   ├── config/            # Configuration
 │   ├── migrations/        # Database migrations
 │   └── emails/            # Email templates
-├── public/                # Static files (development)
-│   ├── css/
-│   ├── js/
-│   └── images/
-├── dist/                  # Built assets (production)
+├── bin/vulnz              # Admin CLI
+├── public/                # Favicon and robots.txt for the landing page
+├── data/                  # Reference data for REFERENCE_UPDATE_METHOD=file
 ├── tests/                 # Test files
 ├── scripts/               # Utility scripts
 ├── .env                   # Environment configuration (create this)
@@ -139,19 +128,13 @@ vulnz/
 
 ## Post-Installation
 
-### Disable Public Registration (Recommended)
+### Create User Accounts
 
-Once your admin account is created, consider disabling public registration:
-
-```plaintext
-# In .env file
-REGISTRATION_ENABLED=false
-```
-
-Restart the application for changes to take effect. Additional users can always be created via the CLI:
+There is no public registration. Create each account with the CLI, then give it an API key:
 
 ```bash
-./bin/vulnz user:add
+./bin/vulnz user:add alice@example.com 'a-strong-password'
+./bin/vulnz key:generate alice@example.com
 ```
 
 ### Configure Email (Optional)
@@ -243,12 +226,14 @@ mysql -u vulnz -p vulnz -e "SHOW TABLES;"
 
 Expected tables:
 
-- `users`, `roles`, `user_roles`
+- `users`, `roles`, `user_roles`, `api_keys`
 - `websites`, `website_components`
 - `components`, `component_types`, `releases`, `vulnerabilities`
 - `security_events`, `security_event_types`
-- `api_keys`, `sessions`
+- `app_settings`
 - `migrations`
+
+There are more; see the [Database Schema](contributing/database-schema.md).
 
 ### Check Migrations
 
@@ -298,24 +283,15 @@ curl "http://localhost:3000/api/components/search?query=woocommerce"
 - Change `HTTP_LISTEN_PORT` in `.env`
 - Or stop the process using port 3000
 
-### Session Secret Warning
+### VULNZ Cannot Start
 
-**Error**: `Warning: SESSION_SECRET not set`
+**Error**: `VULNZ cannot start: the environment is not configured.`
 
-**Solution**:
+**Solution**: Fix each setting the message lists. It names every problem at once. See [Required Variables](configuration.md#required-variables).
 
-```bash
-bash scripts/generate-session-secret.sh
-```
+### Creating Users
 
-### Cannot Register Users
-
-**Issue**: Registration disabled
-
-**Solution**:
-
-- Set `REGISTRATION_ENABLED=true` in `.env` if you want public registration
-- Or create users directly via the CLI: `./bin/vulnz user:add`
+There is no self-service registration. Create accounts with the CLI: `./bin/vulnz user:add <email> <password>`.
 
 ### Migrations Not Running
 
