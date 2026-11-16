@@ -42,6 +42,7 @@ const release = require('../src/models/release');
 const appSetting = require('../src/models/appSetting');
 const userSubscription = require('../src/models/userSubscription');
 const notificationSite = require('../src/models/notificationSite');
+const website = require('../src/models/website');
 const notificationQueue = require('../src/models/notificationQueue');
 const { processQueue } = require('../src/lib/notificationProcessor');
 const { syncWordPressCoreVersion, getWordPressVersionInfo } = require('../src/lib/wpcore');
@@ -1548,6 +1549,81 @@ program
       console.log(`Removed site: ${url} (id=${site.id})`);
       await db.end();
       await exitAfterOutput(0);
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      await db.end();
+      await exitAfterOutput(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// website:remove <domains...> [--owner <email>] [--yes]
+// ---------------------------------------------------------------------------
+
+/** Pick the website row to remove for one domain, or describe why none can be picked. */
+function resolveWebsiteForRemoval(domain, rows, ownerEmail) {
+  const ownerMatches = ownerEmail ? rows.filter((row) => String(row.owner).toLowerCase() === ownerEmail.toLowerCase()) : rows;
+  const ownerList = rows.map((row) => row.owner).join(', ');
+  let resolution;
+
+  if (rows.length === 0) {
+    resolution = { problem: `'${domain}' not found.` };
+  } else if (ownerEmail && ownerMatches.length === 0) {
+    resolution = { problem: `'${domain}' is not owned by ${ownerEmail} (owners: ${ownerList}).` };
+  } else if (ownerMatches.length > 1) {
+    resolution = { problem: `'${domain}' is owned by more than one account (${ownerList}). Use --owner <email> to choose one.` };
+  } else {
+    resolution = { website: ownerMatches[0] };
+  }
+
+  return resolution;
+}
+
+program
+  .command('website:remove <domains...>')
+  .description('Remove one or more monitored websites (dry run unless --yes)')
+  .option('--owner <email>', 'Only remove the copy owned by this account')
+  .option('--yes', 'Delete for real; without it, only show what would be removed')
+  .action(async (domains, opts) => {
+    try {
+      const websitesToRemove = [];
+      const problems = [];
+
+      for (const rawDomain of domains) {
+        const domain = rawDomain.trim();
+        const rows = await website.findAllByDomain(domain);
+        const resolution = resolveWebsiteForRemoval(domain, rows, opts.owner);
+        if (resolution.problem) {
+          problems.push(resolution.problem);
+        } else {
+          websitesToRemove.push(resolution.website);
+        }
+      }
+
+      let exitCode = 0;
+      if (problems.length > 0) {
+        for (const problem of problems) {
+          process.stderr.write(`Error: ${problem}\n`);
+        }
+        process.stderr.write('Nothing was removed.\n');
+        exitCode = 1;
+      } else {
+        const verb = opts.yes ? 'Removed' : 'Would remove';
+        for (const target of websitesToRemove) {
+          const websiteId = parseInt(target.id, 10);
+          if (opts.yes) {
+            await website.remove(websiteId);
+          }
+          console.log(`${verb}: ${target.domain} (id=${websiteId}, owner=${target.owner}, components=${parseInt(target.component_count, 10)})`);
+        }
+
+        if (!opts.yes) {
+          console.log('Dry run: nothing was removed. Re-run with --yes to delete these websites and their component, patch, malware-alert and security-event records.');
+        }
+      }
+
+      await db.end();
+      await exitAfterOutput(exitCode);
     } catch (err) {
       process.stderr.write(`Error: ${err.message}\n`);
       await db.end();

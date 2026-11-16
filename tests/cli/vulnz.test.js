@@ -72,6 +72,11 @@ const mockReleaseFeed = {
   findCandidates: jest.fn(),
 };
 
+const mockWebsite = {
+  findAllByDomain: jest.fn(),
+  remove: jest.fn(),
+};
+
 const mockEmailer = {
   describeTransport: jest.fn(),
   sendTestEmail: jest.fn(),
@@ -90,6 +95,7 @@ jest.mock('../../src/models/component', () => mockComponent);
 jest.mock('../../src/lib/wporg', () => mockWporg);
 jest.mock('../../src/models/releaseFeed', () => mockReleaseFeed);
 jest.mock('../../src/lib/email', () => mockEmailer);
+jest.mock('../../src/models/website', () => mockWebsite);
 
 // ─── runCli helper ────────────────────────────────────────────────────────────
 
@@ -181,6 +187,8 @@ beforeEach(() => {
   }
   mockEmailer.describeTransport.mockReset();
   mockEmailer.sendTestEmail.mockReset();
+  mockWebsite.findAllByDomain.mockReset();
+  mockWebsite.remove.mockReset();
 });
 
 // ─── user:add ─────────────────────────────────────────────────────────────────
@@ -1319,5 +1327,89 @@ describe('email:test', () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toContain('Rejected: admin@example.com');
+  });
+});
+
+// ─── website:remove ───────────────────────────────────────────────────────────
+
+describe('CLI: website:remove', () => {
+  const ALICE_SITE = { id: 11, domain: 'one.example.com', title: 'One', user_id: 5, owner: 'alice@example.com', component_count: 12 };
+  const BOB_COPY = { id: 12, domain: 'one.example.com', title: 'One', user_id: 6, owner: 'bob@example.com', component_count: 3 };
+  const SECOND_SITE = { id: 21, domain: 'two.example.com', title: 'Two', user_id: 5, owner: 'alice@example.com', component_count: 0 };
+
+  test('without --yes lists what would be removed and deletes nothing', async () => {
+    mockWebsite.findAllByDomain.mockImplementation(async (domain) => (domain === 'one.example.com' ? [ALICE_SITE] : [SECOND_SITE]));
+
+    const result = await runCli(['website:remove', 'one.example.com', 'two.example.com']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/Would remove: one\.example\.com \(id=11, owner=alice@example\.com, components=12\)/);
+    expect(result.stdout).toMatch(/Would remove: two\.example\.com/);
+    expect(result.stdout).toMatch(/Dry run/);
+    expect(mockWebsite.remove).not.toHaveBeenCalled();
+  });
+
+  test('with --yes removes every named website', async () => {
+    mockWebsite.findAllByDomain.mockImplementation(async (domain) => (domain === 'one.example.com' ? [ALICE_SITE] : [SECOND_SITE]));
+    mockWebsite.remove.mockResolvedValue(true);
+
+    const result = await runCli(['website:remove', 'one.example.com', 'two.example.com', '--yes']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/Removed: one\.example\.com/);
+    expect(result.stdout).not.toMatch(/Dry run/);
+    expect(mockWebsite.remove).toHaveBeenCalledWith(11);
+    expect(mockWebsite.remove).toHaveBeenCalledWith(21);
+  });
+
+  test('removes nothing when any domain is not found', async () => {
+    mockWebsite.findAllByDomain.mockImplementation(async (domain) => (domain === 'one.example.com' ? [ALICE_SITE] : []));
+
+    const result = await runCli(['website:remove', 'one.example.com', 'missing.example.com', '--yes']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/'missing\.example\.com' not found/);
+    expect(result.stderr).toMatch(/Nothing was removed/);
+    expect(mockWebsite.remove).not.toHaveBeenCalled();
+  });
+
+  test('refuses a domain held by several accounts without --owner', async () => {
+    mockWebsite.findAllByDomain.mockResolvedValue([ALICE_SITE, BOB_COPY]);
+
+    const result = await runCli(['website:remove', 'one.example.com', '--yes']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/more than one account \(alice@example\.com, bob@example\.com\)/);
+    expect(mockWebsite.remove).not.toHaveBeenCalled();
+  });
+
+  test("--owner picks one account's copy, case-insensitively", async () => {
+    mockWebsite.findAllByDomain.mockResolvedValue([ALICE_SITE, BOB_COPY]);
+    mockWebsite.remove.mockResolvedValue(true);
+
+    const result = await runCli(['website:remove', 'one.example.com', '--owner', 'BOB@example.com', '--yes']);
+
+    expect(result.exitCode).toBe(0);
+    expect(mockWebsite.remove).toHaveBeenCalledTimes(1);
+    expect(mockWebsite.remove).toHaveBeenCalledWith(12);
+  });
+
+  test('--owner that matches no copy is an error', async () => {
+    mockWebsite.findAllByDomain.mockResolvedValue([ALICE_SITE]);
+
+    const result = await runCli(['website:remove', 'one.example.com', '--owner', 'carol@example.com', '--yes']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/not owned by carol@example\.com \(owners: alice@example\.com\)/);
+    expect(mockWebsite.remove).not.toHaveBeenCalled();
+  });
+
+  test('writes to stderr and exits 1 on unexpected error', async () => {
+    mockWebsite.findAllByDomain.mockRejectedValue(new Error('Query timeout'));
+
+    const result = await runCli(['website:remove', 'one.example.com']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/Error: Query timeout/);
   });
 });

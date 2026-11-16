@@ -271,6 +271,37 @@ Granted 'administrator' to agent@example.com. Roles: user, administrator
 
 ---
 
+## Website Commands
+
+### `website:remove <domains...> [--owner <email>] [--yes]`
+
+Permanently remove one or more monitored websites. This also deletes each website's installed components, patches, malware alerts, security events, file security issues and component change history. It cannot be undone.
+
+Without `--yes` the command is a dry run: it shows what would be removed and deletes nothing. Run it once without `--yes`, check the list, then run it again with `--yes`.
+
+```bash
+# Dry run
+./bin/vulnz website:remove one.example.com two.example.com
+
+# Delete for real
+./bin/vulnz website:remove one.example.com two.example.com --yes
+```
+
+Output:
+
+```
+Removed: one.example.com (id=11, owner=alice@example.com, components=12)
+Removed: two.example.com (id=21, owner=alice@example.com, components=0)
+```
+
+The same domain can be registered by more than one account. When it is, the command refuses to guess: use `--owner <email>` to choose which account's copy to remove. If any domain is not found or is ambiguous, the command reports every problem and removes nothing.
+
+A website that is still reporting to VULNZ will be added again the next time it reports. Stop it reporting first.
+
+Not to be confused with `site:remove`, which removes a WordPress/WooCommerce notification site.
+
+---
+
 ## Database Commands
 
 ### `db:migrate [--json]`

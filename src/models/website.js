@@ -368,6 +368,20 @@ const findByDomain = async (domain, preferredUserId = null) => {
   return Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
 };
 
+/** List every account's copy of a domain, with the owner's username and installed component count. */
+const findAllByDomain = async (domain) => {
+  const rows = await db.query(
+    `SELECT w.id, w.domain, w.title, w.user_id, u.username AS owner,
+       (SELECT COUNT(*) FROM website_components wc WHERE wc.website_id = w.id) AS component_count
+     FROM websites w
+     JOIN users u ON u.id = w.user_id
+     WHERE w.domain = ?
+     ORDER BY w.id ASC`,
+    [domain]
+  );
+  return Array.isArray(rows) ? rows : [];
+};
+
 const create = async (website) => {
   const { user_id, domain, title, is_dev, meta, ecosystem_id, platform_metadata } = website;
   const result = await db.query('INSERT INTO websites (user_id, domain, title, is_dev, meta, ecosystem_id, platform_metadata) VALUES (?, ?, ?, ?, ?, ?, ?)', [
@@ -559,6 +573,7 @@ module.exports = {
   findAll,
   countAll,
   findByDomain,
+  findAllByDomain,
   create,
   update,
   remove,
